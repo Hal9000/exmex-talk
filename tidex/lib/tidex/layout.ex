@@ -24,7 +24,7 @@ defmodule Tidex.Layout do
           mode: Tidex.State.layout()
         }
 
-  @footer_rows 1
+  @footer_rows 2
 
   @spec compute(pos_integer(), pos_integer(), Tidex.State.layout()) :: t()
   def compute(width, height, mode \\ :dashboard) do

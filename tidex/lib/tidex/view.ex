@@ -55,10 +55,18 @@ defmodule Tidex.View do
   defp render_footer(device, layout) do
     Termex.write_clipped(
       device,
+      layout.footer_row - 1,
+      1,
+      layout.width,
+      "[t]est [s]tart [x]stop [b]rowse"
+    )
+
+    Termex.write_clipped(
+      device,
       layout.footer_row,
       1,
       layout.width,
-      "[t]est [s]tart [x]stop [b]rowse [e]dit [l]ayout [q]uit"
+      "[e]dit [l]ayout [q]uit"
     )
   end
 end
