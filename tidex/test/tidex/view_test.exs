@@ -57,10 +57,10 @@ defmodule Tidex.ViewTest do
   end
 
   test "output pane keeps the latest lines when they overflow height" do
-    lines = Enum.map(1..20, &"line-#{&1}")
+    lines = Enum.map(1..20, &"row#{&1}-end")
     {output, _} = render(width: 40, height: 12, output_lines: lines)
 
-    assert output =~ "line-20"
-    refute output =~ "line-1"
+    assert output =~ "row20-end"
+    refute output =~ "row1-end"
   end
 end

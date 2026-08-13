@@ -98,7 +98,7 @@ defmodule Tidex.AppTest do
     assert app.state.server_state == :running
     assert FakeTerminal.text(out) =~ "server:  running"
 
-    {:cont, app} = App.step(app, {:command, ref, :line, "listening"})
+    {:cont, _app} = App.step(app, {:command, ref, :line, "listening"})
     assert FakeTerminal.text(out) =~ "listening"
   end
 

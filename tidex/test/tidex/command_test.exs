@@ -1,7 +1,7 @@
 defmodule Tidex.CommandTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{App, Command, FakeTerminal}
+  alias Tidex.{Command, FakeTerminal}
 
   test "streams lines and an exit status to the notify process" do
     ref = make_ref()
