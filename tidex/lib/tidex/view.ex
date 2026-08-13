@@ -1,40 +1,64 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.State
+  alias Tidex.{Layout, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
+    layout = Layout.compute(state.width, state.height)
+
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 
-    Termex.write_at(device, 1, 1, state.title)
-    Termex.write_at(device, 3, 1, "project: #{state.project_name}")
-
-    state.statuses
-    |> Enum.with_index()
-    |> Enum.each(fn {{label, value}, index} ->
-      Termex.write_at(device, 4 + index, 1, "#{pad_label(label)} #{value}")
-    end)
-
-    Termex.write_at(device, 7, 1, "output:")
-    write_output(device, 8, state.command_output)
-
-    Termex.write_at(device, 18, 1, "[t] run command   [q] quit")
+    render_status(device, state, layout.status)
+    render_output(device, state, layout.output)
+    render_footer(device, layout)
     :ok
   end
 
-  defp pad_label(label) do
-    String.pad_trailing("#{label}:", 8)
+  defp render_status(device, state, pane) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "status")
+    inner = Layout.inner(pane)
+
+    Termex.write_clipped(
+      device,
+      inner.row,
+      inner.col,
+      inner.width,
+      "project: #{state.project_name}"
+    )
+
+    Termex.write_clipped(
+      device,
+      inner.row + 1,
+      inner.col,
+      inner.width,
+      "tests:   #{state.test_state}"
+    )
+
+    Termex.write_clipped(
+      device,
+      inner.row + 2,
+      inner.col,
+      inner.width,
+      "server:  #{state.server_state}"
+    )
   end
 
-  defp write_output(device, start_row, output) do
-    output
-    |> String.split("\n")
-    |> Enum.take(8)
-    |> Enum.with_index()
-    |> Enum.each(fn {line, index} ->
-      Termex.write_at(device, start_row + index, 1, line)
-    end)
+  defp render_output(device, state, pane) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "output")
+    inner = Layout.inner(pane)
+    lines = Enum.take(state.output_lines, -inner.height)
+    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
+  end
+
+  defp render_footer(device, layout) do
+    Termex.write_clipped(
+      device,
+      layout.footer_row,
+      1,
+      layout.width,
+      "[t] test   [s] server   [q] quit"
+    )
   end
 end

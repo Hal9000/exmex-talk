@@ -5,13 +5,13 @@ Case study code for an Elixir conference talk: a small application
 new capability.
 
 ```
-Tidex  →  Termex drawing/input  →  external command  →  output back into Tidex
+Tidex  →  Termex drawing/input  →  external command  →  streamed output back into Tidex
 ```
 
 | Project | Role |
 | --- | --- |
-| [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, read a key |
-| [`tidex/`](tidex) | Development workbench: dashboard, `q` to quit, `t` to run a command |
+| [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys |
+| [`tidex/`](tidex) | Workbench: two-pane dashboard, streaming tests, server start/restart |
 
 Tidex depends on Termex locally:
 
@@ -21,17 +21,17 @@ Tidex depends on Termex locally:
 
 ## Tests
 
-Most of this slice is tested without a TTY. Termex writes ANSI sequences
-to an injectable device; Tidex feeds keys through the same device and
-injects (or really runs) the `t` command.
+Most of this is tested without a TTY. Termex writes ANSI sequences to an
+injectable device; Tidex feeds keys as messages and injects (or really
+runs) commands.
 
 ```bash
 cd termex && mix test
 cd tidex && mix deps.get && mix test
 ```
 
-Not covered yet: real `stty` raw mode on an interactive terminal. That
-path is skipped automatically when stdin is not a TTY.
+Not covered: real `stty` raw mode on an interactive terminal. That path
+is skipped automatically when stdin is not a TTY.
 
 ## Run
 
@@ -40,4 +40,4 @@ cd tidex
 mix tidex
 ```
 
-Keys: `t` runs `echo hello from tidex`, `q` quits.
+Keys: `t` runs tests, `s` starts or restarts the server, `q` quits.

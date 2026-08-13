@@ -3,29 +3,64 @@ defmodule Tidex.ViewTest do
 
   alias Tidex.{FakeTerminal, State, View}
 
-  test "renders title, project name, and status labels through Termex" do
+  defp render(state_overrides) do
     {device, out} = FakeTerminal.open()
-    state = %State{title: "Tidex", project_name: "exmex-talk"}
+
+    state =
+      struct(
+        %State{width: 40, height: 20, project_name: "exmex-talk"},
+        state_overrides
+      )
 
     assert :ok = View.render(device, state)
-    output = FakeTerminal.text(out)
+    {FakeTerminal.text(out), state}
+  end
+
+  test "draws a two-pane layout with status and output boxes" do
+    {output, _state} = render([])
 
     assert output =~ "\e[2J"
-    assert output =~ "\e[1;1H"
-    assert output =~ "Tidex"
+    assert output =~ "┌"
+    assert output =~ "└"
+    assert output =~ "status"
+    assert output =~ "output"
     assert output =~ "project: exmex-talk"
-    assert output =~ "tests:"
-    assert output =~ "idle"
-    assert output =~ "git:"
-    assert output =~ "[t] run command"
+    assert output =~ "tests:   idle"
+    assert output =~ "server:  idle"
+    assert output =~ "[t] test"
+    assert output =~ "[s] server"
     assert output =~ "[q] quit"
   end
 
-  test "renders captured command output" do
-    {device, out} = FakeTerminal.open()
-    state = %State{command_output: "hello from tidex\n"}
+  test "shows test state in the status pane" do
+    {output, _} = render(test_state: :running)
+    assert output =~ "tests:   running"
 
-    View.render(device, state)
-    assert FakeTerminal.text(out) =~ "hello from tidex"
+    {output, _} = render(test_state: :pass)
+    assert output =~ "tests:   pass"
+
+    {output, _} = render(test_state: :fail)
+    assert output =~ "tests:   fail"
+  end
+
+  test "displays command output inside the output pane" do
+    {output, _} = render(output_lines: ["hello from tests"])
+    assert output =~ "hello from tests"
+  end
+
+  test "clips output that would overflow the pane" do
+    long = "KEEP_START" <> String.duplicate("x", 80) <> "KEEP_END"
+    {output, _} = render(width: 24, height: 16, output_lines: [long])
+
+    assert output =~ "KEEP_START"
+    refute output =~ "KEEP_END"
+  end
+
+  test "output pane keeps the latest lines when they overflow height" do
+    lines = Enum.map(1..20, &"line-#{&1}")
+    {output, _} = render(width: 40, height: 12, output_lines: lines)
+
+    assert output =~ "line-20"
+    refute output =~ "line-1"
   end
 end
