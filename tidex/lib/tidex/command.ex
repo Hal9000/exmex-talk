@@ -31,7 +31,10 @@ defmodule Tidex.Command do
         Process.exit(pid, :kill)
 
       _ ->
-        _ = DynamicSupervisor.terminate_child(Tidex.Workers, pid)
+        case DynamicSupervisor.terminate_child(Tidex.Workers, pid) do
+          :ok -> :ok
+          {:error, :not_found} -> Process.exit(pid, :kill)
+        end
     end
 
     :ok
