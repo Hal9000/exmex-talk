@@ -18,4 +18,32 @@ defmodule Tidex.GitTest do
     Git.stop(pid)
     refute Process.alive?(pid)
   end
+
+  test "subscribe and unsubscribe control who receives polls" do
+    reader = fn -> %{branch: "sub", dirty: 0} end
+    assert {:ok, git} = Git.start_link(name: nil, interval: 10_000, reader: reader)
+    refute_receive {:git, _}, 50
+
+    Git.subscribe(self(), git)
+    send(git, :poll)
+    assert_receive {:git, %{branch: "sub"}}, 200
+
+    Git.unsubscribe(self(), git)
+    send(git, :poll)
+    refute_receive {:git, _}, 50
+    Git.stop(git)
+  end
+
+  test "snapshot is empty outside a git repo" do
+    dir = Path.join(System.tmp_dir!(), "tidex-nogit-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+
+    try do
+      File.cd!(dir, fn ->
+        assert Git.snapshot() == %{branch: nil, dirty: 0}
+      end)
+    after
+      File.rm_rf!(dir)
+    end
+  end
 end

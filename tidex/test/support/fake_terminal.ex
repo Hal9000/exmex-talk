@@ -41,6 +41,16 @@ defmodule Tidex.FakeTerminal do
     end
   end
 
+  @spec stop_ui(pid()) :: :ok
+  def stop_ui(ui) do
+    if Process.alive?(ui) do
+      send(ui, {:termex, :key, "q"})
+      wait_until(fn -> not Process.alive?(ui) end)
+    end
+
+    :ok
+  end
+
   @spec wait_until((-> boolean()), pos_integer()) :: :ok
   def wait_until(fun, timeout_ms \\ 1000) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms

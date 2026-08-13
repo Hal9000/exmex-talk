@@ -190,6 +190,38 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.text(out) =~ "fresh"
   end
 
+  test "server process exit marks the server down" do
+    {app, out} = app(server_command: "server")
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, _pid}
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    assert app.state.server_state == :down
+    assert FakeTerminal.text(out) =~ "server:  down"
+  end
+
+  test "editor stops the current keyboard and starts a new one" do
+    {device, _out} = FakeTerminal.open("xxxx")
+    {:ok, pid1} = Tidex.Keyboard.start(device, self())
+    parent = self()
+
+    {app, _captured} =
+      app(
+        device: device,
+        keys: :device,
+        editor_command: "true",
+        editor_runner: fn _ -> send(parent, {:during_edit, Process.alive?(pid1)}) end
+      )
+
+    app = %{app | keyboard: pid1}
+    {:cont, app} = App.step(app, {:key, "e"})
+
+    assert_receive {:during_edit, false}
+    assert is_pid(app.keyboard)
+    assert app.keyboard != pid1
+    Tidex.Keyboard.stop(app.keyboard)
+  end
+
   test "loads test/server/browser/editor from config" do
     config = %Tidex.Config{
       test: "echo tests",

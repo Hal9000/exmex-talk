@@ -31,4 +31,14 @@ defmodule Tidex.ConfigTest do
     assert config.browser == "http://example.test"
     assert config.editor == "true"
   end
+
+  test "accepts string keys in tidex.exs", %{dir: dir} do
+    File.write!(Path.join(dir, "tidex.exs"), """
+    %{"test" => "echo strings", "browser" => "http://s.test"}
+    """)
+
+    config = Config.load(dir)
+    assert config.test == "echo strings"
+    assert config.browser == "http://s.test"
+  end
 end
