@@ -2,6 +2,7 @@ defmodule Tidex.CLI do
   @moduledoc false
 
   def main(_args \\ []) do
-    Tidex.App.start(poll_git: true)
+    {:ok, _} = Application.ensure_all_started(:tidex)
+    Tidex.UI.run(poll_git: true, name: Tidex.UI)
   end
 end

@@ -2,7 +2,7 @@ defmodule Tidex.Command do
   @moduledoc """
   Runs a shell command and streams lines back to a notify process.
 
-  The UI process stays free to handle keys. Messages:
+  Jobs are temporary children of `Tidex.Workers`. Messages:
 
       {:command, ref, :line, line}
       {:command, ref, :exit, status}
@@ -12,19 +12,28 @@ defmodule Tidex.Command do
   def start(command, notify, opts \\ []) when is_binary(command) and is_pid(notify) do
     ref = Keyword.fetch!(opts, :ref)
 
-    pid =
-      spawn(fn ->
-        run(command, notify, ref)
-      end)
+    spec = %{
+      id: {:command, ref},
+      start: {Task, :start_link, [fn -> run(command, notify, ref) end]},
+      restart: :temporary,
+      shutdown: :brutal_kill
+    }
 
-    {:ok, pid}
+    DynamicSupervisor.start_child(Tidex.Workers, spec)
   end
 
   @spec stop(pid() | nil) :: :ok
   def stop(nil), do: :ok
 
   def stop(pid) when is_pid(pid) do
-    Process.exit(pid, :kill)
+    case Process.whereis(Tidex.Workers) do
+      nil ->
+        Process.exit(pid, :kill)
+
+      _ ->
+        _ = DynamicSupervisor.terminate_child(Tidex.Workers, pid)
+    end
+
     :ok
   end
 

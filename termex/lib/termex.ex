@@ -146,6 +146,12 @@ defmodule Termex do
     end
   end
 
+  @spec enter(Device.t()) :: {:ok, RawMode.session()}
+  defdelegate enter(device), to: RawMode
+
+  @spec leave(RawMode.session()) :: :ok
+  defdelegate leave(session), to: RawMode
+
   @doc """
   Run `fun` with single-key input enabled when `device` is a real TTY.
 

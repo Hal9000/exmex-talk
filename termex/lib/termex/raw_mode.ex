@@ -13,35 +13,47 @@ defmodule Termex.RawMode do
 
   @type session :: String.t() | nil
 
+  @spec enter(Device.t()) :: {:ok, session()}
+  def enter(%Device{input: input}) when input in [:stdio, :standard_io] do
+    case save_tty() do
+      {:ok, settings} ->
+        enable_raw()
+        {:ok, settings}
+
+      :error ->
+        {:ok, nil}
+    end
+  end
+
+  def enter(%Device{}), do: {:ok, nil}
+
+  @spec leave(session()) :: :ok
+  def leave(nil), do: :ok
+
+  def leave(settings) when is_binary(settings) do
+    restore_tty(settings)
+    :ok
+  end
+
   @spec with_raw_mode(Device.t(), (-> result) | (session() -> result)) :: result when result: var
   def with_raw_mode(device, fun) when is_function(fun, 0) do
     with_raw_mode(device, fn _session -> fun.() end)
   end
 
-  def with_raw_mode(%Device{input: input}, fun)
-      when is_function(fun, 1) and input in [:stdio, :standard_io] do
-    case save_tty() do
-      {:ok, settings} ->
-        enable_raw()
+  def with_raw_mode(%Device{} = device, fun) when is_function(fun, 1) do
+    {:ok, session} = enter(device)
 
-        try do
-          fun.(settings)
-        after
-          restore_tty(settings)
-        end
-
-      :error ->
-        fun.(nil)
+    try do
+      fun.(session)
+    after
+      leave(session)
     end
   end
-
-  def with_raw_mode(%Device{}, fun) when is_function(fun, 1), do: fun.(nil)
 
   @doc """
   Temporarily restore cooked mode, run `fun`, then re-enable raw mode.
 
-  `session` is the value passed to the `with_raw_mode/2` callback (`nil`
-  when there is no TTY).
+  `session` is the value returned by `enter/1` (`nil` when there is no TTY).
   """
   @spec yield(session(), (-> result)) :: result when result: var
   def yield(nil, fun), do: fun.()

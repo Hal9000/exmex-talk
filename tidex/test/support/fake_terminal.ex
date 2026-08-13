@@ -26,12 +26,13 @@ defmodule Tidex.FakeTerminal do
           keys: :none,
           notify_ready: parent,
           width: 40,
-          height: 20
+          height: 20,
+          name: nil
         ],
         opts
       )
 
-    ui = spawn_link(fn -> Tidex.App.start(opts) end)
+    {:ok, ui} = Tidex.UI.start_link(opts)
 
     receive do
       {:ready, ^ui} -> {ui, device, out}

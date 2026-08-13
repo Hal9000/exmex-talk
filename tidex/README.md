@@ -26,3 +26,7 @@ mix tidex
 
 `mix tidex` needs a real TTY. Tests inject a `Termex.Device` backed by
 `StringIO` and drive the UI with messages, so they do not.
+
+The runtime is a small OTP tree: `Tidex.Supervisor` starts a git poller
+and `Tidex.Workers` (`DynamicSupervisor`) for the keyboard and command
+jobs. The UI process is the only one that draws.

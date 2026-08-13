@@ -1,8 +1,10 @@
 defmodule Tidex.Git do
   @moduledoc """
-  Branch name and dirty-file count. A poller sends `{:git, snapshot}` to
-  the UI process; it never draws.
+  Branch name and dirty-file count. A supervised GenServer polls git and
+  sends `{:git, snapshot}` to the UI; it never draws.
   """
+
+  use GenServer
 
   @type snapshot :: %{branch: String.t() | nil, dirty: non_neg_integer()}
 
@@ -24,33 +26,76 @@ defmodule Tidex.Git do
     end
   end
 
-  @spec start_link(pid(), keyword()) :: {:ok, pid()}
-  def start_link(notify, opts \\ []) when is_pid(notify) do
-    interval = Keyword.get(opts, :interval, 2000)
-    reader = Keyword.get(opts, :reader, &snapshot/0)
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) when is_list(opts) do
+    name = Keyword.get(opts, :name, __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name_opts(name))
+  end
 
-    pid =
-      spawn(fn ->
-        send(notify, {:git, reader.()})
-        loop(notify, reader, interval)
-      end)
+  @spec start_link(pid(), keyword()) :: GenServer.on_start()
+  def start_link(notify, opts) when is_pid(notify) and is_list(opts) do
+    start_link(Keyword.merge(opts, notify: notify, name: nil))
+  end
 
-    {:ok, pid}
+  @spec subscribe(pid(), GenServer.server()) :: :ok
+  def subscribe(pid, server \\ __MODULE__) when is_pid(pid) do
+    GenServer.cast(server, {:subscribe, pid})
+  end
+
+  @spec unsubscribe(pid(), GenServer.server()) :: :ok
+  def unsubscribe(pid, server \\ __MODULE__) when is_pid(pid) do
+    if running?(server), do: GenServer.cast(server, {:unsubscribe, pid}), else: :ok
   end
 
   @spec stop(pid() | nil) :: :ok
   def stop(nil), do: :ok
 
   def stop(pid) when is_pid(pid) do
-    Process.exit(pid, :kill)
-    :ok
+    if Process.alive?(pid), do: GenServer.stop(pid, :normal, 1000), else: :ok
+  catch
+    :exit, _ -> :ok
   end
 
-  defp loop(notify, reader, interval) do
-    Process.sleep(interval)
-    send(notify, {:git, reader.()})
-    loop(notify, reader, interval)
+  @impl GenServer
+  def init(opts) do
+    reader = Keyword.get(opts, :reader, &snapshot/0)
+    interval = Keyword.get(opts, :interval, 2000)
+    notify = Keyword.get(opts, :notify)
+
+    state = %{reader: reader, interval: interval, notify: notify}
+    send(self(), :poll)
+    {:ok, state}
   end
+
+  @impl GenServer
+  def handle_cast({:subscribe, pid}, state) do
+    {:noreply, %{state | notify: pid}}
+  end
+
+  def handle_cast({:unsubscribe, pid}, %{notify: pid} = state) do
+    {:noreply, %{state | notify: nil}}
+  end
+
+  def handle_cast({:unsubscribe, _pid}, state), do: {:noreply, state}
+
+  @impl GenServer
+  def handle_info(:poll, state) do
+    if target = target(state) do
+      send(target, {:git, state.reader.()})
+    end
+
+    Process.send_after(self(), :poll, state.interval)
+    {:noreply, state}
+  end
+
+  defp target(%{notify: pid}) when is_pid(pid), do: pid
+  defp target(_state), do: Process.whereis(Tidex.UI)
+
+  defp running?(server) when is_atom(server), do: Process.whereis(server) != nil
+  defp running?(server) when is_pid(server), do: Process.alive?(server)
+
+  defp name_opts(nil), do: []
+  defp name_opts(name), do: [name: name]
 
   defp git(args) do
     case System.cmd("git", args, stderr_to_stdout: true) do

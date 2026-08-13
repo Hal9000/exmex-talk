@@ -7,7 +7,7 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
-  alias Tidex.{Command, Config, Git, Open, State, View}
+  alias Tidex.{Command, Config, Git, Keyboard, Open, State, View}
 
   defstruct device: nil,
             state: %State{},
@@ -78,42 +78,11 @@ defmodule Tidex.App do
   def start(opts_or_app \\ [])
 
   def start(opts) when is_list(opts) do
-    start(new(opts))
+    Tidex.UI.run(Keyword.put_new(opts, :name, nil))
   end
 
   def start(%__MODULE__{} = app) do
-    Termex.with_raw_mode(app.device, fn session ->
-      app =
-        app
-        |> Map.put(:tty, session)
-        |> attach_keyboard()
-        |> attach_git()
-
-      View.render(app.device, app.state)
-
-      if is_pid(app.notify_ready) do
-        send(app.notify_ready, {:ready, self()})
-      end
-
-      loop(app)
-    end)
-  end
-
-  @spec loop(t()) :: :ok
-  def loop(%__MODULE__{} = app) do
-    receive do
-      {:termex, :key, key} ->
-        dispatch(app, {:key, key})
-
-      {:command, ref, :line, line} ->
-        dispatch(app, {:command, ref, :line, line})
-
-      {:command, ref, :exit, status} ->
-        dispatch(app, {:command, ref, :exit, status})
-
-      {:git, snapshot} ->
-        dispatch(app, {:git, snapshot})
-    end
+    Tidex.UI.run(app)
   end
 
   @spec step(t(), term()) :: {:cont, t()} | {:quit, t()}
@@ -181,11 +150,44 @@ defmodule Tidex.App do
   @spec default_server_command() :: String.t()
   def default_server_command, do: %Config{}.server
 
-  defp dispatch(app, event) do
-    case step(app, event) do
-      {:quit, app} -> halt(app)
-      {:cont, app} -> loop(app)
+  @doc false
+  def attach_keyboard(%{keys: :device} = app) do
+    {:ok, pid} = Keyboard.start(app.device, self())
+    %{app | keyboard: pid}
+  end
+
+  def attach_keyboard(app), do: app
+
+  @doc false
+  def attach_git(%{poll_git: true} = app) do
+    git = Process.whereis(Tidex.Git)
+
+    if git do
+      Git.subscribe(self())
     end
+
+    snapshot = app.git_reader.()
+    %{app | git_pid: git, state: %{app.state | git: snapshot}}
+  end
+
+  def attach_git(app), do: app
+
+  @doc false
+  def shutdown(app) do
+    Command.stop(app.state.test_pid)
+    Command.stop(app.state.server_pid)
+
+    if app.git_pid == Process.whereis(Tidex.Git) do
+      Git.unsubscribe(self())
+    else
+      Git.stop(app.git_pid)
+    end
+
+    Keyboard.stop(app.keyboard)
+    Termex.clear_visible(app.device)
+    Termex.move(app.device, 1, 1)
+    Termex.write(app.device, "tidex stopped\n")
+    :ok
   end
 
   defp start_tests(app) do
@@ -274,42 +276,13 @@ defmodule Tidex.App do
     put_state(app, %{server_pid: nil, server_ref: nil})
   end
 
-  defp attach_keyboard(%{keys: :device} = app) do
-    {:ok, pid} = Termex.keyboard(app.device, notify: self())
-    %{app | keyboard: pid}
-  end
-
-  defp attach_keyboard(app), do: app
-
   defp detach_keyboard(app) do
-    if is_pid(app.keyboard) and Process.alive?(app.keyboard) do
-      Process.exit(app.keyboard, :kill)
-    end
-
+    Keyboard.stop(app.keyboard)
     %{app | keyboard: nil}
   end
 
-  defp attach_git(%{poll_git: true} = app) do
-    {:ok, pid} = Git.start_link(self(), reader: app.git_reader, interval: 2000)
-    snapshot = app.git_reader.()
-    %{app | git_pid: pid, state: %{app.state | git: snapshot}}
-  end
-
-  defp attach_git(app), do: app
-
   defp put_state(app, changes) do
     %{app | state: struct(app.state, changes)}
-  end
-
-  defp halt(app) do
-    Command.stop(app.state.test_pid)
-    Command.stop(app.state.server_pid)
-    Git.stop(app.git_pid)
-    _ = detach_keyboard(app)
-    Termex.clear_visible(app.device)
-    Termex.move(app.device, 1, 1)
-    Termex.write(app.device, "tidex stopped\n")
-    :ok
   end
 
   defp dimensions(opts) do

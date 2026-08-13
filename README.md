@@ -11,7 +11,7 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | Project | Role |
 | --- | --- |
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
-| [`tidex/`](tidex) | Workbench: tests, server, git, browser, editor, two layouts |
+| [`tidex/`](tidex) | Workbench: tests, server, git, browser, editor, two layouts, OTP supervision |
 
 Project commands live in [`tidex.exs`](tidex.exs) (walked from cwd toward `/`):
 
