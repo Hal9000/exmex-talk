@@ -11,20 +11,10 @@ Current surface:
 - box drawing: horizontal line, vertical line, corners
 - clipped text regions so content stays inside a pane
 - single-key input, including a keyboard process that sends keys as messages
+- yield the terminal to an external program, then resume raw mode
 
 Drawing and input go through an injectable `Termex.Device`, so tests can
 use `StringIO` instead of a real TTY.
-
-```elixir
-device = Termex.Device.stdio()
-
-Termex.with_raw_mode(device, fn ->
-  Termex.clear_visible(device)
-  Termex.box(device, 1, 1, 40, 8, title: "status")
-  Termex.write_clipped(device, 2, 2, 38, "hello")
-  Termex.read_key(device)
-end)
-```
 
 ```bash
 cd termex

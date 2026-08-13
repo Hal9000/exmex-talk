@@ -10,8 +10,19 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 
 | Project | Role |
 | --- | --- |
-| [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys |
-| [`tidex/`](tidex) | Workbench: two-pane dashboard, streaming tests, server start/restart |
+| [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
+| [`tidex/`](tidex) | Workbench: tests, server, git, browser, editor, two layouts |
+
+Project commands live in [`tidex.exs`](tidex.exs) (walked from cwd toward `/`):
+
+```elixir
+%{
+  test: "mix test",
+  server: "python3 -m http.server 4000",
+  browser: "http://localhost:4000",
+  editor: System.get_env("EDITOR") || "vi"
+}
+```
 
 Tidex depends on Termex locally:
 
@@ -30,8 +41,8 @@ cd termex && mix test
 cd tidex && mix deps.get && mix test
 ```
 
-Not covered: real `stty` raw mode on an interactive terminal. That path
-is skipped automatically when stdin is not a TTY.
+Not covered: real `stty` raw mode on an interactive terminal, or a real
+`$EDITOR` session. Those paths are skipped or injected in tests.
 
 ## Run
 
@@ -40,4 +51,5 @@ cd tidex
 mix tidex
 ```
 
-Keys: `t` runs tests, `s` starts or restarts the server, `q` quits.
+Keys: `t` tests, `s` start/restart server, `x` stop, `b` browser, `e`
+editor, `l` layout, `q` quit.

@@ -17,7 +17,15 @@ defmodule Tidex.AppTest do
     app =
       App.new(
         Keyword.merge(
-          [device: device, runner: fake_runner(), width: 40, height: 20, keys: :none],
+          [
+            device: device,
+            runner: fake_runner(),
+            editor_runner: fn _ -> :ok end,
+            browser_runner: fn url -> send(self(), {:browser, url}) end,
+            width: 40,
+            height: 20,
+            keys: :none
+          ],
           opts
         )
       )
@@ -37,7 +45,7 @@ defmodule Tidex.AppTest do
   end
 
   test "unknown keys are ignored" do
-    {device, _out} = FakeTerminal.open("x q")
+    {device, _out} = FakeTerminal.open("z q")
     runner = fn _cmd, _notify, _ref -> flunk("unknown keys should not run a command") end
 
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
@@ -95,8 +103,8 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "s"})
 
     assert_receive {:started, "python3 -m http.server 4000", _notify, ref, _pid}
-    assert app.state.server_state == :running
-    assert FakeTerminal.text(out) =~ "server:  running"
+    assert app.state.server_state == :up
+    assert FakeTerminal.text(out) =~ "server:  up"
 
     {:cont, _app} = App.step(app, {:command, ref, :line, "listening"})
     assert FakeTerminal.text(out) =~ "listening"
@@ -115,8 +123,57 @@ defmodule Tidex.AppTest do
 
     refute Process.alive?(pid1)
     assert Process.alive?(pid2)
-    assert app.state.server_state == :running
+    assert app.state.server_state == :up
     Process.exit(pid2, :kill)
+  end
+
+  test "x stops the server" do
+    {app, out} = app(server_command: "server")
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, _, pid}
+    assert Process.alive?(pid)
+
+    {:cont, app} = App.step(app, {:key, "x"})
+    refute Process.alive?(pid)
+    assert app.state.server_state == :down
+    assert FakeTerminal.text(out) =~ "server:  down"
+  end
+
+  test "b launches the browser url" do
+    {app, _out} = app(browser_url: "http://localhost:4000")
+    {:cont, _app} = App.step(app, {:key, "b"})
+    assert_receive {:browser, "http://localhost:4000"}
+  end
+
+  test "e yields to the editor command and redraws" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+    {app, out} = app(editor_command: "true", editor_runner: editor)
+
+    {:cont, _app} = App.step(app, {:key, "e"})
+    assert_receive {:edited, "true"}
+    assert FakeTerminal.text(out) =~ "status"
+  end
+
+  test "l toggles between dashboard and output layouts" do
+    {app, out} = app([])
+    assert app.state.layout == :dashboard
+
+    {:cont, app} = App.step(app, {:key, "l"})
+    assert app.state.layout == :output
+    assert FakeTerminal.text(out) =~ "\e[5;1H┌"
+
+    {:cont, app} = App.step(app, {:key, "l"})
+    assert app.state.layout == :dashboard
+  end
+
+  test "git snapshots update the status pane" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4}})
+    assert app.state.git == %{branch: "main", dirty: 4}
+    output = FakeTerminal.text(out)
+    assert output =~ "main"
+    assert output =~ "4 dirty"
   end
 
   test "stale command lines from a previous run are ignored" do
@@ -131,5 +188,20 @@ defmodule Tidex.AppTest do
 
     {:cont, _app} = App.step(app, {:command, new_ref, :line, "fresh"})
     assert FakeTerminal.text(out) =~ "fresh"
+  end
+
+  test "loads test/server/browser/editor from config" do
+    config = %Tidex.Config{
+      test: "echo tests",
+      server: "echo serve",
+      browser: "http://example.test",
+      editor: "true"
+    }
+
+    {app, _out} = app(config: config)
+    assert app.state.test_command == "echo tests"
+    assert app.state.server_command == "echo serve"
+    assert app.state.browser_url == "http://example.test"
+    assert app.state.editor_command == "true"
   end
 end

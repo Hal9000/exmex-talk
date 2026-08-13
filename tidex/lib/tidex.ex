@@ -2,8 +2,8 @@ defmodule Tidex do
   @moduledoc """
   A language-agnostic development workbench built on Termex.
 
-  Tidex owns the dashboard, test command, and server process. Termex
-  owns drawing, clipping, and key input.
+  Tidex owns the dashboard, commands, git, browser, and editor. Termex
+  owns drawing, clipping, keys, and yielding the terminal.
   """
 
   @spec start(keyword()) :: :ok

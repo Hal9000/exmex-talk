@@ -23,4 +23,10 @@ defmodule Termex.ANSI do
   def cursor(row, col) when row >= 1 and col >= 1 do
     @esc <> "[#{row};#{col}H"
   end
+
+  @spec show_cursor() :: String.t()
+  def show_cursor, do: @esc <> "[?25h"
+
+  @spec hide_cursor() :: String.t()
+  def hide_cursor, do: @esc <> "[?25l"
 end

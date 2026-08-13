@@ -13,30 +13,32 @@ defmodule Tidex.Layout do
           }
   end
 
-  defstruct [:width, :height, :status, :output, :footer_row]
+  defstruct [:width, :height, :status, :output, :footer_row, :mode]
 
   @type t :: %__MODULE__{
           width: pos_integer(),
           height: pos_integer(),
           status: Pane.t(),
           output: Pane.t(),
-          footer_row: pos_integer()
+          footer_row: pos_integer(),
+          mode: Tidex.State.layout()
         }
 
-  @status_height 6
   @footer_rows 1
 
-  @spec compute(pos_integer(), pos_integer()) :: t()
-  def compute(width, height) do
+  @spec compute(pos_integer(), pos_integer(), Tidex.State.layout()) :: t()
+  def compute(width, height, mode \\ :dashboard) do
     width = max(width, 16)
     height = max(height, 12)
-    output_height = height - @status_height - @footer_rows
+    status_height = status_height(mode)
+    output_height = height - status_height - @footer_rows
 
     %__MODULE__{
       width: width,
       height: height,
-      status: %Pane{row: 1, col: 1, width: width, height: @status_height},
-      output: %Pane{row: @status_height + 1, col: 1, width: width, height: output_height},
+      mode: mode,
+      status: %Pane{row: 1, col: 1, width: width, height: status_height},
+      output: %Pane{row: status_height + 1, col: 1, width: width, height: output_height},
       footer_row: height
     }
   end
@@ -50,4 +52,7 @@ defmodule Tidex.Layout do
       height: max(pane.height - 2, 0)
     }
   end
+
+  defp status_height(:dashboard), do: 6
+  defp status_height(:output), do: 4
 end

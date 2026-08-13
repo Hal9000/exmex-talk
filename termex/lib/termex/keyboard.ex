@@ -15,7 +15,8 @@ defmodule Termex.Keyboard do
   @spec start_link(Device.t(), keyword()) :: {:ok, pid()}
   def start_link(%Device{} = device, opts \\ []) do
     notify = Keyword.get(opts, :notify, self())
-    {:ok, spawn_link(fn -> loop(device, notify) end)}
+    # Not linked: Tidex kills this process while yielding the TTY to $EDITOR.
+    {:ok, spawn(fn -> loop(device, notify) end)}
   end
 
   defp loop(device, notify) do

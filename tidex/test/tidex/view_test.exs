@@ -26,13 +26,13 @@ defmodule Tidex.ViewTest do
     assert output =~ "output"
     assert output =~ "project: exmex-talk"
     assert output =~ "tests:   idle"
-    assert output =~ "server:  idle"
-    assert output =~ "[t] test"
-    assert output =~ "[s] server"
-    assert output =~ "[q] quit"
+    assert output =~ "server:  down"
+    assert output =~ "git:"
+    assert output =~ "[t]est"
+    assert output =~ "[q]uit"
   end
 
-  test "shows test state in the status pane" do
+  test "shows test and server state in the status pane" do
     {output, _} = render(test_state: :running)
     assert output =~ "tests:   running"
 
@@ -41,6 +41,15 @@ defmodule Tidex.ViewTest do
 
     {output, _} = render(test_state: :fail)
     assert output =~ "tests:   fail"
+
+    {output, _} = render(server_state: :up)
+    assert output =~ "server:  up"
+  end
+
+  test "shows git branch and dirty count" do
+    {output, _} = render(git: %{branch: "main", dirty: 3})
+    assert output =~ "main"
+    assert output =~ "3 dirty"
   end
 
   test "displays command output inside the output pane" do
@@ -62,5 +71,16 @@ defmodule Tidex.ViewTest do
 
     assert output =~ "row20-end"
     refute output =~ "row1-end"
+  end
+
+  test "output layout shrinks the status pane" do
+    {dashboard, _} = render(layout: :dashboard, width: 40, height: 20)
+    {focused, _} = render(layout: :output, width: 40, height: 20)
+
+    assert dashboard =~ "\e[7;1H┌"
+    assert focused =~ "\e[5;1H┌"
+    refute focused =~ "project: exmex-talk"
+    assert focused =~ "tests: idle"
+    assert focused =~ "server: down"
   end
 end

@@ -16,4 +16,9 @@ defmodule Termex.ANSITest do
       assert ANSI.cursor(4, 10) == "\e[4;10H"
     end
   end
+
+  test "show_cursor and hide_cursor" do
+    assert ANSI.show_cursor() == "\e[?25h"
+    assert ANSI.hide_cursor() == "\e[?25l"
+  end
 end

@@ -3,12 +3,19 @@
 A language-agnostic development workbench built on
 [Termex](../termex).
 
-Fixed two-pane layout: a **status** pane (project, tests, server) and an
-**output** pane. `t` runs the project test command and streams lines as
-they arrive. `s` starts or restarts a server. `q` quits.
+Two layouts (`l` to toggle): a **status** pane (project, tests, server,
+git) and an **output** pane. Commands come from `tidex.exs` in the
+project (or a parent directory).
 
-The default test command is `mix test` when `mix.exs` is present. The
-default server command is `python3 -m http.server 4000`.
+| Key | Action |
+| --- | --- |
+| `t` | run tests, stream output |
+| `s` | start or restart server |
+| `x` | stop server |
+| `b` | open browser URL |
+| `e` | launch `$EDITOR` and redraw when it exits |
+| `l` | toggle dashboard / output-focused layout |
+| `q` | quit |
 
 ```bash
 cd tidex

@@ -3,7 +3,8 @@ defmodule Termex do
   A small terminal UI runtime.
 
   Termex grows only when an application needs a new capability. Tidex
-  currently needs: clear, cursor, write, keys, boxes, and clipped text.
+  currently needs: clear, cursor, write, keys, boxes, clipped text,
+  and yielding the terminal to an external editor.
   """
 
   alias Termex.{ANSI, Box, Device, Keyboard, RawMode}
@@ -151,8 +152,22 @@ defmodule Termex do
   No-op for injected devices and non-TTY stdin, so tests can drive the
   same loop with `StringIO`.
   """
-  @spec with_raw_mode(Device.t(), (-> result)) :: result when result: var
+  @spec with_raw_mode(Device.t(), (-> result) | (RawMode.session() -> result)) :: result
+        when result: var
   defdelegate with_raw_mode(device, fun), to: RawMode
+
+  @doc """
+  Clear the screen, restore cooked mode, run `fun`, then return to raw mode.
+
+  Tidex uses this to launch `$EDITOR` and redraw when it exits.
+  """
+  @spec yield(Device.t(), RawMode.session(), (-> result)) :: result when result: var
+  def yield(device, session, fun) do
+    write(device, ANSI.show_cursor())
+    clear_visible(device)
+    move(device, 1, 1)
+    RawMode.yield(session, fun)
+  end
 
   @doc "Start a process that forwards keys to `opts[:notify]` (default `self()`)."
   @spec keyboard(Device.t(), keyword()) :: {:ok, pid()}

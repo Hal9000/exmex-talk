@@ -48,5 +48,21 @@ defmodule TermexTest do
       {device, _out} = Capture.open()
       assert Termex.with_raw_mode(device, fn -> :drew end) == :drew
     end
+
+    test "passes a nil session to arity-1 callbacks without a TTY" do
+      {device, _out} = Capture.open()
+      assert Termex.with_raw_mode(device, fn session -> session end) == nil
+    end
+  end
+
+  describe "yield/3" do
+    test "runs the callback and clears the screen so an editor can take over" do
+      {device, out} = Capture.open()
+      result = Termex.yield(device, nil, fn -> :edited end)
+      assert result == :edited
+      text = Capture.text(out)
+      assert text =~ "\e[?25h"
+      assert text =~ "\e[2J"
+    end
   end
 end
