@@ -17,6 +17,8 @@ project (or a parent directory).
 | `l` | toggle dashboard / output-focused layout |
 | arrows, PgUp/PgDn | scroll the output pane (pins when not at the tail) |
 | `?` | show/hide help overlay |
+| `g` | show/hide git status overlay |
+| `a` / `c` / `p` | add (`-u`) / commit / push (while git overlay is open) |
 | `q` | quit |
 
 ```bash

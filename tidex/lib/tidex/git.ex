@@ -6,23 +6,29 @@ defmodule Tidex.Git do
 
   use GenServer
 
-  @type snapshot :: %{branch: String.t() | nil, dirty: non_neg_integer()}
+  @type snapshot :: %{branch: String.t() | nil, dirty: non_neg_integer(), status: String.t()}
 
-  @spec snapshot() :: snapshot()
-  def snapshot do
-    case git(["rev-parse", "--abbrev-ref", "HEAD"]) do
+  @spec snapshot(String.t()) :: snapshot()
+  def snapshot(cwd \\ File.cwd!()) do
+    case git(["rev-parse", "--abbrev-ref", "HEAD"], cwd) do
       {:ok, branch} ->
         dirty =
-          case git(["status", "--porcelain"]) do
+          case git(["status", "--porcelain"], cwd) do
             {:ok, ""} -> 0
             {:ok, out} -> length(String.split(out, "\n", trim: true))
             :error -> 0
           end
 
-        %{branch: String.trim(branch), dirty: dirty}
+        status =
+          case git(["status"], cwd) do
+            {:ok, out} -> String.trim_trailing(out)
+            :error -> ""
+          end
+
+        %{branch: String.trim(branch), dirty: dirty, status: status}
 
       :error ->
-        %{branch: nil, dirty: 0}
+        %{branch: nil, dirty: 0, status: ""}
     end
   end
 
@@ -97,8 +103,8 @@ defmodule Tidex.Git do
   defp name_opts(nil), do: []
   defp name_opts(name), do: [name: name]
 
-  defp git(args) do
-    case System.cmd("git", args, stderr_to_stdout: true) do
+  defp git(args, cwd) do
+    case System.cmd("git", args, stderr_to_stdout: true, cd: cwd, env: [{"LC_ALL", "C"}]) do
       {out, 0} -> {:ok, out}
       _ -> :error
     end

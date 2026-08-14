@@ -49,7 +49,7 @@ defmodule Tidex.App do
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
-      git: Keyword.get(opts, :git, %{branch: nil, dirty: 0}),
+      git: Keyword.get(opts, :git, %{branch: nil, dirty: 0, status: ""}),
       layout: Keyword.get(opts, :layout, :dashboard),
       width: width,
       height: height
@@ -105,8 +105,25 @@ defmodule Tidex.App do
     {:cont, put_state(app, %{overlay: next})}
   end
 
+  def handle_event(app, {:key, "g"}) do
+    next = if app.state.overlay == :git, do: nil, else: :git
+    {:cont, put_state(app, %{overlay: next})}
+  end
+
   def handle_event(%{state: %{overlay: overlay}} = app, {:key, :esc}) when overlay != nil do
     {:cont, put_state(app, %{overlay: nil})}
+  end
+
+  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["a", "A"] do
+    {:cont, git_add(app)}
+  end
+
+  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["c", "C"] do
+    {:cont, git_commit(app)}
+  end
+
+  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["p", "P"] do
+    {:cont, git_push(app)}
   end
 
   def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key}) when overlay != nil do
@@ -153,7 +170,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:git, snapshot}) when is_map(snapshot) do
-    {:cont, put_state(app, %{git: snapshot})}
+    {:cont, put_state(app, %{git: normalize_git(snapshot)})}
   end
 
   @spec default_runner(String.t(), pid(), reference()) :: {:ok, pid()}
@@ -183,7 +200,7 @@ defmodule Tidex.App do
       Git.subscribe(self())
     end
 
-    snapshot = app.git_reader.()
+    snapshot = normalize_git(app.git_reader.())
     %{app | git_pid: git, state: %{app.state | git: snapshot}}
   end
 
@@ -193,6 +210,7 @@ defmodule Tidex.App do
   def shutdown(app) do
     Command.stop(app.state.test_pid)
     Command.stop(app.state.server_pid)
+    Command.stop(app.state.git_cmd_pid)
 
     if app.git_pid == Process.whereis(Tidex.Git) do
       Git.unsubscribe(self())
@@ -208,7 +226,7 @@ defmodule Tidex.App do
   end
 
   defp start_tests(app) do
-    app = stop_tracked(app, :test)
+    app = app |> stop_tracked(:test) |> stop_git_cmd()
     ref = make_ref()
     {:ok, pid} = app.runner.(app.state.test_command, self(), ref)
 
@@ -223,7 +241,7 @@ defmodule Tidex.App do
   end
 
   defp start_or_restart_server(app) do
-    app = stop_tracked(app, :server)
+    app = app |> stop_tracked(:server) |> stop_git_cmd()
     ref = make_ref()
     {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
 
@@ -251,6 +269,38 @@ defmodule Tidex.App do
     end)
 
     attach_keyboard(app)
+  end
+
+  defp git_add(app), do: start_git_cmd(app, "git add -u")
+
+  defp git_push(app), do: start_git_cmd(app, "git push")
+
+  defp git_commit(app) do
+    app = put_state(app, %{overlay: nil})
+    app = detach_keyboard(app)
+
+    Termex.yield(app.device, app.tty, fn ->
+      app.editor_runner.("git commit")
+    end)
+
+    app
+    |> attach_keyboard()
+    |> put_state(%{git: normalize_git(app.git_reader.())})
+  end
+
+  defp start_git_cmd(app, command) do
+    app = stop_git_cmd(app)
+    ref = make_ref()
+    {:ok, pid} = app.runner.(command, self(), ref)
+
+    put_state(app, %{
+      overlay: nil,
+      git_cmd_ref: ref,
+      git_cmd_pid: pid,
+      output_lines: [],
+      output_scroll: :follow,
+      output_source: :git
+    })
   end
 
   defp toggle_layout(app) do
@@ -294,6 +344,13 @@ defmodule Tidex.App do
       app.state.server_ref == ref ->
         put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
 
+      app.state.git_cmd_ref == ref ->
+        put_state(app, %{
+          git_cmd_ref: nil,
+          git_cmd_pid: nil,
+          git: normalize_git(app.git_reader.())
+        })
+
       true ->
         app
     end
@@ -301,7 +358,8 @@ defmodule Tidex.App do
 
   defp active_ref?(app, ref) do
     (app.state.output_source == :test and app.state.test_ref == ref) or
-      (app.state.output_source == :server and app.state.server_ref == ref)
+      (app.state.output_source == :server and app.state.server_ref == ref) or
+      (app.state.output_source == :git and app.state.git_cmd_ref == ref)
   end
 
   defp stop_tracked(app, :test) do
@@ -312,6 +370,19 @@ defmodule Tidex.App do
   defp stop_tracked(app, :server) do
     Command.stop(app.state.server_pid)
     put_state(app, %{server_pid: nil, server_ref: nil})
+  end
+
+  defp stop_git_cmd(app) do
+    Command.stop(app.state.git_cmd_pid)
+    put_state(app, %{git_cmd_pid: nil, git_cmd_ref: nil})
+  end
+
+  defp normalize_git(snapshot) when is_map(snapshot) do
+    %{
+      branch: Map.get(snapshot, :branch),
+      dirty: Map.get(snapshot, :dirty, 0),
+      status: Map.get(snapshot, :status, "")
+    }
   end
 
   defp detach_keyboard(app) do

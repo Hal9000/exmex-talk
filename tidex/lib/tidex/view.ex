@@ -68,18 +68,26 @@ defmodule Tidex.View do
       layout.footer_row,
       1,
       layout.width,
-      "[e]dit [l]ayout [?]help [q]uit"
+      "[e]dit [l]ayout [g]it [?]help [q]uit"
     )
   end
 
   defp render_overlay(_device, %{overlay: nil}, _layout), do: :ok
 
   defp render_overlay(device, %{overlay: :help}, layout) do
+    draw_overlay(device, layout, "help", help_lines())
+  end
+
+  defp render_overlay(device, %{overlay: :git} = state, layout) do
+    draw_overlay(device, layout, "git", git_overlay_lines(state.git))
+  end
+
+  defp draw_overlay(device, layout, title, lines) do
     pane = overlay_pane(layout.width, layout.height)
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "help")
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
     inner = Layout.inner(pane)
     fill_inner(device, inner)
-    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, help_lines())
+    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
   end
 
   defp overlay_pane(width, height) do
@@ -113,10 +121,22 @@ defmodule Tidex.View do
       "e  editor",
       "l  toggle layout",
       "arrows  scroll output",
+      "g  git status",
       "?  this help",
       "q  quit",
       "",
       "esc or ? closes"
     ]
   end
+
+  defp git_overlay_lines(git) do
+    ["[a]dd -u  [c]ommit  [p]ush", "esc or g closes", "" | git_status_lines(git)]
+  end
+
+  defp git_status_lines(%{status: text}) when is_binary(text) and text != "" do
+    String.split(text, "\n")
+  end
+
+  defp git_status_lines(%{branch: nil}), do: ["(no git repository)"]
+  defp git_status_lines(_), do: ["(no status)"]
 end

@@ -3,12 +3,14 @@ defmodule Tidex.GitTest do
 
   alias Tidex.Git
 
-  test "snapshot reads branch and dirty count from this repo" do
+  test "snapshot reads branch, dirty count, and status from this repo" do
     snapshot = Git.snapshot()
     assert is_binary(snapshot.branch)
     assert snapshot.branch != ""
     assert is_integer(snapshot.dirty)
     assert snapshot.dirty >= 0
+    assert is_binary(snapshot.status)
+    assert snapshot.status =~ "On branch"
   end
 
   test "poller sends snapshots to the notify process" do
@@ -39,11 +41,50 @@ defmodule Tidex.GitTest do
     File.mkdir_p!(dir)
 
     try do
-      File.cd!(dir, fn ->
-        assert Git.snapshot() == %{branch: nil, dirty: 0}
-      end)
+      assert Git.snapshot(dir) == %{branch: nil, dirty: 0, status: ""}
     after
       File.rm_rf!(dir)
     end
+  end
+
+  test "snapshot in a throwaway repo reports a dirty file and status text" do
+    in_repo(fn dir ->
+      snapshot = Git.snapshot(dir)
+      assert snapshot.branch in ["main", "master"]
+      assert snapshot.dirty >= 1
+      assert snapshot.status =~ "On branch"
+      assert snapshot.status =~ "modified" or snapshot.status =~ "Changes not staged"
+    end)
+  end
+
+  test "git add -u in a throwaway repo stages the dirty file" do
+    in_repo(fn dir ->
+      {_, 0} = System.cmd("git", ["add", "-u"], cd: dir)
+      snapshot = Git.snapshot(dir)
+      assert snapshot.status =~ "Changes to be committed"
+    end)
+  end
+
+  defp in_repo(fun) do
+    dir = Path.join(System.tmp_dir!(), "tidex-git-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+
+    try do
+      git!(dir, ["init", "-b", "main"])
+      git!(dir, ["config", "user.email", "tidex@example.test"])
+      git!(dir, ["config", "user.name", "Tidex"])
+      File.write!(Path.join(dir, "file.txt"), "one\n")
+      git!(dir, ["add", "file.txt"])
+      git!(dir, ["commit", "-m", "init"])
+      File.write!(Path.join(dir, "file.txt"), "two\n")
+      fun.(dir)
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  defp git!(dir, args) do
+    {out, 0} = System.cmd("git", args, cd: dir, stderr_to_stdout: true)
+    out
   end
 end

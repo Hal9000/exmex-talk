@@ -16,7 +16,9 @@ defmodule Tidex.State do
             test_pid: nil,
             server_ref: nil,
             server_pid: nil,
-            git: %{branch: nil, dirty: 0},
+            git: %{branch: nil, dirty: 0, status: ""},
+            git_cmd_ref: nil,
+            git_cmd_pid: nil,
             layout: :dashboard,
             overlay: nil,
             width: 80,
@@ -25,7 +27,7 @@ defmodule Tidex.State do
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
   @type layout :: :dashboard | :output
-  @type overlay :: nil | :help
+  @type overlay :: nil | :help | :git
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -38,12 +40,14 @@ defmodule Tidex.State do
           editor_command: String.t(),
           output_lines: [String.t()],
           output_scroll: Tidex.Scroll.t(),
-          output_source: :test | :server | nil,
+          output_source: :test | :server | :git | nil,
           test_ref: reference() | nil,
           test_pid: pid() | nil,
           server_ref: reference() | nil,
           server_pid: pid() | nil,
           git: Tidex.Git.snapshot(),
+          git_cmd_ref: reference() | nil,
+          git_cmd_pid: pid() | nil,
           layout: layout(),
           overlay: overlay(),
           width: pos_integer(),

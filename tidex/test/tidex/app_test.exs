@@ -93,6 +93,70 @@ defmodule Tidex.AppTest do
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
   end
 
+  test "g toggles the git overlay" do
+    git = %{branch: "main", dirty: 1, status: "On branch main\nmodified: lib/tidex.ex"}
+    {app, out} = app(git: git)
+    {:cont, app} = App.step(app, {:key, "g"})
+    assert app.state.overlay == :git
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "On branch main"
+    assert frame =~ "[a]dd -u"
+
+    {:cont, app} = App.step(app, {:key, "g"})
+    assert app.state.overlay == nil
+    refute FakeTerminal.last_frame(out) =~ "[a]dd -u"
+    assert FakeTerminal.text(out) =~ "[a]dd -u"
+  end
+
+  test "esc closes the git overlay" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.overlay == nil
+  end
+
+  test "a from the git overlay runs git add -u" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "g"})
+    {:cont, app} = App.step(app, {:key, "a"})
+
+    assert_receive {:started, "git add -u", _notify, ref, _pid}
+    assert app.state.overlay == nil
+    assert app.state.output_source == :git
+    assert app.state.git_cmd_ref == ref
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "staged"})
+    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["staged"]
+  end
+
+  test "p from the git overlay runs git push" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.handle_event(app, {:key, "p"})
+    assert_receive {:started, "git push", _, _, _}
+    assert app.state.overlay == nil
+  end
+
+  test "c from the git overlay yields git commit" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+    {app, _out} = app(editor_runner: editor, git_reader: fn -> %{branch: "main", dirty: 0} end)
+
+    {:cont, app} = App.step(app, {:key, "g"})
+    {:cont, app} = App.step(app, {:key, "c"})
+    assert_receive {:edited, "git commit"}
+    assert app.state.overlay == nil
+    assert app.state.git.status == ""
+  end
+
+  test "a does nothing unless the git overlay is open" do
+    {app, _out} = app([])
+    runner = fn _cmd, _notify, _ref -> flunk("add should not run") end
+    app = %{app | runner: runner}
+    {:cont, app} = App.handle_event(app, {:key, "a"})
+    assert app.state.git_cmd_ref == nil
+  end
+
   test "up pins the output pane one line above the tail" do
     {app, _out} = app([])
     lines = Enum.map(1..15, &"row#{&1}")
@@ -314,7 +378,7 @@ defmodule Tidex.AppTest do
   test "git snapshots update the status pane" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4}})
-    assert app.state.git == %{branch: "main", dirty: 4}
+    assert app.state.git == %{branch: "main", dirty: 4, status: ""}
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "main"
     assert frame =~ "4 dirty"

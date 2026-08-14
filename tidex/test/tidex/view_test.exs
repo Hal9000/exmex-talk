@@ -137,4 +137,19 @@ defmodule Tidex.ViewTest do
     assert output =~ "arrows  scroll output"
     assert output =~ "esc or ? closes"
   end
+
+  test "git overlay draws status text and the git keymap" do
+    git = %{
+      branch: "main",
+      dirty: 1,
+      status: "On branch main\nChanges not staged for commit:\n  modified: lib/tidex.ex"
+    }
+
+    {output, _} = render(overlay: :git, git: git)
+    assert output =~ "git"
+    assert output =~ "[a]dd -u"
+    assert output =~ "On branch main"
+    assert output =~ "modified: lib/tidex.ex"
+    assert output =~ "esc or g closes"
+  end
 end
