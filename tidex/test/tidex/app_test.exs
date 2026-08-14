@@ -162,6 +162,53 @@ defmodule Tidex.AppTest do
     assert app.state.git_cmd_ref == nil
   end
 
+  test "git add keeps the test log and shows the git pane" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+
+    app = %{
+      app
+      | state: %{app.state | output_lines: ["test line one", "test line two"]}
+    }
+
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.handle_event(app, {:key, "a"})
+    git_ref = app.state.git_cmd_ref
+    {:cont, app} = App.handle_event(app, {:command, git_ref, :line, "git add ok"})
+
+    assert app.state.test_log == ["test line one", "test line two"]
+    assert app.state.output_source == :git
+    assert app.state.output_lines == ["git add ok"]
+    assert app.state.git_log == ["git add ok"]
+  end
+
+  test "starting the server keeps the test log" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+
+    app = %{
+      app
+      | state: %{app.state | output_lines: ["still in the test log"]}
+    }
+
+    {:cont, app} = App.handle_event(app, {:key, "s"})
+    assert app.state.test_log == ["still in the test log"]
+    assert app.state.output_source == :server
+    assert app.state.output_lines == []
+  end
+
+  test "a running test still appends while the server pane is showing" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+    test_ref = app.state.test_ref
+    {:cont, app} = App.handle_event(app, {:key, "s"})
+    {:cont, app} = App.handle_event(app, {:command, test_ref, :line, "still testing"})
+
+    assert app.state.test_log == ["still testing"]
+    assert app.state.output_source == :server
+    refute "still testing" in app.state.output_lines
+  end
+
   test "up pins the output pane one line above the tail" do
     {app, _out} = app([])
     lines = Enum.map(1..15, &"row#{&1}")

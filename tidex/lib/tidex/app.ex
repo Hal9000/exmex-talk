@@ -263,7 +263,7 @@ defmodule Tidex.App do
   end
 
   defp start_tests(app) do
-    app = app |> stop_tracked(:test) |> stop_git_cmd()
+    app = app |> persist_visible() |> stop_tracked(:test) |> stop_git_cmd()
     ref = make_ref()
     {:ok, pid} = app.runner.(app.state.test_command, self(), ref)
 
@@ -271,6 +271,7 @@ defmodule Tidex.App do
       test_state: :running,
       test_ref: ref,
       test_pid: pid,
+      test_log: [],
       output_lines: [],
       output_scroll: :follow,
       output_source: :test,
@@ -280,7 +281,7 @@ defmodule Tidex.App do
   end
 
   defp start_or_restart_server(app) do
-    app = app |> stop_tracked(:server) |> stop_git_cmd()
+    app = app |> persist_visible() |> stop_tracked(:server) |> stop_git_cmd()
     ref = make_ref()
     {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
 
@@ -288,6 +289,7 @@ defmodule Tidex.App do
       server_state: :up,
       server_ref: ref,
       server_pid: pid,
+      server_log: [],
       output_lines: [],
       output_scroll: :follow,
       output_source: :server
@@ -337,7 +339,7 @@ defmodule Tidex.App do
   end
 
   defp start_git_cmd(app, command) do
-    app = stop_git_cmd(app)
+    app = app |> persist_visible() |> stop_git_cmd()
     ref = make_ref()
     {:ok, pid} = app.runner.(command, self(), ref)
 
@@ -345,6 +347,7 @@ defmodule Tidex.App do
       overlay: nil,
       git_cmd_ref: ref,
       git_cmd_pid: pid,
+      git_log: [],
       output_lines: [],
       output_scroll: :follow,
       output_source: :git
@@ -376,10 +379,11 @@ defmodule Tidex.App do
   end
 
   defp maybe_append_output(app, ref, line) do
-    if active_ref?(app, ref) do
-      put_state(app, %{output_lines: app.state.output_lines ++ [to_string(line)]})
-    else
-      app
+    cond do
+      app.state.test_ref == ref -> append_log(app, :test, line)
+      app.state.server_ref == ref -> append_log(app, :server, line)
+      app.state.git_cmd_ref == ref -> append_log(app, :git, line)
+      true -> app
     end
   end
 
@@ -387,7 +391,7 @@ defmodule Tidex.App do
     cond do
       app.state.test_ref == ref ->
         test_state = if status == 0, do: :pass, else: :fail
-        failures = if status == 0, do: [], else: Failures.parse(app.state.output_lines)
+        failures = if status == 0, do: [], else: Failures.parse(log_lines(app.state, :test))
 
         put_state(app, %{
           test_state: test_state,
@@ -412,11 +416,40 @@ defmodule Tidex.App do
     end
   end
 
-  defp active_ref?(app, ref) do
-    (app.state.output_source == :test and app.state.test_ref == ref) or
-      (app.state.output_source == :server and app.state.server_ref == ref) or
-      (app.state.output_source == :git and app.state.git_cmd_ref == ref)
+  defp persist_visible(app) do
+    case app.state.output_source do
+      :test -> put_state(app, %{test_log: app.state.output_lines})
+      :server -> put_state(app, %{server_log: app.state.output_lines})
+      :git -> put_state(app, %{git_log: app.state.output_lines})
+      _ -> app
+    end
   end
+
+  defp append_log(app, source, line) do
+    lines = log_lines(app.state, source) ++ [to_string(line)]
+    changes = %{log_field(source) => lines}
+
+    changes =
+      if app.state.output_source == source do
+        Map.put(changes, :output_lines, lines)
+      else
+        changes
+      end
+
+    put_state(app, changes)
+  end
+
+  defp log_lines(state, source) do
+    if state.output_source == source do
+      state.output_lines
+    else
+      Map.fetch!(state, log_field(source))
+    end
+  end
+
+  defp log_field(:test), do: :test_log
+  defp log_field(:server), do: :server_log
+  defp log_field(:git), do: :git_log
 
   defp stop_tracked(app, :test) do
     Command.stop(app.state.test_pid)
