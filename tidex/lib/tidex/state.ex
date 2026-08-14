@@ -18,12 +18,14 @@ defmodule Tidex.State do
             server_pid: nil,
             git: %{branch: nil, dirty: 0},
             layout: :dashboard,
+            overlay: nil,
             width: 80,
             height: 24
 
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
   @type layout :: :dashboard | :output
+  @type overlay :: nil | :help
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -43,6 +45,7 @@ defmodule Tidex.State do
           server_pid: pid() | nil,
           git: Tidex.Git.snapshot(),
           layout: layout(),
+          overlay: overlay(),
           width: pos_integer(),
           height: pos_integer()
         }

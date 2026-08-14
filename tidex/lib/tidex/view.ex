@@ -13,6 +13,7 @@ defmodule Tidex.View do
     render_status(device, state, layout.status)
     render_output(device, state, layout.output)
     render_footer(device, layout)
+    render_overlay(device, state, layout)
     :ok
   end
 
@@ -67,7 +68,55 @@ defmodule Tidex.View do
       layout.footer_row,
       1,
       layout.width,
-      "[e]dit [l]ayout [q]uit"
+      "[e]dit [l]ayout [?]help [q]uit"
     )
+  end
+
+  defp render_overlay(_device, %{overlay: nil}, _layout), do: :ok
+
+  defp render_overlay(device, %{overlay: :help}, layout) do
+    pane = overlay_pane(layout.width, layout.height)
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "help")
+    inner = Layout.inner(pane)
+    fill_inner(device, inner)
+    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, help_lines())
+  end
+
+  defp overlay_pane(width, height) do
+    %Layout.Pane{
+      row: 3,
+      col: 3,
+      width: max(width - 4, 12),
+      height: max(min(height - 5, 14), 8)
+    }
+  end
+
+  defp fill_inner(device, inner) do
+    blank = String.duplicate(" ", max(inner.width, 0))
+
+    Termex.write_region(
+      device,
+      inner.row,
+      inner.col,
+      inner.width,
+      inner.height,
+      List.duplicate(blank, max(inner.height, 0))
+    )
+  end
+
+  defp help_lines do
+    [
+      "t  run tests",
+      "s  start/restart server",
+      "x  stop server",
+      "b  open browser",
+      "e  editor",
+      "l  toggle layout",
+      "arrows  scroll output",
+      "?  this help",
+      "q  quit",
+      "",
+      "esc or ? closes"
+    ]
   end
 end

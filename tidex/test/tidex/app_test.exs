@@ -51,6 +51,41 @@ defmodule Tidex.AppTest do
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
   end
 
+  test "? toggles the help overlay" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "?"})
+    assert app.state.overlay == :help
+    assert FakeTerminal.text(out) =~ "t  run tests"
+
+    {:cont, app} = App.step(app, {:key, "?"})
+    assert app.state.overlay == nil
+  end
+
+  test "esc closes the help overlay" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "?"})
+    {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.overlay == nil
+  end
+
+  test "command keys are ignored while help is open" do
+    {app, _out} = app([])
+    runner = fn _cmd, _notify, _ref -> flunk("help should block commands") end
+    app = %{app | runner: runner}
+
+    {:cont, app} = App.handle_event(app, {:key, "?"})
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+    {:cont, app} = App.handle_event(app, {:key, :up})
+    assert app.state.overlay == :help
+    assert app.state.test_state == :idle
+  end
+
+  test "q still quits while help is open" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "?"})
+    assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
+  end
+
   test "up pins the output pane one line above the tail" do
     {app, _out} = app([])
     lines = Enum.map(1..15, &"row#{&1}")

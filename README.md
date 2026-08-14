@@ -52,4 +52,4 @@ mix tidex
 ```
 
 Keys: `t` tests, `s` start/restart server, `x` stop, `b` browser, `e`
-editor, `l` layout, arrows scroll output, `q` quit.
+editor, `l` layout, arrows scroll output, `?` help, `q` quit.

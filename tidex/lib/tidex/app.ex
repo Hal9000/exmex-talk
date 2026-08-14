@@ -100,6 +100,19 @@ defmodule Tidex.App do
   @spec handle_event(t(), term()) :: {:cont, t()} | {:quit, t()}
   def handle_event(app, {:key, key}) when key in ["q", "Q", <<3>>, :eof], do: {:quit, app}
 
+  def handle_event(app, {:key, "?"}) do
+    next = if app.state.overlay == :help, do: nil, else: :help
+    {:cont, put_state(app, %{overlay: next})}
+  end
+
+  def handle_event(%{state: %{overlay: overlay}} = app, {:key, :esc}) when overlay != nil do
+    {:cont, put_state(app, %{overlay: nil})}
+  end
+
+  def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key}) when overlay != nil do
+    {:cont, app}
+  end
+
   def handle_event(app, {:key, key}) when key in ["t", "T"] do
     {:cont, start_tests(app)}
   end

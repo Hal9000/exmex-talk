@@ -92,4 +92,12 @@ defmodule Tidex.ViewTest do
     assert focused =~ "tests: idle"
     assert focused =~ "server: down"
   end
+
+  test "help overlay draws a keymap on top of the panes" do
+    {output, _} = render(overlay: :help)
+    assert output =~ "help"
+    assert output =~ "t  run tests"
+    assert output =~ "arrows  scroll output"
+    assert output =~ "esc or ? closes"
+  end
 end
