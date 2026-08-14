@@ -29,8 +29,8 @@ directory that contains `tidex.conf` (or cwd when the file is missing).
 
 If no `tidex.conf` is found, Tidex prompts before writing one: `y` writes
 in cwd, `g` writes at the nearest git root (when that path differs and
-is not `$HOME` / `/` / `/tmp`), `n` or `esc` skips. It will not write in
-`$HOME`, `/`, or `/tmp`.
+is not `$HOME` / `/` / `/tmp`), `n` or `esc` skips. `$HOME`, `/`, and
+`/tmp` are not permitted for `y`; the overlay says so and omits that key.
 
 Tidex depends on Termex locally:
 

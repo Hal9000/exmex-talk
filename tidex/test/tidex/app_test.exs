@@ -585,11 +585,15 @@ defmodule Tidex.AppTest do
   end
 
   test "y does not write when cwd is blocked" do
-    {app, _out} = app(cwd: "/")
+    {app, out} = app(cwd: "/", width: 80)
     assert app.state.overlay == :setup
     assert app.state.setup.blocked
+    refute app.state.setup.offer_cwd
     {:cont, app} = App.step(app, {:key, "y"})
     assert app.state.overlay == :setup
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "cwd is not permitted"
+    refute frame =~ "y  write here"
     refute File.exists?("/tidex.conf")
   end
 

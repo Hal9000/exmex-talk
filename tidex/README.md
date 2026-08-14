@@ -8,7 +8,8 @@ git) and an **output** pane. Label and commands come from `tidex.conf`
 in the project (or a parent directory): `project`, `test`, `server`,
 `browser`, `editor`. Missing `project` defaults to that directory's name.
 If the file is missing, Tidex asks before writing one (`y` cwd, `g` git
-root, `n`/`esc` skip) and will not write in `$HOME`, `/`, or `/tmp`.
+root, `n`/`esc` skip). `$HOME`, `/`, and `/tmp` are not permitted; `y`
+is omitted.
 
 | Key | Action |
 | --- | --- |

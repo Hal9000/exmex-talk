@@ -168,11 +168,11 @@ defmodule Tidex.ViewTest do
     assert output =~ "y  write here"
   end
 
-  test "setup overlay refuses to write in $HOME" do
-    setup = %Tidex.Setup{cwd: "/home/someone", blocked: true}
+  test "setup overlay states that a blocked cwd is not permitted" do
+    setup = %Tidex.Setup{cwd: "/tmp", blocked: true, offer_cwd: false}
     {output, _} = render(overlay: :setup, setup: setup, width: 80)
-    assert output =~ "you're in"
-    assert output =~ "cd to a tree"
+    assert output =~ "cwd is not permitted"
+    assert output =~ "/tmp"
     refute output =~ "y  write here"
   end
 

@@ -41,15 +41,13 @@ defmodule Tidex.Setup do
   @spec lines(t() | nil) :: [String.t()]
   def lines(nil), do: ["no tidex.conf"]
 
-  def lines(%__MODULE__{blocked: true, cwd: cwd}) do
+  def lines(%__MODULE__{offer_cwd: false} = setup) do
     [
       "no tidex.conf",
       "",
-      "you're in #{blocked_label(cwd)}",
-      "cd to a tree",
-      "",
-      "n or esc  continue without a file"
-    ]
+      "cwd is not permitted",
+      blocked_label(setup.cwd)
+    ] ++ git_option(setup) ++ ["", "n or esc  skip"]
   end
 
   def lines(%__MODULE__{offer_git: true} = setup) do
@@ -100,6 +98,12 @@ defmodule Tidex.Setup do
       "n or esc  skip"
     ]
   end
+
+  defp git_option(%{offer_git: true, git_root: root}) when is_binary(root) do
+    ["", "g  write at git root", root]
+  end
+
+  defp git_option(_), do: []
 
   defp blocked_label(cwd) do
     home = System.user_home()

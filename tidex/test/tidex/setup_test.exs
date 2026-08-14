@@ -38,7 +38,23 @@ defmodule Tidex.SetupTest do
     assert setup.blocked
     refute setup.offer_cwd
     lines = Setup.lines(setup)
+    assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
     assert Enum.any?(lines, &String.contains?(&1, "$HOME"))
+    refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
+  end
+
+  test "blocked cwd with a git root offers g but not y" do
+    setup = %Setup{
+      cwd: "/tmp",
+      git_root: "/tmp/repo",
+      blocked: true,
+      offer_cwd: false,
+      offer_git: true
+    }
+
+    lines = Setup.lines(setup)
+    assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
+    assert Enum.any?(lines, &String.starts_with?(&1, "g  write at git root"))
     refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
   end
 
