@@ -34,8 +34,13 @@ defmodule Tidex.AppTest do
   end
 
   defp output_inner(state) do
-    layout = Layout.compute(state.width, state.height, state.layout)
+    layout = Layout.compute(state)
     Layout.inner(layout.output)
+  end
+
+  defp fail_lines(out, app) do
+    layout = Layout.compute(app.state)
+    FakeTerminal.region_lines(out, Layout.inner(layout.fail))
   end
 
   test "q quits without running a command" do
@@ -239,6 +244,7 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "t"})
     assert app.state.output_scroll == :follow
     assert app.state.output_lines == []
+    assert app.state.failures == []
   end
 
   test "left and right do not scroll" do
@@ -248,6 +254,48 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.handle_event(app, {:key, :left})
     {:cont, app} = App.handle_event(app, {:key, :right})
     assert app.state.output_scroll == :follow
+  end
+
+  @exunit_fail [
+    "  1) test Foo.bar/1 (FooTest)",
+    "     test/foo_test.exs:12",
+    "     Assertion with == failed",
+    "  2) test boom (FooTest)",
+    "     test/foo_test.exs:20",
+    "     ** (RuntimeError) timed out"
+  ]
+
+  test "a failing test run fills the fail strip and left/right cycle it" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+    app = %{app | state: %{app.state | output_lines: @exunit_fail}}
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    assert app.state.test_state == :fail
+    assert length(app.state.failures) == 2
+    assert FakeTerminal.last_frame(out) =~ "fail 1/2"
+    assert fail_lines(out, app) |> Enum.any?(&(&1 =~ "Foo.bar"))
+
+    {:cont, app} = App.step(app, {:key, :right})
+    visible = fail_lines(out, app)
+    assert FakeTerminal.last_frame(out) =~ "fail 2/2"
+    assert Enum.any?(visible, &(&1 =~ "test boom"))
+    refute Enum.any?(visible, &(&1 =~ "Foo.bar"))
+
+    {:cont, _app} = App.step(app, {:key, :left})
+    assert FakeTerminal.last_frame(out) =~ "fail 1/2"
+  end
+
+  test "a passing run clears parsed failures" do
+    {app, _out} = app([])
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+    app = %{app | state: %{app.state | output_lines: @exunit_fail, failures: [%{name: "old"}]}}
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 0})
+    assert app.state.test_state == :pass
+    assert app.state.failures == []
   end
 
   test "handle_event q returns quit" do

@@ -21,6 +21,8 @@ defmodule Tidex.State do
             git_cmd_pid: nil,
             layout: :dashboard,
             overlay: nil,
+            failures: [],
+            failure_index: 0,
             width: 80,
             height: 24
 
@@ -50,6 +52,8 @@ defmodule Tidex.State do
           git_cmd_pid: pid() | nil,
           layout: layout(),
           overlay: overlay(),
+          failures: [Tidex.Failures.t()],
+          failure_index: non_neg_integer(),
           width: pos_integer(),
           height: pos_integer()
         }

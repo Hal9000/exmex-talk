@@ -5,12 +5,13 @@ defmodule Tidex.View do
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
-    layout = Layout.compute(state.width, state.height, state.layout)
+    layout = Layout.compute(state)
 
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 
     render_status(device, state, layout.status)
+    render_fail(device, state, layout.fail)
     render_output(device, state, layout.output)
     render_footer(device, layout)
     render_overlay(device, state, layout)
@@ -45,6 +46,38 @@ defmodule Tidex.View do
   defp git_line(%{branch: branch, dirty: 0}), do: "git:     #{branch}"
 
   defp git_line(%{branch: branch, dirty: n}), do: "git:     #{branch} · #{n} dirty"
+
+  defp render_fail(_device, _state, nil), do: :ok
+
+  defp render_fail(device, state, pane) do
+    current = Tidex.Failures.current(state)
+    n = length(state.failures)
+    index = rem(state.failure_index, max(n, 1)) + 1
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "fail #{index}/#{n}")
+    inner = Layout.inner(pane)
+
+    Termex.write_region(
+      device,
+      inner.row,
+      inner.col,
+      inner.width,
+      inner.height,
+      fail_lines(current)
+    )
+  end
+
+  defp fail_lines(nil), do: []
+
+  defp fail_lines(failure) do
+    loc =
+      case failure do
+        %{file: file, line: line} when is_binary(file) and is_integer(line) -> "#{file}:#{line}"
+        %{file: file} when is_binary(file) -> file
+        _ -> ""
+      end
+
+    [failure.name, Enum.join(Enum.reject([loc, failure.snippet], &(&1 == "")), "  ")]
+  end
 
   defp render_output(device, state, pane) do
     inner = Layout.inner(pane)
@@ -121,10 +154,10 @@ defmodule Tidex.View do
       "e  editor",
       "l  toggle layout",
       "arrows  scroll output",
+      "left/right  cycle failures",
       "g  git status",
       "?  this help",
       "q  quit",
-      "",
       "esc or ? closes"
     ]
   end

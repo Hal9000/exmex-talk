@@ -17,7 +17,7 @@ defmodule Tidex.ViewTest do
   end
 
   defp output_inner(state) do
-    layout = Layout.compute(state.width, state.height, state.layout)
+    layout = Layout.compute(state)
     Layout.inner(layout.output)
   end
 
@@ -151,5 +151,26 @@ defmodule Tidex.ViewTest do
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
     assert output =~ "esc or g closes"
+  end
+
+  test "fail strip sits between status and output when tests failed" do
+    failures = [
+      %{
+        name: "test Foo.bar/1 (FooTest)",
+        file: "test/foo_test.exs",
+        line: 12,
+        snippet: "Assertion with == failed"
+      }
+    ]
+
+    {output, state} =
+      render(test_state: :fail, failures: failures, width: 40, height: 20)
+
+    layout = Layout.compute(state)
+    assert layout.fail.row == 7
+    assert layout.output.row == 11
+    assert output =~ "fail 1/1"
+    assert output =~ "test Foo.bar/1"
+    assert output =~ "test/foo_test.exs:12"
   end
 end

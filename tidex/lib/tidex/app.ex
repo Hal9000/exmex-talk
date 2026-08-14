@@ -7,7 +7,7 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
-  alias Tidex.{Command, Config, Git, Keyboard, Layout, Open, Scroll, State, View}
+  alias Tidex.{Command, Config, Failures, Git, Keyboard, Layout, Open, Scroll, State, View}
 
   defstruct device: nil,
             state: %State{},
@@ -159,6 +159,14 @@ defmodule Tidex.App do
     {:cont, scroll_output(app, key)}
   end
 
+  def handle_event(app, {:key, :left}) do
+    {:cont, put_state(app, Failures.cycle(app.state, -1))}
+  end
+
+  def handle_event(app, {:key, :right}) do
+    {:cont, put_state(app, Failures.cycle(app.state, 1))}
+  end
+
   def handle_event(app, {:key, _key}), do: {:cont, app}
 
   def handle_event(app, {:command, ref, :line, line}) do
@@ -236,7 +244,9 @@ defmodule Tidex.App do
       test_pid: pid,
       output_lines: [],
       output_scroll: :follow,
-      output_source: :test
+      output_source: :test,
+      failures: [],
+      failure_index: 0
     })
   end
 
@@ -323,7 +333,7 @@ defmodule Tidex.App do
   defp scroll_delta(:page_down, height), do: max(height, 1)
 
   defp output_inner_height(state) do
-    layout = Layout.compute(state.width, state.height, state.layout)
+    layout = Layout.compute(state)
     Layout.inner(layout.output).height
   end
 
@@ -339,7 +349,15 @@ defmodule Tidex.App do
     cond do
       app.state.test_ref == ref ->
         test_state = if status == 0, do: :pass, else: :fail
-        put_state(app, %{test_state: test_state, test_ref: nil, test_pid: nil})
+        failures = if status == 0, do: [], else: Failures.parse(app.state.output_lines)
+
+        put_state(app, %{
+          test_state: test_state,
+          test_ref: nil,
+          test_pid: nil,
+          failures: failures,
+          failure_index: 0
+        })
 
       app.state.server_ref == ref ->
         put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
@@ -389,6 +407,8 @@ defmodule Tidex.App do
     Keyboard.stop(app.keyboard)
     %{app | keyboard: nil}
   end
+
+  defp put_state(app, %State{} = state), do: %{app | state: state}
 
   defp put_state(app, changes) do
     %{app | state: struct(app.state, changes)}

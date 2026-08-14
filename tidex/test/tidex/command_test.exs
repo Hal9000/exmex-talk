@@ -27,7 +27,11 @@ defmodule Tidex.CommandTest do
 
     send(ui, {:termex, :key, "t"})
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "three" end)
+    FakeTerminal.wait_until(fn ->
+      frame = FakeTerminal.last_frame(out)
+      frame =~ "three" and frame =~ "tests:   pass"
+    end)
+
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "one"
     assert frame =~ "two"

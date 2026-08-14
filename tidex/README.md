@@ -16,6 +16,7 @@ project (or a parent directory).
 | `e` | launch `$EDITOR` and redraw when it exits |
 | `l` | toggle dashboard / output-focused layout |
 | arrows, PgUp/PgDn | scroll the output pane (pins when not at the tail) |
+| left / right | cycle parsed test failures |
 | `?` | show/hide help overlay |
 | `g` | show/hide git status overlay |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git overlay is open) |
