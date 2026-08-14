@@ -27,6 +27,11 @@ browser: http://localhost:4000
 directory that contains `tidex.conf` (or cwd when the file is missing).
 `editor` falls back to `$VISUAL` / `$EDITOR` / `vi`.
 
+If no `tidex.conf` is found, Tidex prompts before writing one: `y` writes
+in cwd, `g` writes at the nearest git root (when that path differs and
+is not `$HOME` / `/` / `/tmp`), `n` or `esc` skips. It will not write in
+`$HOME`, `/`, or `/tmp`.
+
 Tidex depends on Termex locally:
 
 ```elixir

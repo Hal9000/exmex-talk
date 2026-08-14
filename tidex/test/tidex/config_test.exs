@@ -67,4 +67,36 @@ defmodule Tidex.ConfigTest do
              "browser" => "http://localhost:4000"
            }
   end
+
+  test "refuses to write in home, /, and /tmp", %{dir: dir} do
+    assert Config.blocked?("/")
+    assert Config.blocked?("/tmp")
+    assert Config.blocked?(System.user_home())
+    refute Config.blocked?(dir)
+    assert {:error, :blocked} = Config.write!("/")
+    assert {:error, :blocked} = Config.write!("/tmp")
+  end
+
+  test "write! dumps guessed defaults and omits editor", %{dir: dir} do
+    File.write!(Path.join(dir, "mix.exs"), "")
+    assert {:ok, path} = Config.write!(dir)
+    assert path == Path.join(dir, "tidex.conf")
+    body = File.read!(path)
+    assert body =~ "project: #{Path.basename(dir)}"
+    assert body =~ "test: mix test"
+    assert body =~ "server: python3 -m http.server 4000"
+    refute body =~ ~r/^editor:/m
+  end
+
+  test "git_root is the upward toplevel", %{dir: dir} do
+    git!(dir, ["init", "-b", "main"])
+    nested = Path.join(dir, "nested")
+    File.mkdir_p!(nested)
+    assert Config.git_root(nested) == Path.expand(dir)
+    assert Config.git_root(dir) == Path.expand(dir)
+  end
+
+  defp git!(dir, args) do
+    {_, 0} = System.cmd("git", args, cd: dir, stderr_to_stdout: true)
+  end
 end

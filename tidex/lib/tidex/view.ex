@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Scroll, State}
+  alias Tidex.{Layout, Scroll, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -103,6 +103,10 @@ defmodule Tidex.View do
       layout.width,
       "[e]dit [l]ayout [g]it [?]help [q]uit"
     )
+  end
+
+  defp render_overlay(device, %{overlay: :setup} = state, layout) do
+    draw_overlay(device, layout, "tidex.conf", Setup.lines(state.setup))
   end
 
   defp render_overlay(_device, %{overlay: nil}, _layout), do: :ok

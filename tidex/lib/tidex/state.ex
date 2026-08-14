@@ -21,6 +21,8 @@ defmodule Tidex.State do
             git_cmd_pid: nil,
             layout: :dashboard,
             overlay: nil,
+            setup: nil,
+            cwd: ".",
             failures: [],
             failure_index: 0,
             width: 80,
@@ -29,7 +31,7 @@ defmodule Tidex.State do
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
   @type layout :: :dashboard | :output
-  @type overlay :: nil | :help | :git
+  @type overlay :: nil | :help | :git | :setup
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -52,6 +54,8 @@ defmodule Tidex.State do
           git_cmd_pid: pid() | nil,
           layout: layout(),
           overlay: overlay(),
+          setup: Tidex.Setup.t() | nil,
+          cwd: String.t(),
           failures: [Tidex.Failures.t()],
           failure_index: non_neg_integer(),
           width: pos_integer(),

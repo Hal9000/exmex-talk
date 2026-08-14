@@ -7,7 +7,7 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
-  alias Tidex.{Command, Config, Failures, Git, Keyboard, Layout, Open, Scroll, State, View}
+  alias Tidex.{Command, Config, Failures, Git, Keyboard, Layout, Open, Scroll, Setup, State, View}
 
   defstruct device: nil,
             state: %State{},
@@ -40,7 +40,16 @@ defmodule Tidex.App do
   @spec new(keyword()) :: t()
   def new(opts \\ []) do
     {width, height} = dimensions(opts)
-    config = Keyword.get(opts, :config) || Config.load()
+    cwd = Path.expand(Keyword.get(opts, :cwd, File.cwd!()))
+    injected? = Keyword.has_key?(opts, :config)
+    config = Keyword.get(opts, :config) || Config.load(cwd)
+
+    setup =
+      cond do
+        injected? -> nil
+        Setup.needed?(cwd) -> Setup.probe(cwd)
+        true -> nil
+      end
 
     state = %State{
       title: Keyword.get(opts, :title, "Tidex"),
@@ -51,6 +60,9 @@ defmodule Tidex.App do
       editor_command: Keyword.get(opts, :editor_command, config.editor),
       git: Keyword.get(opts, :git, %{branch: nil, dirty: 0, status: ""}),
       layout: Keyword.get(opts, :layout, :dashboard),
+      overlay: if(setup, do: :setup, else: nil),
+      setup: setup,
+      cwd: cwd,
       width: width,
       height: height
     }
@@ -99,6 +111,23 @@ defmodule Tidex.App do
 
   @spec handle_event(t(), term()) :: {:cont, t()} | {:quit, t()}
   def handle_event(app, {:key, key}) when key in ["q", "Q", <<3>>, :eof], do: {:quit, app}
+
+  def handle_event(%{state: %{overlay: :setup}} = app, {:key, key}) when key in ["y", "Y"] do
+    {:cont, setup_write(app, :cwd)}
+  end
+
+  def handle_event(%{state: %{overlay: :setup}} = app, {:key, key}) when key in ["g", "G"] do
+    {:cont, setup_write(app, :git)}
+  end
+
+  def handle_event(%{state: %{overlay: :setup}} = app, {:key, key})
+      when key in ["n", "N", :esc] do
+    {:cont, setup_skip(app)}
+  end
+
+  def handle_event(%{state: %{overlay: :setup}} = app, {:key, _key}) do
+    {:cont, app}
+  end
 
   def handle_event(app, {:key, "?"}) do
     next = if app.state.overlay == :help, do: nil, else: :help
@@ -402,6 +431,45 @@ defmodule Tidex.App do
   defp stop_git_cmd(app) do
     Command.stop(app.state.git_cmd_pid)
     put_state(app, %{git_cmd_pid: nil, git_cmd_ref: nil})
+  end
+
+  defp setup_write(app, :cwd) do
+    case app.state.setup do
+      %{offer_cwd: true, cwd: dir} -> do_setup_write(app, dir)
+      _ -> app
+    end
+  end
+
+  defp setup_write(app, :git) do
+    case app.state.setup do
+      %{offer_git: true, git_root: dir} when is_binary(dir) -> do_setup_write(app, dir)
+      _ -> app
+    end
+  end
+
+  defp do_setup_write(app, dir) do
+    case Config.write!(dir) do
+      {:ok, _} -> apply_config(app)
+      {:error, _} -> app
+    end
+  end
+
+  defp apply_config(app) do
+    config = Config.load(app.state.cwd)
+
+    put_state(app, %{
+      overlay: nil,
+      setup: nil,
+      project_name: config.project,
+      test_command: config.test,
+      server_command: config.server,
+      browser_url: config.browser,
+      editor_command: config.editor
+    })
+  end
+
+  defp setup_skip(app) do
+    put_state(app, %{overlay: nil, setup: nil})
   end
 
   defp normalize_git(snapshot) when is_map(snapshot) do

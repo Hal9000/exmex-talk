@@ -153,6 +153,29 @@ defmodule Tidex.ViewTest do
     assert output =~ "esc or g closes"
   end
 
+  test "setup overlay asks where to write tidex.conf" do
+    setup = %Tidex.Setup{
+      cwd: "/tmp/demo-project",
+      git_root: nil,
+      offer_cwd: true,
+      offer_git: false
+    }
+
+    {output, _} = render(overlay: :setup, setup: setup, width: 80)
+    assert output =~ "tidex.conf"
+    assert output =~ "no tidex.conf"
+    assert output =~ "write in cwd"
+    assert output =~ "y  write here"
+  end
+
+  test "setup overlay refuses to write in $HOME" do
+    setup = %Tidex.Setup{cwd: "/home/someone", blocked: true}
+    {output, _} = render(overlay: :setup, setup: setup, width: 80)
+    assert output =~ "you're in"
+    assert output =~ "cd to a tree"
+    refute output =~ "y  write here"
+  end
+
   test "fail strip sits between status and output when tests failed" do
     failures = [
       %{

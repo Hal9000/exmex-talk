@@ -4,10 +4,14 @@ defmodule Tidex.Config do
 
   Lines are `key: value`. `#` comments and blank lines are ignored.
   Known keys: `project`, `test`, `server`, `browser`, `editor`.
+
+  When no file is found, Tidex can write one after a prompt. It refuses
+  `$HOME`, `/`, and `/tmp`.
   """
 
   @filename "tidex.conf"
   @keys ~w(project test server browser editor)
+  @blocked_exact ~w(/ /tmp /var /private/tmp /private/var)
 
   defstruct project: "tidex",
             test: "mix test",
@@ -69,6 +73,65 @@ defmodule Tidex.Config do
   @spec default_editor() :: String.t()
   def default_editor do
     System.get_env("VISUAL") || System.get_env("EDITOR") || "vi"
+  end
+
+  @spec filename() :: String.t()
+  def filename, do: @filename
+
+  @spec blocked?(String.t()) :: boolean()
+  def blocked?(dir) do
+    dir = Path.expand(dir)
+    home = home_dir()
+    dir == home or dir in @blocked_exact
+  end
+
+  @spec project_markers?(String.t()) :: boolean()
+  def project_markers?(dir) do
+    dir = Path.expand(dir)
+
+    Enum.any?(~w(mix.exs package.json Cargo.toml go.mod .git), fn name ->
+      File.exists?(Path.join(dir, name))
+    end)
+  end
+
+  @spec git_root(String.t()) :: String.t() | nil
+  def git_root(cwd \\ File.cwd!()) do
+    case System.cmd("git", ["rev-parse", "--show-toplevel"],
+           cd: Path.expand(cwd),
+           stderr_to_stdout: true,
+           env: [{"LC_ALL", "C"}]
+         ) do
+      {out, 0} -> out |> String.trim() |> Path.expand()
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  @spec write!(String.t()) :: {:ok, String.t()} | {:error, :blocked}
+  def write!(dir) do
+    dir = Path.expand(dir)
+
+    if blocked?(dir) do
+      {:error, :blocked}
+    else
+      File.mkdir_p!(dir)
+      path = Path.join(dir, @filename)
+      File.write!(path, dump(defaults(dir)))
+      {:ok, path}
+    end
+  end
+
+  @spec dump(t()) :: String.t()
+  def dump(%__MODULE__{} = config) do
+    """
+    # Tidex project config (key: value)
+    project: #{config.project}
+    test: #{config.test}
+    server: #{config.server}
+    browser: #{config.browser}
+    # editor falls back to $VISUAL / $EDITOR / vi
+    """
   end
 
   @spec find_file(String.t()) :: String.t() | nil
@@ -144,6 +207,13 @@ defmodule Tidex.Config do
     case Map.get(map, key) do
       value when is_binary(value) and value != "" -> value
       _ -> fallback
+    end
+  end
+
+  defp home_dir do
+    case System.user_home() do
+      home when is_binary(home) -> Path.expand(home)
+      _ -> nil
     end
   end
 end

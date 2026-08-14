@@ -519,4 +519,103 @@ defmodule Tidex.AppTest do
     assert app.state.browser_url == "http://example.test"
     assert app.state.editor_command == "true"
   end
+
+  test "missing tidex.conf opens a setup overlay" do
+    dir = tmp_dir()
+
+    try do
+      {app, out} = app(cwd: dir, width: 80)
+      assert app.state.overlay == :setup
+      assert app.state.setup.offer_cwd
+      {:cont, app} = App.step(app, {:key, "z"})
+      assert FakeTerminal.last_frame(out) =~ "no tidex.conf"
+      assert FakeTerminal.last_frame(out) =~ "write in cwd"
+      assert app.state.overlay == :setup
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "y writes tidex.conf in cwd and closes setup" do
+    dir = tmp_dir()
+
+    try do
+      {app, _out} = app(cwd: dir)
+      {:cont, app} = App.step(app, {:key, "y"})
+      assert app.state.overlay == nil
+      assert File.exists?(Path.join(dir, "tidex.conf"))
+      assert app.state.project_name == Path.basename(dir)
+      body = File.read!(Path.join(dir, "tidex.conf"))
+      refute body =~ ~r/^editor:/m
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "n skips writing and closes setup" do
+    dir = tmp_dir()
+
+    try do
+      {app, _out} = app(cwd: dir)
+      {:cont, app} = App.step(app, {:key, "n"})
+      assert app.state.overlay == nil
+      refute File.exists?(Path.join(dir, "tidex.conf"))
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "g writes tidex.conf at the git root, not cwd" do
+    dir = tmp_dir()
+    nested = Path.join(dir, "nested")
+    File.mkdir_p!(nested)
+
+    try do
+      git!(dir, ["init", "-b", "main"])
+      {app, _out} = app(cwd: nested, width: 80)
+      assert app.state.setup.offer_git
+      {:cont, app} = App.step(app, {:key, "g"})
+      assert app.state.overlay == nil
+      assert File.exists?(Path.join(dir, "tidex.conf"))
+      refute File.exists?(Path.join(nested, "tidex.conf"))
+      assert app.state.project_name == Path.basename(dir)
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "y does not write when cwd is blocked" do
+    {app, _out} = app(cwd: "/")
+    assert app.state.overlay == :setup
+    assert app.state.setup.blocked
+    {:cont, app} = App.step(app, {:key, "y"})
+    assert app.state.overlay == :setup
+    refute File.exists?("/tidex.conf")
+  end
+
+  test "command keys are ignored while setup is open" do
+    dir = tmp_dir()
+
+    try do
+      {app, _out} = app(cwd: dir)
+      runner = fn _cmd, _notify, _ref -> flunk("setup should block commands") end
+      app = %{app | runner: runner}
+      {:cont, app} = App.handle_event(app, {:key, "t"})
+      {:cont, app} = App.handle_event(app, {:key, "?"})
+      assert app.state.overlay == :setup
+      assert app.state.test_state == :idle
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  defp tmp_dir do
+    dir = Path.join(System.tmp_dir!(), "tidex-app-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    dir
+  end
+
+  defp git!(dir, args) do
+    {_, 0} = System.cmd("git", args, cd: dir, stderr_to_stdout: true)
+  end
 end
