@@ -51,8 +51,8 @@ defmodule Termex.Keys do
           _ -> read(input)
         end
 
-      _other ->
-        _other
+      other ->
+        other
     end
   end
 
