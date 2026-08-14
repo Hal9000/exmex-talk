@@ -4,8 +4,9 @@ A language-agnostic development workbench built on
 [Termex](../termex).
 
 Two layouts (`l` to toggle): a **status** pane (project, tests, server,
-git) and an **output** pane. Commands come from `tidex.exs` in the
-project (or a parent directory).
+git) and an **output** pane. Label and commands come from `tidex.conf`
+in the project (or a parent directory): `project`, `test`, `server`,
+`browser`, `editor`. Missing `project` defaults to that directory's name.
 
 | Key | Action |
 | --- | --- |

@@ -503,8 +503,9 @@ defmodule Tidex.AppTest do
     Tidex.Keyboard.stop(app.keyboard)
   end
 
-  test "loads test/server/browser/editor from config" do
+  test "loads project/test/server/browser/editor from config" do
     config = %Tidex.Config{
+      project: "demo",
       test: "echo tests",
       server: "echo serve",
       browser: "http://example.test",
@@ -512,6 +513,7 @@ defmodule Tidex.AppTest do
     }
 
     {app, _out} = app(config: config)
+    assert app.state.project_name == "demo"
     assert app.state.test_command == "echo tests"
     assert app.state.server_command == "echo serve"
     assert app.state.browser_url == "http://example.test"

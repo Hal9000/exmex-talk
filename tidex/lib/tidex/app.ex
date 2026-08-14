@@ -44,7 +44,7 @@ defmodule Tidex.App do
 
     state = %State{
       title: Keyword.get(opts, :title, "Tidex"),
-      project_name: Keyword.get(opts, :project_name, "exmex-talk"),
+      project_name: Keyword.get(opts, :project_name, config.project),
       test_command: Keyword.get(opts, :test_command, config.test),
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),

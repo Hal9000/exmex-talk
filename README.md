@@ -13,16 +13,19 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
 | [`tidex/`](tidex) | Workbench: tests, server, git, browser, editor, two layouts, OTP supervision |
 
-Project commands live in [`tidex.exs`](tidex.exs) (walked from cwd toward `/`):
+Project label and commands live in [`tidex.conf`](tidex.conf) (walked from
+cwd toward `/`):
 
-```elixir
-%{
-  test: "mix test",
-  server: "python3 -m http.server 4000",
-  browser: "http://localhost:4000",
-  editor: System.get_env("EDITOR") || "vi"
-}
 ```
+project: exmex-talk
+test: mix test
+server: python3 -m http.server 4000
+browser: http://localhost:4000
+```
+
+`project` is the status-pane label. If omitted, it defaults to the
+directory that contains `tidex.conf` (or cwd when the file is missing).
+`editor` falls back to `$VISUAL` / `$EDITOR` / `vi`.
 
 Tidex depends on Termex locally:
 
