@@ -51,6 +51,12 @@ defmodule Tidex.AppTest do
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
   end
 
+  test "arrow keys are ignored until a pane uses them" do
+    {app, _out} = app([])
+    assert {:cont, ^app} = App.handle_event(app, {:key, :up})
+    assert {:cont, ^app} = App.handle_event(app, {:key, :page_down})
+  end
+
   test "handle_event q returns quit" do
     {app, _out} = app([])
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})

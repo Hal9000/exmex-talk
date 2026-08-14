@@ -6,6 +6,7 @@ defmodule Termex.Keyboard do
   rendering; this process only forwards keys:
 
       {:termex, :key, "q"}
+      {:termex, :key, :up}
       {:termex, :key, :eof}
   """
 

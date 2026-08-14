@@ -10,7 +10,8 @@ Current surface:
 - clear the visible screen, move the cursor, write text
 - box drawing: horizontal line, vertical line, corners
 - clipped text regions so content stays inside a pane
-- single-key input, including a keyboard process that sends keys as messages
+- key input: single bytes, arrow/page keys, and a keyboard process that
+  sends keys as messages
 - yield the terminal to an external program, then resume raw mode
 
 Drawing and input go through an injectable `Termex.Device`, so tests can

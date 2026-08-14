@@ -12,4 +12,13 @@ defmodule Termex.KeyboardTest do
     assert_receive {:termex, :key, :eof}
     refute Process.alive?(pid)
   end
+
+  test "forwards decoded arrow keys" do
+    {device, _out} = Capture.open("\e[A\e[B")
+    assert {:ok, _pid} = Termex.keyboard(device, notify: self())
+
+    assert_receive {:termex, :key, :up}
+    assert_receive {:termex, :key, :down}
+    assert_receive {:termex, :key, :eof}
+  end
 end

@@ -3,11 +3,11 @@ defmodule Termex do
   A small terminal UI runtime.
 
   Termex grows only when an application needs a new capability. Tidex
-  currently needs: clear, cursor, write, keys, boxes, clipped text,
-  and yielding the terminal to an external editor.
+  currently needs: clear, cursor, write, keys (including arrows), boxes,
+  clipped text, and yielding the terminal to an external editor.
   """
 
-  alias Termex.{ANSI, Box, Device, Keyboard, RawMode}
+  alias Termex.{ANSI, Box, Device, Keyboard, Keys, RawMode}
 
   @doc "Clear the visible screen on `device`."
   @spec clear_visible(Device.t()) :: :ok
@@ -131,20 +131,14 @@ defmodule Termex do
   end
 
   @doc """
-  Read a single byte/key from `device`.
+  Read a key from `device`.
 
-  Returns `:eof` when the input is exhausted.
+  Single bytes stay strings (`"q"`, `<<3>>`). Arrow and page keys are
+  atoms (`:up`, `:page_down`). A lone ESC is `:esc`. Returns `:eof`
+  when the input is exhausted.
   """
-  @spec read_key(Device.t()) :: String.t() | :eof
-  def read_key(%Device{input: input}) do
-    case IO.getn(input, "", 1) do
-      :eof -> :eof
-      {:error, _} -> :eof
-      key when is_binary(key) and byte_size(key) > 0 -> key
-      [char] when is_integer(char) -> <<char>>
-      _ -> :eof
-    end
-  end
+  @spec read_key(Device.t()) :: Keys.t()
+  def read_key(%Device{input: input}), do: Keys.read(input)
 
   @spec enter(Device.t()) :: {:ok, RawMode.session()}
   defdelegate enter(device), to: RawMode
