@@ -21,4 +21,11 @@ defmodule Termex.ANSITest do
     assert ANSI.show_cursor() == "\e[?25h"
     assert ANSI.hide_cursor() == "\e[?25l"
   end
+
+  test "bold wraps text and strip drops CSI" do
+    assert ANSI.wrap_bold("t") == "\e[1mt\e[0m"
+    assert Termex.bold("t") == "\e[1mt\e[0m"
+    assert ANSI.strip("\e[1mt\e[0mest") == "test"
+    assert ANSI.strip("plain") == "plain"
+  end
 end

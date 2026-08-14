@@ -37,7 +37,7 @@ defmodule Tidex.SetupTest do
     setup = Setup.probe(System.user_home())
     assert setup.blocked
     refute setup.offer_cwd
-    lines = Setup.lines(setup)
+    lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
     assert Enum.any?(lines, &String.contains?(&1, "$HOME"))
     refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
@@ -52,9 +52,9 @@ defmodule Tidex.SetupTest do
       offer_git: true
     }
 
-    lines = Setup.lines(setup)
+    lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
-    assert Enum.any?(lines, &String.starts_with?(&1, "g  write at git root"))
+    assert Enum.any?(lines, &(&1 == "g  write at git root"))
     refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
   end
 
@@ -66,9 +66,9 @@ defmodule Tidex.SetupTest do
       offer_git: true
     }
 
-    lines = Setup.lines(setup)
+    lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.at(lines, 2) =~ "doesn't look like a project"
-    assert Enum.any?(lines, &String.starts_with?(&1, "g  write at git root"))
+    assert Enum.any?(lines, &(&1 == "g  write at git root"))
   end
 
   defp tmp_dir do

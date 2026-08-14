@@ -27,4 +27,13 @@ defmodule Termex.ClipTest do
     refute text =~ "ef"
     refute text =~ "kl"
   end
+
+  test "clip/2 ignores CSI when counting width and closes SGR" do
+    assert Termex.clip("\e[1mhello", 5) == "\e[1mhello\e[0m"
+    assert Termex.clip("\e[1mhello\e[0m", 5) == "\e[1mhello\e[0m"
+    assert Termex.clip("\e[1mhello\e[0m world", 5) == "\e[1mhello\e[0m"
+    assert Termex.clip("\e[1mab\e[0mcd", 3) == "\e[1mab\e[0mc"
+    assert Termex.clip(Termex.bold("foobar"), 3) == "\e[1mfoo\e[0m"
+    assert Termex.clip("hello", 5) == "hello"
+  end
 end

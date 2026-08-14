@@ -4,10 +4,11 @@ defmodule Termex do
 
   Termex grows only when an application needs a new capability. Tidex
   currently needs: clear, cursor, write, keys (including arrows), boxes,
-  clipped text, and yielding the terminal to an external editor.
+  clipped text (CSI is width 0), bold, and yielding the terminal to an
+  external editor.
   """
 
-  alias Termex.{ANSI, Box, Device, Keyboard, Keys, RawMode}
+  alias Termex.{ANSI, Box, Clip, Device, Keyboard, Keys, RawMode}
 
   @doc "Clear the visible screen on `device`."
   @spec clear_visible(Device.t()) :: :ok
@@ -35,19 +36,18 @@ defmodule Termex do
   end
 
   @doc """
-  Truncate `text` to `width` graphemes so it cannot spill a pane.
+  Truncate `text` to `width` visible graphemes so it cannot spill a pane.
 
+  CSI sequences (including SGR) have width 0 and are not split. If a
+  graphic rendition is still open after truncation, a reset is appended.
   Newlines become spaces. Width `0` yields an empty string.
   """
   @spec clip(iodata(), non_neg_integer()) :: String.t()
-  def clip(_text, width) when width <= 0, do: ""
+  def clip(text, width), do: Clip.visible(text, width)
 
-  def clip(text, width) do
-    text
-    |> IO.iodata_to_binary()
-    |> String.replace("\n", " ")
-    |> String.slice(0, width)
-  end
+  @doc "Wrap `text` in bold, then reset."
+  @spec bold(iodata()) :: String.t()
+  def bold(text), do: ANSI.wrap_bold(text)
 
   @doc "Write `text` at `{row, col}`, truncated to `width` columns."
   @spec write_clipped(Device.t(), pos_integer(), pos_integer(), non_neg_integer(), iodata()) ::

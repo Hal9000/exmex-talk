@@ -33,8 +33,10 @@ defmodule Tidex.ViewTest do
     assert output =~ "tests:   idle"
     assert output =~ "server:  down"
     assert output =~ "git:"
-    assert output =~ "[t]est"
-    assert output =~ "[q]uit"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "test start xstop browse"
+    assert visible =~ "edit layout git ?help quit"
+    assert output =~ "\e[1mt"
   end
 
   test "shows test and server state in the status pane" do
@@ -133,7 +135,7 @@ defmodule Tidex.ViewTest do
   test "help overlay draws a keymap on top of the panes" do
     {output, _} = render(overlay: :help)
     assert output =~ "help"
-    assert output =~ "t  run tests"
+    assert Termex.ANSI.strip(output) =~ "t  run tests"
     assert output =~ "arrows  scroll output"
     assert output =~ "esc or ? closes"
   end
@@ -147,7 +149,7 @@ defmodule Tidex.ViewTest do
 
     {output, _} = render(overlay: :git, git: git)
     assert output =~ "git"
-    assert output =~ "[a]dd -u"
+    assert Termex.ANSI.strip(output) =~ "add -u"
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
     assert output =~ "esc or g closes"
@@ -165,7 +167,7 @@ defmodule Tidex.ViewTest do
     assert output =~ "tidex.conf"
     assert output =~ "no tidex.conf"
     assert output =~ "write in cwd"
-    assert output =~ "y  write here"
+    assert Termex.ANSI.strip(output) =~ "y  write here"
   end
 
   test "setup overlay states that a blocked cwd is not permitted" do
@@ -173,7 +175,7 @@ defmodule Tidex.ViewTest do
     {output, _} = render(overlay: :setup, setup: setup, width: 80)
     assert output =~ "cwd is not permitted"
     assert output =~ "/tmp"
-    refute output =~ "y  write here"
+    refute Termex.ANSI.strip(output) =~ "y  write here"
   end
 
   test "fail strip sits between status and output when tests failed" do

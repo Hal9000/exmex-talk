@@ -47,7 +47,7 @@ defmodule Tidex.Setup do
       "",
       "cwd is not permitted",
       blocked_label(setup.cwd)
-    ] ++ git_option(setup) ++ ["", "n or esc  skip"]
+    ] ++ git_option(setup) ++ ["", key("n", "or esc  skip")]
   end
 
   def lines(%__MODULE__{offer_git: true} = setup) do
@@ -67,8 +67,8 @@ defmodule Tidex.Setup do
       "write in cwd?",
       setup.cwd,
       "",
-      "y  write here",
-      "n or esc  skip"
+      key("y", "write here"),
+      key("n", "or esc  skip")
     ]
   end
 
@@ -79,9 +79,9 @@ defmodule Tidex.Setup do
       "write in cwd?",
       setup.cwd,
       "",
-      "y  write here",
-      "g  git root  #{setup.git_root}",
-      "n or esc  skip"
+      key("y", "write here"),
+      key("g", "git root  #{setup.git_root}"),
+      key("n", "or esc  skip")
     ]
   end
 
@@ -93,17 +93,19 @@ defmodule Tidex.Setup do
       "git root:",
       setup.git_root,
       "",
-      "g  write at git root",
-      "y  write in cwd anyway",
-      "n or esc  skip"
+      key("g", "write at git root"),
+      key("y", "write in cwd anyway"),
+      key("n", "or esc  skip")
     ]
   end
 
   defp git_option(%{offer_git: true, git_root: root}) when is_binary(root) do
-    ["", "g  write at git root", root]
+    ["", key("g", "write at git root"), root]
   end
 
   defp git_option(_), do: []
+
+  defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 
   defp blocked_label(cwd) do
     home = System.user_home()

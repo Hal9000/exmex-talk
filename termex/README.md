@@ -9,7 +9,8 @@ Current surface:
 
 - clear the visible screen, move the cursor, write text
 - box drawing: horizontal line, vertical line, corners
-- clipped text regions so content stays inside a pane
+- clipped text regions so content stays inside a pane (CSI is not width)
+- bold / reset (SGR), for hotkeys
 - key input: single bytes, arrow/page keys, and a keyboard process that
   sends keys as messages
 - yield the terminal to an external program, then resume raw mode

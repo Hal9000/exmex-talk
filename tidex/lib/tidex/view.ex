@@ -93,7 +93,10 @@ defmodule Tidex.View do
       layout.footer_row - 1,
       1,
       layout.width,
-      "[t]est [s]tart [x]stop [b]rowse"
+      Enum.join(
+        [hotkey("t", "test"), hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse")],
+        " "
+      )
     )
 
     Termex.write_clipped(
@@ -101,7 +104,16 @@ defmodule Tidex.View do
       layout.footer_row,
       1,
       layout.width,
-      "[e]dit [l]ayout [g]it [?]help [q]uit"
+      Enum.join(
+        [
+          hotkey("e", "edit"),
+          hotkey("l", "layout"),
+          hotkey("g", "git"),
+          hotkey("?", "help"),
+          hotkey("q", "quit")
+        ],
+        " "
+      )
     )
   end
 
@@ -151,24 +163,42 @@ defmodule Tidex.View do
 
   defp help_lines do
     [
-      "t  run tests",
-      "s  start/restart server",
-      "x  stop server",
-      "b  open browser",
-      "e  editor (failure file)",
-      "l  toggle layout",
+      key("t", "run tests"),
+      key("s", "start/restart server"),
+      key("x", "stop server"),
+      key("b", "open browser"),
+      key("e", "editor (failure file)"),
+      key("l", "toggle layout"),
       "arrows  scroll output",
       "left/right  cycle failures",
-      "g  git status",
-      "?  this help",
-      "q  quit",
+      key("g", "git status"),
+      key("?", "this help"),
+      key("q", "quit"),
       "esc or ? closes"
     ]
   end
 
   defp git_overlay_lines(git) do
-    ["[a]dd -u  [c]ommit  [p]ush", "esc or g closes", "" | git_status_lines(git)]
+    [
+      Enum.join(
+        [hotkey("a", "add") <> " -u  ", hotkey("c", "commit") <> "  ", hotkey("p", "push")],
+        ""
+      ),
+      "esc or g closes",
+      ""
+      | git_status_lines(git)
+    ]
   end
+
+  defp hotkey(letter, word) do
+    if String.starts_with?(word, letter) do
+      Termex.bold(letter) <> String.replace_prefix(word, letter, "")
+    else
+      Termex.bold(letter) <> word
+    end
+  end
+
+  defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 
   defp git_status_lines(%{status: text}) when is_binary(text) and text != "" do
     String.split(text, "\n")

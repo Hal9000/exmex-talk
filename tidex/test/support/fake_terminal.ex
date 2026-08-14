@@ -30,10 +30,17 @@ defmodule Tidex.FakeTerminal do
   end
 
   @doc """
+  Last-frame text with CSI removed (visible characters only).
+  """
+  @spec visible(pid() | String.t()) :: String.t()
+  def visible(source), do: source |> last_frame() |> Termex.ANSI.strip()
+
+  @doc """
   Text written into `pane` in the last frame, top to bottom.
 
   Uses the pane's row/col/height (Termex writes one clipped line per
   row at `col`). Later writes to the same cell win, matching a TTY.
+  SGR in a cell is stripped so tests assert on visible text.
   """
   @spec region_lines(pid() | String.t(), Tidex.Layout.Pane.t()) :: [String.t()]
   def region_lines(source, %Tidex.Layout.Pane{} = pane) do
@@ -53,10 +60,46 @@ defmodule Tidex.FakeTerminal do
   end
 
   defp writes(source) do
-    Regex.scan(~r/\e\[(\d+);(\d+)H([^\e]*)/, last_frame(source), capture: :all_but_first)
-    |> Enum.map(fn [row, col, body] ->
-      {String.to_integer(row), String.to_integer(col), body}
-    end)
+    frame = last_frame(source)
+
+    frame
+    |> then(&Regex.split(~r/(\e\[\d+;\d+H)/, &1, include_captures: true, trim: true))
+    |> parse_writes([])
+    |> Enum.reverse()
+  end
+
+  defp parse_writes([], acc), do: acc
+
+  defp parse_writes([marker], acc) do
+    case cursor(marker) do
+      {row, col} -> [{row, col, ""} | acc]
+      :no -> acc
+    end
+  end
+
+  defp parse_writes([marker, body | rest], acc) do
+    case cursor(marker) do
+      {row, col} ->
+        {visible, rest} = take_body(body, rest)
+        parse_writes(rest, [{row, col, visible} | acc])
+
+      :no ->
+        parse_writes([body | rest], acc)
+    end
+  end
+
+  defp take_body(body, rest) do
+    case cursor(body) do
+      {_, _} -> {"", [body | rest]}
+      :no -> {Termex.ANSI.strip(body), rest}
+    end
+  end
+
+  defp cursor(text) do
+    case Regex.run(~r/\A\e\[(\d+);(\d+)H\z/, text) do
+      [_, row, col] -> {String.to_integer(row), String.to_integer(col)}
+      _ -> :no
+    end
   end
 
   @spec start_ui(keyword()) :: {pid(), Termex.Device.t(), pid()}

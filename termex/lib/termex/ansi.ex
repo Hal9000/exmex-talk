@@ -29,4 +29,25 @@ defmodule Termex.ANSI do
 
   @spec hide_cursor() :: String.t()
   def hide_cursor, do: @esc <> "[?25l"
+
+  @spec bold() :: String.t()
+  def bold, do: @esc <> "[1m"
+
+  @spec reset() :: String.t()
+  def reset, do: @esc <> "[0m"
+
+  @doc "Wrap `text` in bold SGR, then reset."
+  @spec wrap_bold(iodata()) :: String.t()
+  def wrap_bold(text) do
+    bold() <> IO.iodata_to_binary(text) <> reset()
+  end
+
+  @doc "Drop CSI sequences so tests can assert on visible text."
+  @spec strip(iodata()) :: String.t()
+  def strip(text) do
+    text
+    |> IO.iodata_to_binary()
+    |> then(&Regex.replace(~r/\e\[[0-9;?]*[@-~]/, &1, ""))
+    |> String.replace(~r/\e./, "")
+  end
 end

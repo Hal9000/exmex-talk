@@ -105,12 +105,12 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == :git
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "On branch main"
-    assert frame =~ "[a]dd -u"
+    assert FakeTerminal.visible(out) =~ "add -u"
 
     {:cont, app} = App.step(app, {:key, "g"})
     assert app.state.overlay == nil
-    refute FakeTerminal.last_frame(out) =~ "[a]dd -u"
-    assert FakeTerminal.text(out) =~ "[a]dd -u"
+    refute FakeTerminal.visible(out) =~ "add -u"
+    assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "add -u"
   end
 
   test "esc closes the git overlay" do
@@ -593,7 +593,7 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == :setup
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "cwd is not permitted"
-    refute frame =~ "y  write here"
+    refute FakeTerminal.visible(out) =~ "y  write here"
     refute File.exists?("/tidex.conf")
   end
 

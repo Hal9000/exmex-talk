@@ -26,6 +26,8 @@ is omitted.
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git overlay is open) |
 | `q` | quit |
 
+The footer bolds the key letter (`test`, `start`, `xstop`, …).
+
 ```bash
 cd tidex
 mix deps.get
