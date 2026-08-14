@@ -13,7 +13,7 @@ project (or a parent directory).
 | `s` | start or restart server |
 | `x` | stop server |
 | `b` | open browser URL |
-| `e` | launch `$EDITOR` and redraw when it exits |
+| `e` | editor; opens the current failure at line when there is one |
 | `l` | toggle dashboard / output-focused layout |
 | arrows, PgUp/PgDn | scroll the output pane (pins when not at the tail) |
 | left / right | cycle parsed test failures |

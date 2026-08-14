@@ -275,10 +275,19 @@ defmodule Tidex.App do
     app = detach_keyboard(app)
 
     Termex.yield(app.device, app.tty, fn ->
-      app.editor_runner.(app.state.editor_command)
+      app.editor_runner.(editor_command(app))
     end)
 
     attach_keyboard(app)
+  end
+
+  defp editor_command(app) do
+    target = Failures.current(app.state)
+
+    Open.editor_command(app.state.editor_command,
+      file: target && target.file,
+      line: target && target.line
+    )
   end
 
   defp git_add(app), do: start_git_cmd(app, "git add -u")

@@ -52,5 +52,5 @@ mix tidex
 ```
 
 Keys: `t` tests, `s` start/restart server, `x` stop, `b` browser, `e`
-editor, `l` layout, arrows scroll output, left/right cycle failures,
-`?` help, `g` git, `q` quit.
+editor (failure file+line), `l` layout, arrows scroll output, left/right
+cycle failures, `?` help, `g` git, `q` quit.

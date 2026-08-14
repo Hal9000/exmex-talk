@@ -151,7 +151,7 @@ defmodule Tidex.View do
       "s  start/restart server",
       "x  stop server",
       "b  open browser",
-      "e  editor",
+      "e  editor (failure file)",
       "l  toggle layout",
       "arrows  scroll output",
       "left/right  cycle failures",

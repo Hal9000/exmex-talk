@@ -408,6 +408,28 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.text(out) =~ "status"
   end
 
+  test "e opens the current failure at line for a known editor" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+
+    {app, _out} = app(editor_command: "nvim", editor_runner: editor)
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | failures: [
+              %{name: "one", file: "test/a.exs", line: 3, snippet: ""},
+              %{name: "two", file: "test/b.exs", line: 9, snippet: ""}
+            ],
+            failure_index: 1
+        }
+    }
+
+    {:cont, _app} = App.step(app, {:key, "e"})
+    assert_receive {:edited, "nvim +9 'test/b.exs'"}
+  end
+
   test "l toggles between dashboard and output layouts" do
     {app, out} = app([])
     assert app.state.layout == :dashboard
