@@ -14,6 +14,51 @@ defmodule Tidex.FakeTerminal do
     output
   end
 
+  @doc """
+  Bytes written after the last CSI `2J` (clear visible).
+
+  StringIO never forgets earlier frames. Tidex clears the screen at the
+  start of every draw, so the last frame is what would be on a TTY.
+  """
+  @spec last_frame(pid() | String.t()) :: String.t()
+  def last_frame(output_dev) when is_pid(output_dev), do: last_frame(text(output_dev))
+
+  def last_frame(text) when is_binary(text) do
+    text
+    |> String.split("\e[2J")
+    |> List.last()
+  end
+
+  @doc """
+  Text written into `pane` in the last frame, top to bottom.
+
+  Uses the pane's row/col/height (Termex writes one clipped line per
+  row at `col`). Later writes to the same cell win, matching a TTY.
+  """
+  @spec region_lines(pid() | String.t(), Tidex.Layout.Pane.t()) :: [String.t()]
+  def region_lines(source, %Tidex.Layout.Pane{} = pane) do
+    last_row = pane.row + pane.height - 1
+
+    source
+    |> writes()
+    |> Enum.reduce(%{}, fn {row, col, body}, acc ->
+      if col == pane.col and row >= pane.row and row <= last_row do
+        Map.put(acc, row, body)
+      else
+        acc
+      end
+    end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  defp writes(source) do
+    Regex.scan(~r/\e\[(\d+);(\d+)H([^\e]*)/, last_frame(source), capture: :all_but_first)
+    |> Enum.map(fn [row, col, body] ->
+      {String.to_integer(row), String.to_integer(col), body}
+    end)
+  end
+
   @spec start_ui(keyword()) :: {pid(), Termex.Device.t(), pid()}
   def start_ui(opts \\ []) do
     {device, out} = open()

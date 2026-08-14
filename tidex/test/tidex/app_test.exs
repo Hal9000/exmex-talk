@@ -1,7 +1,7 @@
 defmodule Tidex.AppTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{App, FakeTerminal}
+  alias Tidex.{App, FakeTerminal, Layout}
 
   defp fake_runner(parent \\ self()) do
     fn command, notify, ref ->
@@ -31,6 +31,11 @@ defmodule Tidex.AppTest do
       )
 
     {app, out}
+  end
+
+  defp output_inner(state) do
+    layout = Layout.compute(state.width, state.height, state.layout)
+    Layout.inner(layout.output)
   end
 
   test "q quits without running a command" do
@@ -113,8 +118,26 @@ defmodule Tidex.AppTest do
     assert app.state.output_scroll == 0
   end
 
+  test "a later frame drops tail lines that scrolled out of the output pane" do
+    {app, out} = app(width: 40, height: 12)
+    lines = Enum.map(1..20, &"row#{&1}-end")
+    app = %{app | state: %{app.state | output_lines: lines}}
+
+    {:cont, app} = App.step(app, {:key, :down})
+    inner = output_inner(app.state)
+    assert FakeTerminal.region_lines(out, inner) == ["row19-end", "row20-end"]
+
+    app = %{app | state: %{app.state | output_scroll: 0}}
+    {:cont, _app} = App.step(app, {:key, :left})
+    visible = FakeTerminal.region_lines(out, inner)
+    assert visible == ["row1-end", "row2-end"]
+    refute "row20-end" in visible
+    assert length(visible) == inner.height
+    assert FakeTerminal.text(out) =~ "row20-end"
+  end
+
   test "new lines while pinned leave the window in place" do
-    {app, _out} = app([])
+    {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
 
@@ -125,11 +148,9 @@ defmodule Tidex.AppTest do
     assert app.state.output_scroll == 0
     assert List.last(app.state.output_lines) == "newest"
 
-    {device, out} = FakeTerminal.open()
-    assert :ok = Tidex.View.render(device, app.state)
-    text = FakeTerminal.text(out)
-    assert text =~ "row1"
-    refute text =~ "newest"
+    visible = FakeTerminal.region_lines(out, output_inner(app.state))
+    assert hd(visible) == "row1"
+    refute "newest" in visible
   end
 
   test "new lines while following stay on the tail" do

@@ -1,7 +1,7 @@
 defmodule Tidex.ViewTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{FakeTerminal, State, View}
+  alias Tidex.{FakeTerminal, Layout, State, View}
 
   defp render(state_overrides) do
     {device, out} = FakeTerminal.open()
@@ -14,6 +14,11 @@ defmodule Tidex.ViewTest do
 
     assert :ok = View.render(device, state)
     {FakeTerminal.text(out), state}
+  end
+
+  defp output_inner(state) do
+    layout = Layout.compute(state.width, state.height, state.layout)
+    Layout.inner(layout.output)
   end
 
   test "draws a two-pane layout with status and output boxes" do
@@ -67,19 +72,51 @@ defmodule Tidex.ViewTest do
 
   test "output pane keeps the latest lines when they overflow height" do
     lines = Enum.map(1..20, &"row#{&1}-end")
-    {output, _} = render(width: 40, height: 12, output_lines: lines)
+    {output, state} = render(width: 40, height: 12, output_lines: lines)
+    inner = output_inner(state)
+    visible = FakeTerminal.region_lines(output, inner)
 
-    assert output =~ "row20-end"
-    refute output =~ "row1-end"
+    assert visible == ["row19-end", "row20-end"]
+    assert length(visible) == inner.height
+    refute "row1-end" in visible
   end
 
   test "a pinned scroll offset shows older output instead of the tail" do
     lines = Enum.map(1..20, &"row#{&1}-end")
-    {output, _} = render(width: 40, height: 12, output_lines: lines, output_scroll: 0)
 
-    assert output =~ "row1-end"
-    refute output =~ "row20-end"
+    {output, state} =
+      render(width: 40, height: 12, output_lines: lines, output_scroll: 0)
+
+    inner = output_inner(state)
+    visible = FakeTerminal.region_lines(output, inner)
+
+    assert visible == ["row1-end", "row2-end"]
+    refute "row20-end" in visible
     assert output =~ "output 1-"
+  end
+
+  test "last frame drops lines that scrolled out after a redraw" do
+    {device, out} = FakeTerminal.open()
+    lines = Enum.map(1..20, &"row#{&1}-end")
+
+    state = %State{
+      width: 40,
+      height: 12,
+      project_name: "exmex-talk",
+      output_lines: lines
+    }
+
+    inner = output_inner(state)
+
+    assert :ok = View.render(device, state)
+    assert FakeTerminal.region_lines(out, inner) == ["row19-end", "row20-end"]
+    assert FakeTerminal.text(out) =~ "row20-end"
+
+    assert :ok = View.render(device, %{state | output_scroll: 0})
+    visible = FakeTerminal.region_lines(out, inner)
+    assert visible == ["row1-end", "row2-end"]
+    refute "row20-end" in visible
+    assert FakeTerminal.text(out) =~ "row20-end"
   end
 
   test "output layout shrinks the status pane" do
