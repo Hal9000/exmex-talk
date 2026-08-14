@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, State}
+  alias Tidex.{Layout, Scroll, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -46,9 +46,10 @@ defmodule Tidex.View do
   defp git_line(%{branch: branch, dirty: n}), do: "git:     #{branch} · #{n} dirty"
 
   defp render_output(device, state, pane) do
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "output")
     inner = Layout.inner(pane)
-    lines = Enum.take(state.output_lines, -inner.height)
+    title = Scroll.title(state.output_lines, inner.height, state.output_scroll)
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
+    lines = Scroll.visible(state.output_lines, inner.height, state.output_scroll)
     Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
   end
 

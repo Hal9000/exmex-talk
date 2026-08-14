@@ -7,7 +7,7 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
-  alias Tidex.{Command, Config, Git, Keyboard, Open, State, View}
+  alias Tidex.{Command, Config, Git, Keyboard, Layout, Open, Scroll, State, View}
 
   defstruct device: nil,
             state: %State{},
@@ -125,6 +125,10 @@ defmodule Tidex.App do
     {:cont, toggle_layout(app)}
   end
 
+  def handle_event(app, {:key, key}) when key in [:up, :down, :page_up, :page_down] do
+    {:cont, scroll_output(app, key)}
+  end
+
   def handle_event(app, {:key, _key}), do: {:cont, app}
 
   def handle_event(app, {:command, ref, :line, line}) do
@@ -200,6 +204,7 @@ defmodule Tidex.App do
       test_ref: ref,
       test_pid: pid,
       output_lines: [],
+      output_scroll: :follow,
       output_source: :test
     })
   end
@@ -214,6 +219,7 @@ defmodule Tidex.App do
       server_ref: ref,
       server_pid: pid,
       output_lines: [],
+      output_scroll: :follow,
       output_source: :server
     })
   end
@@ -237,6 +243,25 @@ defmodule Tidex.App do
   defp toggle_layout(app) do
     next = if app.state.layout == :dashboard, do: :output, else: :dashboard
     put_state(app, %{layout: next})
+  end
+
+  defp scroll_output(app, key) do
+    height = output_inner_height(app.state)
+    delta = scroll_delta(key, height)
+
+    put_state(app, %{
+      output_scroll: Scroll.step(app.state.output_lines, height, app.state.output_scroll, delta)
+    })
+  end
+
+  defp scroll_delta(:up, _height), do: -1
+  defp scroll_delta(:down, _height), do: 1
+  defp scroll_delta(:page_up, height), do: -max(height, 1)
+  defp scroll_delta(:page_down, height), do: max(height, 1)
+
+  defp output_inner_height(state) do
+    layout = Layout.compute(state.width, state.height, state.layout)
+    Layout.inner(layout.output).height
   end
 
   defp maybe_append_output(app, ref, line) do

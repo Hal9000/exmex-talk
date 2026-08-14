@@ -15,6 +15,7 @@ project (or a parent directory).
 | `b` | open browser URL |
 | `e` | launch `$EDITOR` and redraw when it exits |
 | `l` | toggle dashboard / output-focused layout |
+| arrows, PgUp/PgDn | scroll the output pane (pins when not at the tail) |
 | `q` | quit |
 
 ```bash

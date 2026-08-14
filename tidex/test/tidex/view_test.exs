@@ -73,6 +73,15 @@ defmodule Tidex.ViewTest do
     refute output =~ "row1-end"
   end
 
+  test "a pinned scroll offset shows older output instead of the tail" do
+    lines = Enum.map(1..20, &"row#{&1}-end")
+    {output, _} = render(width: 40, height: 12, output_lines: lines, output_scroll: 0)
+
+    assert output =~ "row1-end"
+    refute output =~ "row20-end"
+    assert output =~ "output 1-"
+  end
+
   test "output layout shrinks the status pane" do
     {dashboard, _} = render(layout: :dashboard, width: 40, height: 20)
     {focused, _} = render(layout: :output, width: 40, height: 20)

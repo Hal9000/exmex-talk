@@ -51,10 +51,80 @@ defmodule Tidex.AppTest do
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
   end
 
-  test "arrow keys are ignored until a pane uses them" do
+  test "up pins the output pane one line above the tail" do
     {app, _out} = app([])
-    assert {:cont, ^app} = App.handle_event(app, {:key, :up})
-    assert {:cont, ^app} = App.handle_event(app, {:key, :page_down})
+    lines = Enum.map(1..15, &"row#{&1}")
+    app = %{app | state: %{app.state | output_lines: lines}}
+
+    {:cont, app} = App.handle_event(app, {:key, :up})
+    assert app.state.output_scroll == 4
+  end
+
+  test "down at the tail stays in follow mode" do
+    {app, _out} = app([])
+    lines = Enum.map(1..15, &"row#{&1}")
+    app = %{app | state: %{app.state | output_lines: lines, output_scroll: :follow}}
+
+    {:cont, app} = App.handle_event(app, {:key, :down})
+    assert app.state.output_scroll == :follow
+  end
+
+  test "page up jumps to the top of the log" do
+    {app, _out} = app([])
+    lines = Enum.map(1..15, &"row#{&1}")
+    app = %{app | state: %{app.state | output_lines: lines}}
+
+    {:cont, app} = App.handle_event(app, {:key, :page_up})
+    assert app.state.output_scroll == 0
+  end
+
+  test "new lines while pinned leave the window in place" do
+    {app, _out} = app([])
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+
+    lines = Enum.map(1..15, &"row#{&1}")
+    app = %{app | state: %{app.state | output_lines: lines, output_scroll: 0}}
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "newest"})
+    assert app.state.output_scroll == 0
+    assert List.last(app.state.output_lines) == "newest"
+
+    {device, out} = FakeTerminal.open()
+    assert :ok = Tidex.View.render(device, app.state)
+    text = FakeTerminal.text(out)
+    assert text =~ "row1"
+    refute text =~ "newest"
+  end
+
+  test "new lines while following stay on the tail" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+    lines = Enum.map(1..15, &"row#{&1}")
+    app = %{app | state: %{app.state | output_lines: lines, output_scroll: :follow}}
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "newest"})
+    assert app.state.output_scroll == :follow
+    assert FakeTerminal.text(out) =~ "newest"
+  end
+
+  test "running tests again resets scroll to follow" do
+    {app, _out} = app([])
+    app = %{app | state: %{app.state | output_scroll: 3, output_lines: ["old"]}}
+
+    {:cont, app} = App.step(app, {:key, "t"})
+    assert app.state.output_scroll == :follow
+    assert app.state.output_lines == []
+  end
+
+  test "left and right do not scroll" do
+    {app, _out} = app([])
+    app = %{app | state: %{app.state | output_lines: Enum.map(1..15, &"row#{&1}")}}
+
+    {:cont, app} = App.handle_event(app, {:key, :left})
+    {:cont, app} = App.handle_event(app, {:key, :right})
+    assert app.state.output_scroll == :follow
   end
 
   test "handle_event q returns quit" do
