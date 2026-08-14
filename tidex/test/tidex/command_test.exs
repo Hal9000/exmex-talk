@@ -27,10 +27,12 @@ defmodule Tidex.CommandTest do
 
     send(ui, {:termex, :key, "t"})
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ "three" end)
-    assert FakeTerminal.text(out) =~ "one"
-    assert FakeTerminal.text(out) =~ "two"
-    assert FakeTerminal.text(out) =~ "tests:   pass"
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "three" end)
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "one"
+    assert frame =~ "two"
+    assert frame =~ "tests:   pass"
+    refute frame =~ "tests:   running"
 
     send(ui, {:termex, :key, "q"})
     FakeTerminal.wait_until(fn -> not Process.alive?(ui) end)
@@ -41,8 +43,10 @@ defmodule Tidex.CommandTest do
     {ui, _device, out} = FakeTerminal.start_ui(test_command: "sh -c 'echo boom; exit 1'")
 
     send(ui, {:termex, :key, "t"})
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ "tests:   fail" end)
-    assert FakeTerminal.text(out) =~ "boom"
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "tests:   fail" end)
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "boom"
+    refute frame =~ "tests:   running"
 
     send(ui, {:termex, :key, "q"})
     FakeTerminal.wait_until(fn -> not Process.alive?(ui) end)

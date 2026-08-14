@@ -60,10 +60,12 @@ defmodule Tidex.AppTest do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "?"})
     assert app.state.overlay == :help
-    assert FakeTerminal.text(out) =~ "t  run tests"
+    assert FakeTerminal.last_frame(out) =~ "esc or ? closes"
 
     {:cont, app} = App.step(app, {:key, "?"})
     assert app.state.overlay == nil
+    refute FakeTerminal.last_frame(out) =~ "esc or ? closes"
+    assert FakeTerminal.text(out) =~ "esc or ? closes"
   end
 
   test "esc closes the help overlay" do
@@ -162,7 +164,8 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.step(app, {:command, ref, :line, "newest"})
     assert app.state.output_scroll == :follow
-    assert FakeTerminal.text(out) =~ "newest"
+    visible = FakeTerminal.region_lines(out, output_inner(app.state))
+    assert List.last(visible) == "newest"
   end
 
   test "running tests again resets scroll to follow" do
@@ -196,7 +199,9 @@ defmodule Tidex.AppTest do
     assert notify == self()
     assert app.state.test_state == :running
     assert app.state.test_ref == ref
-    assert FakeTerminal.text(out) =~ "tests:   running"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "tests:   running"
+    refute frame =~ "tests:   idle"
   end
 
   test "lines appear in the output pane as they arrive" do
@@ -205,19 +210,19 @@ defmodule Tidex.AppTest do
     ref = app.state.test_ref
 
     {:cont, app} = App.step(app, {:command, ref, :line, "one"})
-    output = FakeTerminal.text(out)
-    assert output =~ "one"
-    refute output =~ "two"
+    visible = FakeTerminal.region_lines(out, output_inner(app.state))
+    assert visible == ["one"]
+    refute "two" in visible
     assert app.state.test_state == :running
 
     {:cont, app} = App.step(app, {:command, ref, :line, "two"})
-    output = FakeTerminal.text(out)
-    assert output =~ "one"
-    assert output =~ "two"
+    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["one", "two"]
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
-    assert FakeTerminal.text(out) =~ "tests:   pass"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "tests:   pass"
+    refute frame =~ "tests:   running"
   end
 
   test "non-zero test exit marks tests as fail" do
@@ -227,7 +232,9 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
 
     assert app.state.test_state == :fail
-    assert FakeTerminal.text(out) =~ "tests:   fail"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "tests:   fail"
+    refute frame =~ "tests:   running"
   end
 
   test "s starts the server and streams into the output pane" do
@@ -239,7 +246,7 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.text(out) =~ "server:  up"
 
     {:cont, _app} = App.step(app, {:command, ref, :line, "listening"})
-    assert FakeTerminal.text(out) =~ "listening"
+    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["listening"]
   end
 
   test "s restarts a running server" do
@@ -268,7 +275,9 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "x"})
     refute Process.alive?(pid)
     assert app.state.server_state == :down
-    assert FakeTerminal.text(out) =~ "server:  down"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "server:  down"
+    refute frame =~ "server:  up"
   end
 
   test "b launches the browser url" do
@@ -293,19 +302,22 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.step(app, {:key, "l"})
     assert app.state.layout == :output
-    assert FakeTerminal.text(out) =~ "\e[5;1H┌"
+    assert FakeTerminal.last_frame(out) =~ "\e[5;1H┌"
 
     {:cont, app} = App.step(app, {:key, "l"})
     assert app.state.layout == :dashboard
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "\e[7;1H┌"
+    refute frame =~ "\e[5;1H┌"
   end
 
   test "git snapshots update the status pane" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4}})
     assert app.state.git == %{branch: "main", dirty: 4}
-    output = FakeTerminal.text(out)
-    assert output =~ "main"
-    assert output =~ "4 dirty"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "main"
+    assert frame =~ "4 dirty"
   end
 
   test "stale command lines from a previous run are ignored" do
@@ -317,9 +329,10 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.step(app, {:command, old_ref, :line, "stale"})
     refute FakeTerminal.text(out) =~ "stale"
+    refute "stale" in FakeTerminal.region_lines(out, output_inner(app.state))
 
     {:cont, _app} = App.step(app, {:command, new_ref, :line, "fresh"})
-    assert FakeTerminal.text(out) =~ "fresh"
+    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["fresh"]
   end
 
   test "server process exit marks the server down" do
@@ -329,7 +342,9 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.server_state == :down
-    assert FakeTerminal.text(out) =~ "server:  down"
+    frame = FakeTerminal.last_frame(out)
+    assert frame =~ "server:  down"
+    refute frame =~ "server:  up"
   end
 
   test "editor stops the current keyboard and starts a new one" do

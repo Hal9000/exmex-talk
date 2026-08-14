@@ -55,10 +55,10 @@ defmodule Tidex.ApplicationTest do
 
     on_exit(fn -> FakeTerminal.stop_ui(ui) end)
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ "wired" end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "wired" end)
     send(Process.whereis(Tidex.Git), :poll)
     %{branch: branch} = Git.snapshot()
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ branch end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ branch end)
     FakeTerminal.stop_ui(ui)
   end
 
@@ -92,7 +92,7 @@ defmodule Tidex.ApplicationTest do
 
     on_exit(fn -> FakeTerminal.stop_ui(ui) end)
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ "pre-crash" end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "pre-crash" end)
 
     pid = Process.whereis(Tidex.Git)
     ref = Process.monitor(pid)
@@ -105,7 +105,7 @@ defmodule Tidex.ApplicationTest do
     end)
 
     %{branch: branch} = Git.snapshot()
-    FakeTerminal.wait_until(fn -> FakeTerminal.text(out) =~ branch end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ branch end)
     FakeTerminal.stop_ui(ui)
   end
 end
