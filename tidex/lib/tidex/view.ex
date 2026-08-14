@@ -41,11 +41,20 @@ defmodule Tidex.View do
     ]
   end
 
-  defp git_line(%{branch: nil}), do: "git:     —"
+  defp git_line(%{branch: nil}), do: "git:     (no repository)"
 
-  defp git_line(%{branch: branch, dirty: 0}), do: "git:     #{branch}"
+  defp git_line(git) do
+    "git:     " <> Enum.join(git_bits(git), " · ")
+  end
 
-  defp git_line(%{branch: branch, dirty: n}), do: "git:     #{branch} · #{n} dirty"
+  defp git_bits(%{branch: branch} = git) do
+    [branch]
+    |> append_count(Map.get(git, :dirty, 0), "dirty")
+    |> append_count(Map.get(git, :untracked, 0), "untracked")
+  end
+
+  defp append_count(bits, n, _label) when n in [0, nil], do: bits
+  defp append_count(bits, n, label), do: bits ++ ["#{n} #{label}"]
 
   defp render_fail(_device, _state, nil), do: :ok
 
@@ -204,6 +213,6 @@ defmodule Tidex.View do
     String.split(text, "\n")
   end
 
-  defp git_status_lines(%{branch: nil}), do: ["(no git repository)"]
+  defp git_status_lines(%{branch: nil}), do: ["(no repository)"]
   defp git_status_lines(_), do: ["(no status)"]
 end

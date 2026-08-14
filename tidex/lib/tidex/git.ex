@@ -1,22 +1,26 @@
 defmodule Tidex.Git do
   @moduledoc """
-  Branch name and dirty-file count. A supervised GenServer polls git and
-  sends `{:git, snapshot}` to the UI; it never draws.
+  Branch name, dirty count, and untracked count. A supervised GenServer
+  polls git and sends `{:git, snapshot}` to the UI; it never draws.
   """
 
   use GenServer
 
-  @type snapshot :: %{branch: String.t() | nil, dirty: non_neg_integer(), status: String.t()}
+  @type snapshot :: %{
+          branch: String.t() | nil,
+          dirty: non_neg_integer(),
+          untracked: non_neg_integer(),
+          status: String.t()
+        }
 
   @spec snapshot(String.t()) :: snapshot()
   def snapshot(cwd \\ File.cwd!()) do
     case git(["rev-parse", "--abbrev-ref", "HEAD"], cwd) do
       {:ok, branch} ->
-        dirty =
+        {dirty, untracked} =
           case git(["status", "--porcelain"], cwd) do
-            {:ok, ""} -> 0
-            {:ok, out} -> length(String.split(out, "\n", trim: true))
-            :error -> 0
+            {:ok, out} -> counts(out)
+            :error -> {0, 0}
           end
 
         status =
@@ -25,11 +29,34 @@ defmodule Tidex.Git do
             :error -> ""
           end
 
-        %{branch: String.trim(branch), dirty: dirty, status: status}
+        %{
+          branch: String.trim(branch),
+          dirty: dirty,
+          untracked: untracked,
+          status: status
+        }
 
       :error ->
-        %{branch: nil, dirty: 0, status: ""}
+        empty()
     end
+  end
+
+  @doc false
+  @spec empty() :: snapshot()
+  def empty, do: %{branch: nil, dirty: 0, untracked: 0, status: ""}
+
+  @doc false
+  @spec counts(String.t()) :: {non_neg_integer(), non_neg_integer()}
+  def counts(porcelain) when is_binary(porcelain) do
+    porcelain
+    |> String.split("\n", trim: true)
+    |> Enum.reduce({0, 0}, fn line, {dirty, untracked} ->
+      if String.starts_with?(line, "??") do
+        {dirty, untracked + 1}
+      else
+        {dirty + 1, untracked}
+      end
+    end)
   end
 
   @spec start_link(keyword()) :: GenServer.on_start()

@@ -16,7 +16,7 @@ defmodule Tidex.State do
             test_pid: nil,
             server_ref: nil,
             server_pid: nil,
-            git: %{branch: nil, dirty: 0, status: ""},
+            git: %{branch: nil, dirty: 0, untracked: 0, status: ""},
             git_cmd_ref: nil,
             git_cmd_pid: nil,
             layout: :dashboard,

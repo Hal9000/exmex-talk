@@ -9,6 +9,8 @@ defmodule Tidex.GitTest do
     assert snapshot.branch != ""
     assert is_integer(snapshot.dirty)
     assert snapshot.dirty >= 0
+    assert is_integer(snapshot.untracked)
+    assert snapshot.untracked >= 0
     assert is_binary(snapshot.status)
     assert snapshot.status =~ "On branch"
   end
@@ -41,7 +43,7 @@ defmodule Tidex.GitTest do
     File.mkdir_p!(dir)
 
     try do
-      assert Git.snapshot(dir) == %{branch: nil, dirty: 0, status: ""}
+      assert Git.snapshot(dir) == Git.empty()
     after
       File.rm_rf!(dir)
     end
@@ -52,9 +54,26 @@ defmodule Tidex.GitTest do
       snapshot = Git.snapshot(dir)
       assert snapshot.branch in ["main", "master"]
       assert snapshot.dirty >= 1
+      assert snapshot.untracked == 0
       assert snapshot.status =~ "On branch"
       assert snapshot.status =~ "modified" or snapshot.status =~ "Changes not staged"
     end)
+  end
+
+  test "snapshot splits untracked porcelain from dirty" do
+    in_repo(fn dir ->
+      File.write!(Path.join(dir, "new.txt"), "fresh\n")
+      snapshot = Git.snapshot(dir)
+      assert snapshot.dirty >= 1
+      assert snapshot.untracked == 1
+    end)
+  end
+
+  test "counts/1 treats ?? as untracked and the rest as dirty" do
+    assert Git.counts("") == {0, 0}
+    assert Git.counts(" M lib/a.ex\n?? new.txt\n") == {1, 1}
+    assert Git.counts("?? a\n?? b\n") == {0, 2}
+    assert Git.counts("M  staged.ex\n") == {1, 0}
   end
 
   test "git add -u in a throwaway repo stages the dirty file" do

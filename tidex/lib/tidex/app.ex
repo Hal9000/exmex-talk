@@ -58,7 +58,7 @@ defmodule Tidex.App do
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
-      git: Keyword.get(opts, :git, %{branch: nil, dirty: 0, status: ""}),
+      git: Keyword.get(opts, :git, Git.empty()),
       layout: Keyword.get(opts, :layout, :dashboard),
       overlay: if(setup, do: :setup, else: nil),
       setup: setup,
@@ -476,6 +476,7 @@ defmodule Tidex.App do
     %{
       branch: Map.get(snapshot, :branch),
       dirty: Map.get(snapshot, :dirty, 0),
+      untracked: Map.get(snapshot, :untracked, 0),
       status: Map.get(snapshot, :status, "")
     }
   end

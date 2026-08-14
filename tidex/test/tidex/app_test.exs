@@ -447,11 +447,12 @@ defmodule Tidex.AppTest do
 
   test "git snapshots update the status pane" do
     {app, out} = app([])
-    {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4}})
-    assert app.state.git == %{branch: "main", dirty: 4, status: ""}
+    {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4, untracked: 1}})
+    assert app.state.git == %{branch: "main", dirty: 4, untracked: 1, status: ""}
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "main"
     assert frame =~ "4 dirty"
+    assert frame =~ "1 untracked"
   end
 
   test "stale command lines from a previous run are ignored" do

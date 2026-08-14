@@ -53,10 +53,26 @@ defmodule Tidex.ViewTest do
     assert output =~ "server:  up"
   end
 
-  test "shows git branch and dirty count" do
-    {output, _} = render(git: %{branch: "main", dirty: 3})
+  test "shows git branch, dirty, and untracked; omits zeros" do
+    {output, _} = render(git: %{branch: "main", dirty: 3, untracked: 2})
     assert output =~ "main"
     assert output =~ "3 dirty"
+    assert output =~ "2 untracked"
+
+    {output, _} = render(git: %{branch: "main", dirty: 0, untracked: 2})
+    assert output =~ "2 untracked"
+    refute output =~ "dirty"
+
+    {output, _} = render(git: %{branch: "main", dirty: 0, untracked: 0})
+    assert output =~ "main"
+    refute output =~ "dirty"
+    refute output =~ "untracked"
+  end
+
+  test "shows (no repository) when git has no branch" do
+    {output, _} = render(git: %{branch: nil, dirty: 0, untracked: 0})
+    assert output =~ "(no repository)"
+    refute output =~ "git:     —"
   end
 
   test "displays command output inside the output pane" do
