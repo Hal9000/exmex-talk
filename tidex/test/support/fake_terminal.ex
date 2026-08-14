@@ -25,7 +25,7 @@ defmodule Tidex.FakeTerminal do
           device: device,
           keys: :none,
           notify_ready: parent,
-          width: 40,
+          width: 80,
           height: 20,
           name: nil
         ],
