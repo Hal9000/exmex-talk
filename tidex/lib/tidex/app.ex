@@ -501,7 +501,20 @@ defmodule Tidex.App do
         changes
       end
 
-    put_state(app, changes)
+    app = put_state(app, changes)
+
+    if source == :test do
+      refresh_test_failures(app)
+    else
+      app
+    end
+  end
+
+  defp refresh_test_failures(app) do
+    failures = Failures.parse(log_lines(app.state, :test))
+    n = length(failures)
+    index = if n == 0, do: 0, else: rem(app.state.failure_index, n)
+    put_state(app, %{failures: failures, failure_index: index})
   end
 
   defp log_lines(state, source) do

@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Failures, Layout, Scroll, Setup, State}
+  alias Tidex.{Layout, Scroll, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -53,46 +53,15 @@ defmodule Tidex.View do
   end
 
   defp test_lines(state) do
-    ["Test", test_status_line(state)] ++ current_failure_lines(state)
+    ["Test", test_status_line(state), key("e", "edit")]
   end
+
+  defp test_status_line(%{test_state: :idle}), do: key("t", "idle")
+
+  defp test_status_line(%{test_state: :fail, failures: []}), do: key("t", "fail")
 
   defp test_status_line(state) do
-    n = length(state.failures)
-
-    if state.test_state == :fail and n > 0 do
-      key("t", "#{n} failing")
-    else
-      key("t", "#{state.test_state}")
-    end
-  end
-
-  defp current_failure_lines(state) do
-    case Failures.current(state) do
-      nil ->
-        [key("e", "edit")]
-
-      failure ->
-        [failure_name_line(failure), edit_line(failure)]
-    end
-  end
-
-  defp failure_name_line(%{name: name}) when is_binary(name) and name != "" do
-    "   #{name}"
-  end
-
-  defp failure_name_line(_), do: "   (failure)"
-
-  defp edit_line(failure) do
-    case failure do
-      %{file: file, line: line} when is_binary(file) and is_integer(line) ->
-        key("e", "#{file}:#{line}")
-
-      %{file: file} when is_binary(file) ->
-        key("e", file)
-
-      _ ->
-        key("e", "edit")
-    end
+    key("t", "- pass  #{length(state.failures)} fail")
   end
 
   defp server_lines(state) do

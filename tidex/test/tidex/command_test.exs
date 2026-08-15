@@ -28,15 +28,14 @@ defmodule Tidex.CommandTest do
     send(ui, {:termex, :key, "t"})
 
     FakeTerminal.wait_until(fn ->
-      FakeTerminal.visible(out) =~ "t  pass"
+      FakeTerminal.visible(out) =~ "- pass  0 fail"
     end)
 
     visible = FakeTerminal.visible(out)
     refute visible =~ "one"
     refute visible =~ "two"
     refute visible =~ "three"
-    assert visible =~ "t  pass"
-    refute visible =~ "t  running"
+    assert visible =~ "- pass  0 fail"
 
     send(ui, {:termex, :key, "q"})
     FakeTerminal.wait_until(fn -> not Process.alive?(ui) end)
@@ -51,7 +50,6 @@ defmodule Tidex.CommandTest do
     visible = FakeTerminal.visible(out)
     refute visible =~ "boom"
     assert visible =~ "t  fail"
-    refute visible =~ "t  running"
 
     send(ui, {:termex, :key, "q"})
     FakeTerminal.wait_until(fn -> not Process.alive?(ui) end)

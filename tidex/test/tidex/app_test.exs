@@ -256,7 +256,7 @@ defmodule Tidex.AppTest do
     "     ** (RuntimeError) timed out"
   ]
 
-  test "a failing test run shows the count and one failure on the lobby" do
+  test "a failing test run shows dash passes and the fail count on the lobby" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
@@ -267,23 +267,32 @@ defmodule Tidex.AppTest do
     assert length(app.state.failures) == 2
     assert app.state.overlay == nil
     visible = FakeTerminal.visible(out)
-    assert visible =~ "2 failing"
-    assert visible =~ "test Foo.bar/1"
-    assert visible =~ "e  test/foo_test.exs:12"
+    assert visible =~ "- pass  2 fail"
+    assert visible =~ "e  edit"
+    refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute visible =~ "test · fail"
 
     {:cont, app} = App.step(app, {:key, :right})
-    visible = FakeTerminal.visible(out)
-    assert visible =~ "2 failing"
-    assert visible =~ "test boom"
-    assert visible =~ "e  test/foo_test.exs:20"
-    refute visible =~ "Foo.bar"
+    assert app.state.failure_index == 1
+    assert FakeTerminal.visible(out) =~ "- pass  2 fail"
+  end
 
-    {:cont, _app} = App.step(app, {:key, :left})
-    visible = FakeTerminal.visible(out)
-    assert visible =~ "test Foo.bar/1"
-    refute visible =~ "test boom"
+  test "failure headers update the lobby count while tests are running" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "  1) test Foo.bar/1 (FooTest)"})
+    assert length(app.state.failures) == 1
+    assert app.state.test_state == :running
+    assert FakeTerminal.visible(out) =~ "- pass  1 fail"
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "     test/foo_test.exs:12"})
+    {:cont, app} = App.step(app, {:command, ref, :line, "  2) test boom (FooTest)"})
+    assert length(app.state.failures) == 2
+    assert FakeTerminal.visible(out) =~ "- pass  2 fail"
+    refute FakeTerminal.visible(out) =~ "test boom"
   end
 
   test "a passing run clears parsed failures" do
@@ -296,8 +305,8 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :pass
     assert app.state.failures == []
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
-    refute visible =~ "failing"
+    assert visible =~ "- pass  0 fail"
+    refute visible =~ "2 fail"
   end
 
   test "handle_event q returns quit" do
@@ -315,7 +324,7 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :running
     assert app.state.test_ref == ref
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  running"
+    assert visible =~ "- pass  0 fail"
     refute visible =~ "test · running"
   end
 
@@ -336,7 +345,7 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
+    assert visible =~ "- pass  0 fail"
     refute visible =~ "one"
     refute visible =~ "test · pass"
   end

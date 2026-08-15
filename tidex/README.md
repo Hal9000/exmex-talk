@@ -4,10 +4,11 @@ A language-agnostic development workbench built on
 [Termex](../termex).
 
 Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
-on the status screen. `t` runs tests and stays on the lobby: a failure
-count and the current failure, left/right to cycle, `e` to edit that
-file. The full test log is kept but not shown. `s`, `g`, and `?` open
-one sheet at a time; `esc` returns to the lobby.
+on the status screen. `t` runs tests and stays on the lobby. The Test
+group shows `- pass` until a pass count is known, and a live fail
+count as ExUnit `N)` blocks arrive. Left/right cycle the current
+failure; `e` edits that file. The full test log is kept but not shown.
+`s`, `g`, and `?` open one sheet at a time; `esc` returns to the lobby.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that
@@ -21,7 +22,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 
 | Key | Action |
 | --- | --- |
-| `t` | run tests (lobby shows the count and one failure) |
+| `t` | run tests (lobby shows `- pass` and a live fail count) |
 | `s` | open the server sheet; press again to start or restart |
 | `x` | stop server |
 | `b` | open browser URL |
@@ -37,8 +38,8 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `q` | quit |
 
 The lobby bolds the key letter next to each command (`t  idle`,
-`s  down`, `f  tidex.conf`, …). After a failing run the Test group
-shows `t  N failing` and the current file:line.
+`s  down`, `f  tidex.conf`, …). After tests start, Test shows
+`t  - pass  N fail`. A failed run with no parsed blocks shows `t  fail`.
 
 ```bash
 cd tidex

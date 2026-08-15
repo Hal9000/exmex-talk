@@ -53,13 +53,13 @@ defmodule Tidex.ViewTest do
 
   test "shows one current test and server state under the headings" do
     {output, _} = render(test_state: :running)
-    assert output =~ "running"
+    assert Termex.ANSI.strip(output) =~ "t  - pass  0 fail"
 
     {output, _} = render(test_state: :pass)
-    assert output =~ "pass"
+    assert Termex.ANSI.strip(output) =~ "t  - pass  0 fail"
 
     {output, _} = render(test_state: :fail)
-    assert output =~ "fail"
+    assert Termex.ANSI.strip(output) =~ "t  fail"
 
     {output, _} = render(server_state: :up)
     assert output =~ "up"
@@ -105,16 +105,17 @@ defmodule Tidex.ViewTest do
     refute output =~ "git:     —"
   end
 
-  test "lobby shows the failure count and one current failure" do
+  test "lobby shows dash passes and a fail count, not the failure body" do
     failures = [
       %{name: "test Foo", file: "test/foo_test.exs", line: 12, snippet: "left behind"}
     ]
 
     {output, _} = render(test_state: :fail, failures: failures)
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  1 failing"
-    assert visible =~ "test Foo"
-    assert visible =~ "e  test/foo_test.exs:12"
+    assert visible =~ "t  - pass  1 fail"
+    assert visible =~ "e  edit"
+    refute visible =~ "test Foo"
+    refute visible =~ "foo_test.exs"
     refute visible =~ "left behind"
   end
 
@@ -255,9 +256,9 @@ defmodule Tidex.ViewTest do
       )
 
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  1 failing"
-    assert visible =~ "test Foo.bar/1"
-    assert visible =~ "e  test/foo_test.exs:12"
+    assert visible =~ "t  - pass  1 fail"
+    assert visible =~ "e  edit"
+    refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute output =~ "test · fail"
   end

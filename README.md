@@ -65,8 +65,8 @@ cd tidex
 mix tidex
 ```
 
-Keys: `t` run tests (count + current failure on the lobby), `s` server
-sheet (again to start), `x` stop, `b` browser, `e` editor (failure
-file+line), `f` edit `tidex.conf`, `1`–`4` listed files, arrows scroll
-the server sheet, left/right cycle failures, `?` help, `g` git, `esc`
-close sheet, `q` quit.
+Keys: `t` run tests (`- pass` and a live fail count on the lobby), `s`
+server sheet (again to start), `x` stop, `b` browser, `e` editor
+(current failure file+line), `f` edit `tidex.conf`, `1`–`4` listed
+files, arrows scroll the server sheet, left/right cycle failures, `?`
+help, `g` git, `esc` close sheet, `q` quit.
