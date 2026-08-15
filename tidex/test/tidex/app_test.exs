@@ -230,7 +230,8 @@ defmodule Tidex.AppTest do
     app = %{app | state: %{app.state | output_lines: lines}}
 
     {:cont, app} = App.handle_event(app, {:key, :up})
-    assert app.state.output_scroll == 8
+    inner_h = output_inner(app.state).height
+    assert app.state.output_scroll == max(length(lines) - inner_h - 1, 0)
   end
 
   test "down at the tail stays in follow mode" do
