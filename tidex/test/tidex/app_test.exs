@@ -523,7 +523,7 @@ defmodule Tidex.AppTest do
     refute "stale" in app.state.test_log
     refute FakeTerminal.visible(out) =~ "stale"
 
-    {:cont, _app} = App.step(app, {:command, new_ref, :line, "fresh"})
+    {:cont, app} = App.step(app, {:command, new_ref, :line, "fresh"})
     assert app.state.test_log == ["fresh"]
     refute FakeTerminal.visible(out) =~ "fresh"
   end

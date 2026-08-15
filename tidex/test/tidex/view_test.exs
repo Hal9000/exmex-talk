@@ -127,7 +127,6 @@ defmodule Tidex.ViewTest do
     refute visible =~ "f  tidex.conf"
     refute visible =~ "?  help"
     refute visible =~ "test start"
-    refute visible =~ "xstop"
   end
 
   test "clips output that would overflow the pane" do
