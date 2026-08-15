@@ -3,11 +3,12 @@
 A language-agnostic development workbench built on
 [Termex](../termex).
 
-Home is a **lobby**: grouped status (Test, Server, Git) and a menu.
-`t`, `s`, `g`, and `?` open one sheet at a time; `esc` returns to the
-lobby. Label and commands come from `tidex.conf` in the project (or a
-parent directory): `project`, `test`, `server`, `browser`, `editor`,
-and optional `file1`–`file4`. Missing `project` defaults to that
+Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
+on the status screen. `t`, `s`, `g`, and `?` open one sheet at a time;
+`esc` returns to the lobby. Each sheet has its own one-line menu.
+Label and commands come from `tidex.conf` in the project (or a parent
+directory): `project`, `test`, `server`, `browser`, `editor`, and
+optional `file1`–`file4`. Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
 `go.mod` when those names exist in that directory. `~/.tidex/tidex.conf`
@@ -33,7 +34,9 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `esc` | close the current sheet |
 | `q` | quit |
 
-The footer bolds the key letter (`test`, `start`, `xstop`, …).
+The lobby bolds the key letter next to each command (`t  idle`,
+`s  down`, `f  tidex.conf`, …). A sheet replaces that list with its
+own menu (`run`, `start`, `add -u`, …).
 
 ```bash
 cd tidex

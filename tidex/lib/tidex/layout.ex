@@ -13,23 +13,21 @@ defmodule Tidex.Layout do
           }
   end
 
-  defstruct [:width, :height, :status, :fail, :output, :footer_row]
+  defstruct [:width, :height, :status, :fail, :output]
 
   @type t :: %__MODULE__{
           width: pos_integer(),
           height: pos_integer(),
           status: Pane.t(),
           fail: Pane.t() | nil,
-          output: Pane.t() | nil,
-          footer_row: pos_integer()
+          output: Pane.t() | nil
         }
 
   @type sheet :: %{fail: Pane.t() | nil, log: Pane.t()}
 
-  @footer_rows 2
+  @menu_rows 1
   @fail_height 4
   @min_log_with_fail 4
-  @lobby_status_height 18
 
   @spec compute(Tidex.State.t()) :: t()
   def compute(%Tidex.State{} = state) do
@@ -40,16 +38,13 @@ defmodule Tidex.Layout do
   def compute(width, height) do
     width = max(width, 16)
     height = max(height, 12)
-    available = height - @footer_rows
-    status_height = min(@lobby_status_height, available)
 
     %__MODULE__{
       width: width,
       height: height,
-      status: %Pane{row: 1, col: 1, width: width, height: status_height},
+      status: %Pane{row: 1, col: 1, width: width, height: height},
       fail: nil,
-      output: nil,
-      footer_row: height
+      output: nil
     }
   end
 
@@ -57,7 +52,7 @@ defmodule Tidex.Layout do
   def sheet(%Tidex.State{} = state) do
     width = max(state.width, 16)
     height = max(state.height, 12)
-    available = height - @footer_rows
+    available = height - @menu_rows
     fail_height = sheet_fail_height(state, available)
 
     fail =
@@ -85,9 +80,13 @@ defmodule Tidex.Layout do
       row: 1,
       col: 1,
       width: width,
-      height: height - @footer_rows
+      height: height - @menu_rows
     }
   end
+
+  @spec menu_row(pos_integer() | Tidex.State.t()) :: pos_integer()
+  def menu_row(%{height: height}), do: menu_row(height)
+  def menu_row(height) when is_integer(height), do: max(height, 12)
 
   @spec inner(Pane.t()) :: Pane.t()
   def inner(%Pane{} = pane) do

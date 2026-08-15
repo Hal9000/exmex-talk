@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Scroll, Setup, State}
+  alias Tidex.{Failures, Layout, Scroll, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -12,10 +12,11 @@ defmodule Tidex.View do
 
     if state.overlay == nil do
       render_status(device, state, layout.status)
+    else
+      render_sheet(device, state)
+      render_menu(device, state)
     end
 
-    render_footer(device, layout)
-    render_sheet(device, state)
     :ok
   end
 
@@ -31,44 +32,73 @@ defmodule Tidex.View do
 
     [
       "project: #{state.project_name}",
-      "",
-      pad("Test", col) <> "Server",
-      pad("#{state.test_state}", col) <> "#{state.server_state}",
-      "",
-      "Git"
-    ] ++ git_lobby_lines(state.git) ++ file_lobby_lines(state.files)
+      ""
+    ] ++
+      zip_pad(test_lines(state), server_lines(state), col) ++
+      [""] ++
+      zip_pad(git_lines(state.git), file_lines(state.files), col) ++
+      ["", pad(key("?", "help"), col) <> key("q", "quit")]
+  end
+
+  defp zip_pad(left, right, col) do
+    0..(max(length(left), length(right)) - 1)
+    |> Enum.map(fn i ->
+      pad(Enum.at(left, i) || "", col) <> (Enum.at(right, i) || "")
+    end)
   end
 
   defp pad(text, width) do
-    String.pad_trailing(text, width)
+    visible = String.length(Termex.ANSI.strip(text))
+    text <> String.duplicate(" ", max(width - visible, 0))
   end
 
-  defp git_lobby_lines(%{branch: nil}), do: ["(no repository)"]
+  defp test_lines(state) do
+    ["Test", key("t", "#{state.test_state}"), edit_line(state)]
+  end
 
-  defp git_lobby_lines(git) do
-    [git.branch]
+  defp edit_line(state) do
+    case Failures.current(state) do
+      %{file: file, line: line} when is_binary(file) and is_integer(line) ->
+        key("e", "#{file}:#{line}")
+
+      %{file: file} when is_binary(file) ->
+        key("e", file)
+
+      _ ->
+        key("e", "edit")
+    end
+  end
+
+  defp server_lines(state) do
+    ["Server", key("s", "#{state.server_state}"), key("x", "stop"), key("b", "browse")]
+  end
+
+  defp git_lines(%{branch: nil}) do
+    ["Git", key("g", "(no repository)")]
+  end
+
+  defp git_lines(git) do
+    ["Git", key("g", git.branch)]
     |> append_count(Map.get(git, :dirty, 0), "dirty")
     |> append_count(Map.get(git, :untracked, 0), "untracked")
   end
 
   defp append_count(lines, n, _label) when n in [0, nil], do: lines
-  defp append_count(lines, n, label), do: lines ++ ["#{n} #{label}"]
+  defp append_count(lines, n, label), do: lines ++ ["   #{n} #{label}"]
 
-  defp file_lobby_lines(files) when files == %{}, do: []
-
-  defp file_lobby_lines(files) do
+  defp file_lines(files) do
     rows =
       1..4
       |> Enum.filter(&Map.has_key?(files, &1))
-      |> Enum.map(fn n -> "#{n}  #{files[n]}" end)
+      |> Enum.map(fn n -> key("#{n}", files[n]) end)
 
-    ["", "Files" | rows]
+    ["Files", key("f", "tidex.conf") | rows]
   end
 
   defp render_fail(_device, _state, nil), do: :ok
 
   defp render_fail(device, state, pane) do
-    current = Tidex.Failures.current(state)
+    current = Failures.current(state)
     n = length(state.failures)
     index = rem(state.failure_index, max(n, 1)) + 1
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "fail #{index}/#{n}")
@@ -112,31 +142,39 @@ defmodule Tidex.View do
     end
   end
 
-  defp render_footer(device, layout) do
+  defp render_menu(device, state) do
     Termex.write_clipped(
       device,
-      layout.footer_row - 1,
+      Layout.menu_row(state),
       1,
-      layout.width,
-      Enum.join(
-        [hotkey("t", "test"), hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse")],
-        " "
-      )
-    )
-
-    Termex.write_clipped(
-      device,
-      layout.footer_row,
-      1,
-      layout.width,
-      Enum.join(
-        [hotkey("e", "edit"), hotkey("g", "git"), hotkey("?", "help"), hotkey("q", "quit")],
-        " "
-      )
+      state.width,
+      menu_line(state.overlay)
     )
   end
 
-  defp render_sheet(_device, %{overlay: nil}), do: :ok
+  defp menu_line(:test) do
+    Enum.join([hotkey("t", "run"), hotkey("e", "edit"), "esc back", hotkey("q", "quit")], "  ")
+  end
+
+  defp menu_line(:server) do
+    Enum.join(
+      [hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse"), "esc back"],
+      "  "
+    )
+  end
+
+  defp menu_line(:git) do
+    Enum.join(
+      [hotkey("a", "add") <> " -u", hotkey("c", "commit"), hotkey("p", "push"), "esc back"],
+      "  "
+    )
+  end
+
+  defp menu_line(:help), do: "esc back"
+
+  defp menu_line(:setup), do: "esc skip"
+
+  defp menu_line(_), do: "esc back"
 
   defp render_sheet(device, %{overlay: :test} = state) do
     sheet = Layout.sheet(state)
@@ -201,15 +239,7 @@ defmodule Tidex.View do
   end
 
   defp git_sheet_lines(state) do
-    [
-      Enum.join(
-        [hotkey("a", "add") <> " -u  ", hotkey("c", "commit") <> "  ", hotkey("p", "push")],
-        ""
-      ),
-      "esc or g closes",
-      ""
-      | git_status_lines(state.git) ++ git_log_lines(state)
-    ]
+    git_status_lines(state.git) ++ git_log_lines(state)
   end
 
   defp git_log_lines(state) do

@@ -35,8 +35,18 @@ defmodule Tidex.ViewTest do
     assert output =~ "down"
     assert output =~ "Git"
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "test start xstop browse"
-    assert visible =~ "edit git ?help quit"
+    refute visible =~ "test start"
+    refute visible =~ "xstop"
+    refute visible =~ "?help"
+    assert visible =~ "t  idle"
+    assert visible =~ "s  down"
+    assert visible =~ "e  edit"
+    assert visible =~ "x  stop"
+    assert visible =~ "b  browse"
+    assert visible =~ "g  (no repository)"
+    assert visible =~ "f  tidex.conf"
+    assert visible =~ "?  help"
+    assert visible =~ "q  quit"
     refute visible =~ "layout"
     assert output =~ "\e[1mt"
   end
@@ -81,9 +91,12 @@ defmodule Tidex.ViewTest do
     refute visible =~ "file1"
   end
 
-  test "omits the Files heading when no files are listed" do
+  test "always lists f tidex.conf under Files" do
     {output, _} = render(files: %{})
-    refute Termex.ANSI.strip(output) =~ "Files"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Files"
+    assert visible =~ "f  tidex.conf"
+    refute visible =~ "1  "
   end
 
   test "shows (no repository) when git has no branch" do
@@ -96,6 +109,27 @@ defmodule Tidex.ViewTest do
     {output, _} = render(overlay: :test, output_lines: ["hello from tests"])
     assert output =~ "hello from tests"
     assert output =~ "test · idle"
+  end
+
+  test "lobby puts the current failure on the edit command" do
+    failures = [
+      %{name: "test Foo", file: "test/foo_test.exs", line: 12, snippet: ""}
+    ]
+
+    {output, _} = render(test_state: :fail, failures: failures)
+    assert Termex.ANSI.strip(output) =~ "e  test/foo_test.exs:12"
+  end
+
+  test "a sheet replaces the lobby commands with its own menu" do
+    {output, _} = render(overlay: :test, output_lines: ["hello from tests"])
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "run"
+    assert visible =~ "esc back"
+    refute visible =~ "t  idle"
+    refute visible =~ "f  tidex.conf"
+    refute visible =~ "?  help"
+    refute visible =~ "test start"
+    refute visible =~ "xstop"
   end
 
   test "clips output that would overflow the pane" do
@@ -178,7 +212,7 @@ defmodule Tidex.ViewTest do
     assert Termex.ANSI.strip(output) =~ "add -u"
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
-    assert output =~ "esc or g closes"
+    assert Termex.ANSI.strip(output) =~ "esc back"
   end
 
   test "setup overlay asks where to write tidex.conf" do
