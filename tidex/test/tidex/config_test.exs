@@ -36,6 +36,19 @@ defmodule Tidex.ConfigTest do
     assert config.server == "echo serve"
     assert config.browser == "http://example.test"
     assert config.editor == "true"
+    assert config.files == %{}
+  end
+
+  test "loads file1-file4 and skips missing slots", %{dir: dir} do
+    File.write!(Path.join(dir, "tidex.conf"), """
+    project: demo
+    file1: README.md
+    file3: lib/tidex.ex
+    file4:
+    """)
+
+    config = Config.load(dir)
+    assert config.files == %{1 => "README.md", 3 => "lib/tidex.ex"}
   end
 
   test "project defaults to the config directory name", %{dir: dir} do
@@ -86,6 +99,17 @@ defmodule Tidex.ConfigTest do
     assert body =~ "test: mix test"
     assert body =~ "server: python3 -m http.server 4000"
     refute body =~ ~r/^editor:/m
+    assert body =~ ~r/^file1: mix.exs$/m
+    refute body =~ ~r/^file2:/m
+  end
+
+  test "write! lists README.md before mix.exs when both exist", %{dir: dir} do
+    File.write!(Path.join(dir, "README.md"), "hi\n")
+    File.write!(Path.join(dir, "mix.exs"), "")
+    assert {:ok, path} = Config.write!(dir)
+    body = File.read!(path)
+    assert body =~ ~r/^file1: README.md$/m
+    assert body =~ ~r/^file2: mix.exs$/m
   end
 
   test "git_root is the upward toplevel", %{dir: dir} do

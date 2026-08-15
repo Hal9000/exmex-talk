@@ -71,6 +71,21 @@ defmodule Tidex.ViewTest do
     refute output =~ "untracked"
   end
 
+  test "lists file1-file4 on the lobby and omits missing slots" do
+    {output, _} = render(files: %{1 => "README.md", 3 => "lib/tidex.ex"})
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Files"
+    assert visible =~ "1  README.md"
+    assert visible =~ "3  lib/tidex.ex"
+    refute visible =~ "2  "
+    refute visible =~ "file1"
+  end
+
+  test "omits the Files heading when no files are listed" do
+    {output, _} = render(files: %{})
+    refute Termex.ANSI.strip(output) =~ "Files"
+  end
+
   test "shows (no repository) when git has no branch" do
     {output, _} = render(git: %{branch: nil, dirty: 0, untracked: 0})
     assert output =~ "(no repository)"

@@ -29,7 +29,7 @@ defmodule Tidex.Layout do
   @footer_rows 2
   @fail_height 4
   @min_log_with_fail 4
-  @lobby_status_height 12
+  @lobby_status_height 18
 
   @spec compute(Tidex.State.t()) :: t()
   def compute(%Tidex.State{} = state) do

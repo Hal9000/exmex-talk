@@ -96,6 +96,8 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.handle_event(app, {:key, "?"})
     {:cont, app} = App.handle_event(app, {:key, "t"})
+    {:cont, app} = App.handle_event(app, {:key, "f"})
+    {:cont, app} = App.handle_event(app, {:key, "1"})
     {:cont, app} = App.handle_event(app, {:key, :up})
     assert app.state.overlay == :help
     assert app.state.test_state == :idle
@@ -540,6 +542,53 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.text(out) =~ "status"
   end
 
+  test "f yields the editor on tidex.conf" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+
+    {app, _out} =
+      app(
+        editor_command: "nvim",
+        editor_runner: editor,
+        config_path: "/tmp/demo/tidex.conf"
+      )
+
+    {:cont, _app} = App.step(app, {:key, "f"})
+    assert_receive {:edited, "nvim '/tmp/demo/tidex.conf'"}
+  end
+
+  test "1 opens file1 from the listed files" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+
+    {app, _out} =
+      app(
+        editor_command: "nvim",
+        editor_runner: editor,
+        files: %{1 => "README.md", 3 => "lib/tidex.ex"},
+        config_root: "/proj"
+      )
+
+    {:cont, _app} = App.step(app, {:key, "1"})
+    assert_receive {:edited, "nvim '/proj/README.md'"}
+  end
+
+  test "2 does nothing when file2 is not listed" do
+    {app, _out} = app(files: %{1 => "README.md"})
+    runner = fn _cmd -> flunk("missing file2 should not open an editor") end
+    app = %{app | editor_runner: runner}
+    {:cont, app} = App.handle_event(app, {:key, "2"})
+    assert app.state.overlay == nil
+  end
+
+  test "1 does nothing unless a listed file is present" do
+    {app, _out} = app(files: %{})
+    runner = fn _cmd -> flunk("no listed files should not open an editor") end
+    app = %{app | editor_runner: runner}
+    {:cont, app} = App.handle_event(app, {:key, "1"})
+    assert app.state.overlay == nil
+  end
+
   test "e opens the current failure at line for a known editor" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
@@ -639,12 +688,13 @@ defmodule Tidex.AppTest do
       editor: "true"
     }
 
-    {app, _out} = app(config: config)
+    {app, _out} = app(config: config, files: %{1 => "README.md"})
     assert app.state.project_name == "demo"
     assert app.state.test_command == "echo tests"
     assert app.state.server_command == "echo serve"
     assert app.state.browser_url == "http://example.test"
     assert app.state.editor_command == "true"
+    assert app.state.files == %{1 => "README.md"}
   end
 
   test "missing tidex.conf opens a setup overlay" do
@@ -667,13 +717,16 @@ defmodule Tidex.AppTest do
     dir = tmp_dir()
 
     try do
+      File.write!(Path.join(dir, "README.md"), "hi\n")
       {app, _out} = app(cwd: dir)
       {:cont, app} = App.step(app, {:key, "y"})
       assert app.state.overlay == nil
       assert File.exists?(Path.join(dir, "tidex.conf"))
       assert app.state.project_name == Path.basename(dir)
+      assert app.state.files == %{1 => "README.md"}
       body = File.read!(Path.join(dir, "tidex.conf"))
       refute body =~ ~r/^editor:/m
+      assert body =~ ~r/^file1: README.md$/m
     after
       File.rm_rf!(dir)
     end

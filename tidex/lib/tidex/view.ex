@@ -36,8 +36,7 @@ defmodule Tidex.View do
       pad("#{state.test_state}", col) <> "#{state.server_state}",
       "",
       "Git"
-      | git_lobby_lines(state.git)
-    ]
+    ] ++ git_lobby_lines(state.git) ++ file_lobby_lines(state.files)
   end
 
   defp pad(text, width) do
@@ -54,6 +53,17 @@ defmodule Tidex.View do
 
   defp append_count(lines, n, _label) when n in [0, nil], do: lines
   defp append_count(lines, n, label), do: lines ++ ["#{n} #{label}"]
+
+  defp file_lobby_lines(files) when files == %{}, do: []
+
+  defp file_lobby_lines(files) do
+    rows =
+      1..4
+      |> Enum.filter(&Map.has_key?(files, &1))
+      |> Enum.map(fn n -> "#{n}  #{files[n]}" end)
+
+    ["", "Files" | rows]
+  end
 
   defp render_fail(_device, _state, nil), do: :ok
 
@@ -179,6 +189,8 @@ defmodule Tidex.View do
       key("x", "stop server"),
       key("b", "open browser"),
       key("e", "editor (failure file)"),
+      key("f", "edit tidex.conf"),
+      "1-4  listed files",
       "arrows  scroll sheet",
       "left/right  cycle failures",
       key("g", "git sheet"),

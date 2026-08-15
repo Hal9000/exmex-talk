@@ -21,7 +21,11 @@ project: exmex-talk
 test: mix test
 server: python3 -m http.server 4000
 browser: http://localhost:4000
+file1: README.md
 ```
+
+`file1`–`file4` are listed files. Missing keys are omitted. `1`–`4`
+open the ones that are present. `f` always edits `tidex.conf`.
 
 `project` is the status-pane label. If omitted, it defaults to the
 directory that contains `tidex.conf` (or cwd when the file is missing).
@@ -60,6 +64,6 @@ mix tidex
 ```
 
 Keys: `t` test sheet (again to run), `s` server sheet (again to start),
-`x` stop, `b` browser, `e` editor (failure file+line), arrows scroll a
-sheet, left/right cycle failures, `?` help, `g` git, `esc` close sheet,
-`q` quit.
+`x` stop, `b` browser, `e` editor (failure file+line), `f` edit
+`tidex.conf`, `1`–`4` listed files, arrows scroll a sheet, left/right
+cycle failures, `?` help, `g` git, `esc` close sheet, `q` quit.

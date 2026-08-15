@@ -3,28 +3,33 @@ defmodule Tidex.Config do
   Project label and commands from `tidex.conf`, walking from cwd toward `/`.
 
   Lines are `key: value`. `#` comments and blank lines are ignored.
-  Known keys: `project`, `test`, `server`, `browser`, `editor`.
+  Known keys: `project`, `test`, `server`, `browser`, `editor`,
+  and optional `file1`–`file4`. Missing file keys are omitted.
 
   When no file is found, Tidex can write one after a prompt. It refuses
   `$HOME`, `/`, and `/tmp`.
   """
 
   @filename "tidex.conf"
-  @keys ~w(project test server browser editor)
+  @keys ~w(project test server browser editor file1 file2 file3 file4)
+  @file_keys %{"file1" => 1, "file2" => 2, "file3" => 3, "file4" => 4}
+  @detect ~w(README.md mix.exs package.json Cargo.toml go.mod)
   @blocked_exact ~w(/ /tmp /var /private/tmp /private/var)
 
   defstruct project: "tidex",
             test: "mix test",
             server: "python3 -m http.server 4000",
             browser: "http://localhost:4000",
-            editor: "vi"
+            editor: "vi",
+            files: %{}
 
   @type t :: %__MODULE__{
           project: String.t(),
           test: String.t(),
           server: String.t(),
           browser: String.t(),
-          editor: String.t()
+          editor: String.t(),
+          files: %{optional(1..4) => String.t()}
         }
 
   @spec load(String.t()) :: t()
@@ -117,7 +122,7 @@ defmodule Tidex.Config do
     else
       File.mkdir_p!(dir)
       path = Path.join(dir, @filename)
-      File.write!(path, dump(defaults(dir)))
+      File.write!(path, dump(with_detected_files(defaults(dir), dir)))
       {:ok, path}
     end
   end
@@ -131,7 +136,27 @@ defmodule Tidex.Config do
     server: #{config.server}
     browser: #{config.browser}
     # editor falls back to $VISUAL / $EDITOR / vi
-    """
+    """ <> dump_files(config.files)
+  end
+
+  defp dump_files(files) when files == %{}, do: ""
+
+  defp dump_files(files) do
+    1..4
+    |> Enum.filter(&Map.has_key?(files, &1))
+    |> Enum.map_join("", fn n -> "file#{n}: #{files[n]}\n" end)
+  end
+
+  defp with_detected_files(config, dir) do
+    %{config | files: detect_files(dir)}
+  end
+
+  defp detect_files(dir) do
+    @detect
+    |> Enum.filter(&File.exists?(Path.join(dir, &1)))
+    |> Enum.take(4)
+    |> Enum.with_index(1)
+    |> Map.new(fn {name, n} -> {n, name} end)
   end
 
   @spec find_file(String.t()) :: String.t() | nil
@@ -199,8 +224,18 @@ defmodule Tidex.Config do
       test: pick(raw, "test", defaults.test),
       server: pick(raw, "server", defaults.server),
       browser: pick(raw, "browser", defaults.browser),
-      editor: pick(raw, "editor", defaults.editor)
+      editor: pick(raw, "editor", defaults.editor),
+      files: parse_files(raw)
     }
+  end
+
+  defp parse_files(raw) do
+    for {name, n} <- @file_keys,
+        value = Map.get(raw, name),
+        is_binary(value) and value != "",
+        into: %{} do
+      {n, value}
+    end
   end
 
   defp pick(map, key, fallback) do

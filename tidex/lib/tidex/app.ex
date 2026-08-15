@@ -51,6 +51,14 @@ defmodule Tidex.App do
         true -> nil
       end
 
+    config_path =
+      Keyword.get(opts, :config_path) ||
+        unless(injected?, do: Config.find_file(cwd))
+
+    config_root =
+      Keyword.get(opts, :config_root) ||
+        if(is_binary(config_path), do: Path.dirname(config_path), else: cwd)
+
     state = %State{
       title: Keyword.get(opts, :title, "Tidex"),
       project_name: Keyword.get(opts, :project_name, config.project),
@@ -62,6 +70,9 @@ defmodule Tidex.App do
       overlay: if(setup, do: :setup, else: nil),
       setup: setup,
       cwd: cwd,
+      config_path: config_path,
+      config_root: config_root,
+      files: Keyword.get(opts, :files, config.files),
       width: width,
       height: height
     }
@@ -186,6 +197,14 @@ defmodule Tidex.App do
     {:cont, launch_editor(app)}
   end
 
+  def handle_event(app, {:key, key}) when key in ["f", "F"] do
+    {:cont, launch_editor(app, file: config_file(app.state))}
+  end
+
+  def handle_event(app, {:key, key}) when key in ~w(1 2 3 4) do
+    {:cont, open_listed_file(app, String.to_integer(key))}
+  end
+
   def handle_event(%{state: %{overlay: overlay}} = app, {:key, key})
       when overlay in [:test, :server] and key in [:up, :down, :page_up, :page_down] do
     {:cont, scroll_output(app, key)}
@@ -307,23 +326,53 @@ defmodule Tidex.App do
     |> put_state(%{server_state: :down})
   end
 
-  defp launch_editor(app) do
+  defp launch_editor(app, opts \\ []) do
     app = detach_keyboard(app)
 
     Termex.yield(app.device, app.tty, fn ->
-      app.editor_runner.(editor_command(app))
+      app.editor_runner.(editor_command(app, opts))
     end)
 
     attach_keyboard(app)
   end
 
-  defp editor_command(app) do
-    target = Failures.current(app.state)
+  defp editor_command(app, opts) do
+    {file, line} =
+      case Keyword.get(opts, :file) do
+        path when is_binary(path) and path != "" ->
+          {path, Keyword.get(opts, :line)}
 
-    Open.editor_command(app.state.editor_command,
-      file: target && target.file,
-      line: target && target.line
-    )
+        _ ->
+          target = Failures.current(app.state)
+          {target && target.file, target && target.line}
+      end
+
+    Open.editor_command(app.state.editor_command, file: file, line: line)
+  end
+
+  defp open_listed_file(app, n) do
+    case listed_path(app.state, n) do
+      nil -> app
+      path -> launch_editor(app, file: path)
+    end
+  end
+
+  defp listed_path(state, n) do
+    case Map.get(state.files, n) do
+      path when is_binary(path) and path != "" ->
+        if Path.type(path) == :absolute do
+          path
+        else
+          Path.expand(path, state.config_root)
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp config_file(state) do
+    state.config_path || Path.join(state.cwd, Config.filename())
   end
 
   defp git_add(app), do: start_git_cmd(app, "git add -u")
@@ -509,6 +558,8 @@ defmodule Tidex.App do
 
   defp apply_config(app) do
     config = Config.load(app.state.cwd)
+    path = Config.find_file(app.state.cwd)
+    root = if is_binary(path), do: Path.dirname(path), else: app.state.cwd
 
     put_state(app, %{
       overlay: nil,
@@ -517,7 +568,10 @@ defmodule Tidex.App do
       test_command: config.test,
       server_command: config.server,
       browser_url: config.browser,
-      editor_command: config.editor
+      editor_command: config.editor,
+      files: config.files,
+      config_path: path,
+      config_root: root
     })
   end
 
