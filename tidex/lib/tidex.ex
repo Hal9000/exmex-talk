@@ -2,7 +2,7 @@ defmodule Tidex do
   @moduledoc """
   A language-agnostic development workbench built on Termex.
 
-  Tidex owns the dashboard, commands, git, browser, and editor. A
+  Tidex owns the lobby, command sheets, git, browser, and editor. A
   supervisor owns the git poller and a `DynamicSupervisor` of jobs.
   Termex owns drawing, clipping, keys, and yielding the terminal.
   """

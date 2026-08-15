@@ -3,27 +3,27 @@
 A language-agnostic development workbench built on
 [Termex](../termex).
 
-Two layouts (`l` to toggle): a **status** pane (project, tests, server,
-git) and an **output** pane. Label and commands come from `tidex.conf`
-in the project (or a parent directory): `project`, `test`, `server`,
-`browser`, `editor`. Missing `project` defaults to that directory's name.
-If the file is missing, Tidex asks before writing one (`y` cwd, `g` git
-root, `n`/`esc` skip). `$HOME`, `/`, and `/tmp` are not permitted; `y`
-is omitted.
+Home is a **lobby**: grouped status (Test, Server, Git) and a menu.
+`t`, `s`, `g`, and `?` open one sheet at a time; `esc` returns to the
+lobby. Label and commands come from `tidex.conf` in the project (or a
+parent directory): `project`, `test`, `server`, `browser`, `editor`.
+Missing `project` defaults to that directory's name. If the file is
+missing, Tidex asks before writing one (`y` cwd, `g` git root, `n`/`esc`
+skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 
 | Key | Action |
 | --- | --- |
-| `t` | run tests, stream output |
-| `s` | start or restart server |
+| `t` | open the test sheet; press again to run tests |
+| `s` | open the server sheet; press again to start or restart |
 | `x` | stop server |
 | `b` | open browser URL |
 | `e` | editor; opens the current failure at line when there is one |
-| `l` | toggle dashboard / output-focused layout |
-| arrows, PgUp/PgDn | scroll the output pane (pins when not at the tail) |
+| arrows, PgUp/PgDn | scroll the open test or server sheet |
 | left / right | cycle parsed test failures |
-| `?` | show/hide help overlay |
-| `g` | show/hide git status overlay |
-| `a` / `c` / `p` | add (`-u`) / commit / push (while git overlay is open) |
+| `?` | show/hide help |
+| `g` | show/hide git |
+| `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
+| `esc` | close the current sheet |
 | `q` | quit |
 
 The footer bolds the key letter (`test`, `start`, `xstop`, …).

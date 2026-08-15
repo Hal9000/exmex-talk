@@ -59,7 +59,6 @@ defmodule Tidex.App do
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
       git: Keyword.get(opts, :git, Git.empty()),
-      layout: Keyword.get(opts, :layout, :dashboard),
       overlay: if(setup, do: :setup, else: nil),
       setup: setup,
       cwd: cwd,
@@ -130,17 +129,15 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, "?"}) do
-    next = if app.state.overlay == :help, do: nil, else: :help
-    {:cont, put_state(app, %{overlay: next})}
+    {:cont, toggle_sheet(app, :help)}
   end
 
   def handle_event(app, {:key, "g"}) do
-    next = if app.state.overlay == :git, do: nil, else: :git
-    {:cont, put_state(app, %{overlay: next})}
+    {:cont, toggle_sheet(app, :git)}
   end
 
   def handle_event(%{state: %{overlay: overlay}} = app, {:key, :esc}) when overlay != nil do
-    {:cont, put_state(app, %{overlay: nil})}
+    {:cont, close_sheet(app)}
   end
 
   def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["a", "A"] do
@@ -155,16 +152,25 @@ defmodule Tidex.App do
     {:cont, git_push(app)}
   end
 
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key}) when overlay != nil do
+  def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key})
+      when overlay in [:help, :git] do
     {:cont, app}
   end
 
-  def handle_event(app, {:key, key}) when key in ["t", "T"] do
+  def handle_event(%{state: %{overlay: :test}} = app, {:key, key}) when key in ["t", "T"] do
     {:cont, start_tests(app)}
   end
 
-  def handle_event(app, {:key, key}) when key in ["s", "S"] do
+  def handle_event(app, {:key, key}) when key in ["t", "T"] do
+    {:cont, open_sheet(app, :test)}
+  end
+
+  def handle_event(%{state: %{overlay: :server}} = app, {:key, key}) when key in ["s", "S"] do
     {:cont, start_or_restart_server(app)}
+  end
+
+  def handle_event(app, {:key, key}) when key in ["s", "S"] do
+    {:cont, open_sheet(app, :server)}
   end
 
   def handle_event(app, {:key, key}) when key in ["x", "X"] do
@@ -180,11 +186,8 @@ defmodule Tidex.App do
     {:cont, launch_editor(app)}
   end
 
-  def handle_event(app, {:key, key}) when key in ["l", "L"] do
-    {:cont, toggle_layout(app)}
-  end
-
-  def handle_event(app, {:key, key}) when key in [:up, :down, :page_up, :page_down] do
+  def handle_event(%{state: %{overlay: overlay}} = app, {:key, key})
+      when overlay in [:test, :server] and key in [:up, :down, :page_up, :page_down] do
     {:cont, scroll_output(app, key)}
   end
 
@@ -268,6 +271,7 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(app.state.test_command, self(), ref)
 
     put_state(app, %{
+      overlay: :test,
       test_state: :running,
       test_ref: ref,
       test_pid: pid,
@@ -286,6 +290,7 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
 
     put_state(app, %{
+      overlay: :server,
       server_state: :up,
       server_ref: ref,
       server_pid: pid,
@@ -326,7 +331,6 @@ defmodule Tidex.App do
   defp git_push(app), do: start_git_cmd(app, "git push")
 
   defp git_commit(app) do
-    app = put_state(app, %{overlay: nil})
     app = detach_keyboard(app)
 
     Termex.yield(app.device, app.tty, fn ->
@@ -344,7 +348,7 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(command, self(), ref)
 
     put_state(app, %{
-      overlay: nil,
+      overlay: :git,
       git_cmd_ref: ref,
       git_cmd_pid: pid,
       git_log: [],
@@ -354,9 +358,26 @@ defmodule Tidex.App do
     })
   end
 
-  defp toggle_layout(app) do
-    next = if app.state.layout == :dashboard, do: :output, else: :dashboard
-    put_state(app, %{layout: next})
+  defp toggle_sheet(app, sheet) do
+    app = persist_visible(app)
+    next = if app.state.overlay == sheet, do: nil, else: sheet
+    put_state(app, %{overlay: next})
+  end
+
+  defp close_sheet(app) do
+    app |> persist_visible() |> put_state(%{overlay: nil})
+  end
+
+  defp open_sheet(app, source) do
+    app = persist_visible(app)
+    lines = Map.fetch!(app.state, log_field(source))
+
+    put_state(app, %{
+      overlay: source,
+      output_source: source,
+      output_lines: lines,
+      output_scroll: :follow
+    })
   end
 
   defp scroll_output(app, key) do
@@ -374,8 +395,7 @@ defmodule Tidex.App do
   defp scroll_delta(:page_down, height), do: max(height, 1)
 
   defp output_inner_height(state) do
-    layout = Layout.compute(state)
-    Layout.inner(layout.output).height
+    Layout.inner(Layout.sheet(state).log).height
   end
 
   defp maybe_append_output(app, ref, line) do

@@ -11,7 +11,7 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | Project | Role |
 | --- | --- |
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
-| [`tidex/`](tidex) | Workbench: tests, server, git, browser, editor, two layouts, OTP supervision |
+| [`tidex/`](tidex) | Workbench: lobby, test/server/git/help sheets, browser, editor, OTP supervision |
 
 Project label and commands live in [`tidex.conf`](tidex.conf) (walked from
 cwd toward `/`):
@@ -59,6 +59,7 @@ cd tidex
 mix tidex
 ```
 
-Keys: `t` tests, `s` start/restart server, `x` stop, `b` browser, `e`
-editor (failure file+line), `l` layout, arrows scroll output, left/right
-cycle failures, `?` help, `g` git, `q` quit.
+Keys: `t` test sheet (again to run), `s` server sheet (again to start),
+`x` stop, `b` browser, `e` editor (failure file+line), arrows scroll a
+sheet, left/right cycle failures, `?` help, `g` git, `esc` close sheet,
+`q` quit.

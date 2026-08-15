@@ -13,54 +13,79 @@ defmodule Tidex.Layout do
           }
   end
 
-  defstruct [:width, :height, :status, :fail, :output, :footer_row, :mode]
+  defstruct [:width, :height, :status, :fail, :output, :footer_row]
 
   @type t :: %__MODULE__{
           width: pos_integer(),
           height: pos_integer(),
           status: Pane.t(),
           fail: Pane.t() | nil,
-          output: Pane.t(),
-          footer_row: pos_integer(),
-          mode: Tidex.State.layout()
+          output: Pane.t() | nil,
+          footer_row: pos_integer()
         }
+
+  @type sheet :: %{fail: Pane.t() | nil, log: Pane.t()}
 
   @footer_rows 2
   @fail_height 4
-  @min_output_with_fail 4
+  @min_log_with_fail 4
+  @lobby_status_height 12
 
   @spec compute(Tidex.State.t()) :: t()
   def compute(%Tidex.State{} = state) do
-    compute(state.width, state.height, state.layout, failures: Tidex.Failures.showing?(state))
+    compute(state.width, state.height)
   end
 
-  @spec compute(pos_integer(), pos_integer(), Tidex.State.layout(), keyword()) :: t()
-  def compute(width, height, mode \\ :dashboard, opts \\ []) do
+  @spec compute(pos_integer(), pos_integer()) :: t()
+  def compute(width, height) do
     width = max(width, 16)
     height = max(height, 12)
-    status_height = status_height(mode)
-    available = height - status_height - @footer_rows
-    fail_height = fail_height(opts, available)
-    output_height = available - fail_height
-
-    fail =
-      if fail_height > 0 do
-        %Pane{row: status_height + 1, col: 1, width: width, height: fail_height}
-      end
+    available = height - @footer_rows
+    status_height = min(@lobby_status_height, available)
 
     %__MODULE__{
       width: width,
       height: height,
-      mode: mode,
       status: %Pane{row: 1, col: 1, width: width, height: status_height},
+      fail: nil,
+      output: nil,
+      footer_row: height
+    }
+  end
+
+  @spec sheet(Tidex.State.t()) :: sheet()
+  def sheet(%Tidex.State{} = state) do
+    width = max(state.width, 16)
+    height = max(state.height, 12)
+    available = height - @footer_rows
+    fail_height = sheet_fail_height(state, available)
+
+    fail =
+      if fail_height > 0 do
+        %Pane{row: 1, col: 1, width: width, height: fail_height}
+      end
+
+    %{
       fail: fail,
-      output: %Pane{
-        row: status_height + fail_height + 1,
+      log: %Pane{
+        row: 1 + fail_height,
         col: 1,
         width: width,
-        height: output_height
-      },
-      footer_row: height
+        height: available - fail_height
+      }
+    }
+  end
+
+  @spec overlay_pane(pos_integer(), pos_integer()) :: Pane.t()
+  def overlay_pane(width, height) do
+    width = max(width, 16)
+    height = max(height, 12)
+
+    %Pane{
+      row: 1,
+      col: 1,
+      width: width,
+      height: height - @footer_rows
     }
   end
 
@@ -74,14 +99,13 @@ defmodule Tidex.Layout do
     }
   end
 
-  defp status_height(:dashboard), do: 6
-  defp status_height(:output), do: 4
-
-  defp fail_height(opts, available) do
-    if Keyword.get(opts, :failures, false) and available >= @fail_height + @min_output_with_fail do
+  defp sheet_fail_height(%{overlay: :test} = state, available) do
+    if Tidex.Failures.showing?(state) and available >= @fail_height + @min_log_with_fail do
       @fail_height
     else
       0
     end
   end
+
+  defp sheet_fail_height(_state, _available), do: 0
 end

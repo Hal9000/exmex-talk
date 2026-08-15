@@ -75,6 +75,7 @@ defmodule Tidex.ApplicationTest do
     on_exit(fn -> FakeTerminal.stop_ui(ui) end)
 
     send(ui, {:termex, :key, "t"})
+    send(ui, {:termex, :key, "t"})
     assert_receive {:started, pid}, 500
     assert Process.alive?(pid)
 

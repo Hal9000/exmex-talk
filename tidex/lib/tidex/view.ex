@@ -10,51 +10,50 @@ defmodule Tidex.View do
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 
-    render_status(device, state, layout.status)
-    render_fail(device, state, layout.fail)
-    render_output(device, state, layout.output)
+    if state.overlay == nil do
+      render_status(device, state, layout.status)
+    end
+
     render_footer(device, layout)
-    render_overlay(device, state, layout)
+    render_sheet(device, state)
     :ok
   end
 
   defp render_status(device, state, pane) do
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "status")
     inner = Layout.inner(pane)
-    lines = status_lines(state, inner.height)
+    lines = status_lines(state, inner)
     Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
   end
 
-  defp status_lines(state, height) when height >= 4 do
+  defp status_lines(state, inner) do
+    col = max(div(inner.width, 2), 8)
+
     [
       "project: #{state.project_name}",
-      "tests:   #{state.test_state}",
-      "server:  #{state.server_state}",
-      git_line(state.git)
+      "",
+      pad("Test", col) <> "Server",
+      pad("#{state.test_state}", col) <> "#{state.server_state}",
+      "",
+      "Git"
+      | git_lobby_lines(state.git)
     ]
   end
 
-  defp status_lines(state, _height) do
-    [
-      "tests: #{state.test_state}   server: #{state.server_state}",
-      git_line(state.git)
-    ]
+  defp pad(text, width) do
+    String.pad_trailing(text, width)
   end
 
-  defp git_line(%{branch: nil}), do: "git:     (no repository)"
+  defp git_lobby_lines(%{branch: nil}), do: ["(no repository)"]
 
-  defp git_line(git) do
-    "git:     " <> Enum.join(git_bits(git), " · ")
-  end
-
-  defp git_bits(%{branch: branch} = git) do
-    [branch]
+  defp git_lobby_lines(git) do
+    [git.branch]
     |> append_count(Map.get(git, :dirty, 0), "dirty")
     |> append_count(Map.get(git, :untracked, 0), "untracked")
   end
 
-  defp append_count(bits, n, _label) when n in [0, nil], do: bits
-  defp append_count(bits, n, label), do: bits ++ ["#{n} #{label}"]
+  defp append_count(lines, n, _label) when n in [0, nil], do: lines
+  defp append_count(lines, n, label), do: lines ++ ["#{n} #{label}"]
 
   defp render_fail(_device, _state, nil), do: :ok
 
@@ -88,12 +87,19 @@ defmodule Tidex.View do
     [failure.name, Enum.join(Enum.reject([loc, failure.snippet], &(&1 == "")), "  ")]
   end
 
-  defp render_output(device, state, pane) do
+  defp render_log(device, state, pane, name) do
     inner = Layout.inner(pane)
-    title = Scroll.title(state.output_lines, inner.height, state.output_scroll)
+    title = log_title(state.output_lines, inner.height, state.output_scroll, name)
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
     lines = Scroll.visible(state.output_lines, inner.height, state.output_scroll)
     Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
+  end
+
+  defp log_title(lines, height, scroll, name) do
+    case Scroll.title(lines, height, scroll) do
+      "output" -> name
+      "output " <> rest -> "#{name} #{rest}"
+    end
   end
 
   defp render_footer(device, layout) do
@@ -114,47 +120,43 @@ defmodule Tidex.View do
       1,
       layout.width,
       Enum.join(
-        [
-          hotkey("e", "edit"),
-          hotkey("l", "layout"),
-          hotkey("g", "git"),
-          hotkey("?", "help"),
-          hotkey("q", "quit")
-        ],
+        [hotkey("e", "edit"), hotkey("g", "git"), hotkey("?", "help"), hotkey("q", "quit")],
         " "
       )
     )
   end
 
-  defp render_overlay(device, %{overlay: :setup} = state, layout) do
-    draw_overlay(device, layout, "tidex.conf", Setup.lines(state.setup))
+  defp render_sheet(_device, %{overlay: nil}), do: :ok
+
+  defp render_sheet(device, %{overlay: :test} = state) do
+    sheet = Layout.sheet(state)
+    render_fail(device, state, sheet.fail)
+    render_log(device, state, sheet.log, "test · #{state.test_state}")
   end
 
-  defp render_overlay(_device, %{overlay: nil}, _layout), do: :ok
-
-  defp render_overlay(device, %{overlay: :help}, layout) do
-    draw_overlay(device, layout, "help", help_lines())
+  defp render_sheet(device, %{overlay: :server} = state) do
+    sheet = Layout.sheet(state)
+    render_log(device, state, sheet.log, "server · #{state.server_state}")
   end
 
-  defp render_overlay(device, %{overlay: :git} = state, layout) do
-    draw_overlay(device, layout, "git", git_overlay_lines(state.git))
+  defp render_sheet(device, %{overlay: :setup} = state) do
+    draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))
   end
 
-  defp draw_overlay(device, layout, title, lines) do
-    pane = overlay_pane(layout.width, layout.height)
+  defp render_sheet(device, %{overlay: :help} = state) do
+    draw_overlay(device, state, "help", help_lines())
+  end
+
+  defp render_sheet(device, %{overlay: :git} = state) do
+    draw_overlay(device, state, "git", git_sheet_lines(state))
+  end
+
+  defp draw_overlay(device, state, title, lines) do
+    pane = Layout.overlay_pane(state.width, state.height)
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
     inner = Layout.inner(pane)
     fill_inner(device, inner)
     Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
-  end
-
-  defp overlay_pane(width, height) do
-    %Layout.Pane{
-      row: 3,
-      col: 3,
-      width: max(width - 4, 12),
-      height: max(min(height - 5, 14), 8)
-    }
   end
 
   defp fill_inner(device, inner) do
@@ -172,22 +174,21 @@ defmodule Tidex.View do
 
   defp help_lines do
     [
-      key("t", "run tests"),
-      key("s", "start/restart server"),
+      key("t", "test sheet (again to run)"),
+      key("s", "server sheet (again to start)"),
       key("x", "stop server"),
       key("b", "open browser"),
       key("e", "editor (failure file)"),
-      key("l", "toggle layout"),
-      "arrows  scroll output",
+      "arrows  scroll sheet",
       "left/right  cycle failures",
-      key("g", "git status"),
+      key("g", "git sheet"),
       key("?", "this help"),
       key("q", "quit"),
-      "esc or ? closes"
+      "esc closes"
     ]
   end
 
-  defp git_overlay_lines(git) do
+  defp git_sheet_lines(state) do
     [
       Enum.join(
         [hotkey("a", "add") <> " -u  ", hotkey("c", "commit") <> "  ", hotkey("p", "push")],
@@ -195,8 +196,22 @@ defmodule Tidex.View do
       ),
       "esc or g closes",
       ""
-      | git_status_lines(git)
+      | git_status_lines(state.git) ++ git_log_lines(state)
     ]
+  end
+
+  defp git_log_lines(state) do
+    lines =
+      if state.output_source == :git do
+        state.output_lines
+      else
+        state.git_log
+      end
+
+    case lines do
+      [] -> []
+      lines -> ["" | lines]
+    end
   end
 
   defp hotkey(letter, word) do
