@@ -105,25 +105,23 @@ defmodule Tidex.ViewTest do
     refute output =~ "git:     —"
   end
 
-  test "test sheet shows the test log" do
-    {output, _} = render(overlay: :test, output_lines: ["hello from tests"])
-    assert output =~ "hello from tests"
-    assert output =~ "test · idle"
-  end
-
-  test "lobby puts the current failure on the edit command" do
+  test "lobby shows the failure count and one current failure" do
     failures = [
-      %{name: "test Foo", file: "test/foo_test.exs", line: 12, snippet: ""}
+      %{name: "test Foo", file: "test/foo_test.exs", line: 12, snippet: "left behind"}
     ]
 
     {output, _} = render(test_state: :fail, failures: failures)
-    assert Termex.ANSI.strip(output) =~ "e  test/foo_test.exs:12"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "t  1 failing"
+    assert visible =~ "test Foo"
+    assert visible =~ "e  test/foo_test.exs:12"
+    refute visible =~ "left behind"
   end
 
   test "a sheet replaces the lobby commands with its own menu" do
-    {output, _} = render(overlay: :test, output_lines: ["hello from tests"])
+    {output, _} = render(overlay: :server, output_lines: ["hello from server"])
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "run"
+    assert visible =~ "start"
     assert visible =~ "esc back"
     refute visible =~ "t  idle"
     refute visible =~ "f  tidex.conf"
@@ -136,15 +134,15 @@ defmodule Tidex.ViewTest do
     long = "KEEP_START" <> String.duplicate("x", 80) <> "KEEP_END"
 
     {output, _} =
-      render(width: 24, height: 16, overlay: :test, output_lines: [long])
+      render(width: 24, height: 16, overlay: :server, output_lines: [long])
 
     assert output =~ "KEEP_START"
     refute output =~ "KEEP_END"
   end
 
-  test "test sheet keeps the latest lines when they overflow height" do
+  test "server sheet keeps the latest lines when they overflow height" do
     lines = Enum.map(1..20, &"row#{&1}-end")
-    {output, state} = render(width: 40, height: 12, overlay: :test, output_lines: lines)
+    {output, state} = render(width: 40, height: 12, overlay: :server, output_lines: lines)
     inner = log_inner(state)
     visible = FakeTerminal.region_lines(output, inner)
 
@@ -157,14 +155,14 @@ defmodule Tidex.ViewTest do
     lines = Enum.map(1..20, &"row#{&1}-end")
 
     {output, state} =
-      render(width: 40, height: 12, overlay: :test, output_lines: lines, output_scroll: 0)
+      render(width: 40, height: 12, overlay: :server, output_lines: lines, output_scroll: 0)
 
     inner = log_inner(state)
     visible = FakeTerminal.region_lines(output, inner)
 
     assert hd(visible) == "row1-end"
     refute "row20-end" in visible
-    assert output =~ "test · idle 1-"
+    assert output =~ "server · down 1-"
   end
 
   test "last frame drops lines that scrolled out after a redraw" do
@@ -175,7 +173,7 @@ defmodule Tidex.ViewTest do
       width: 40,
       height: 12,
       project_name: "exmex-talk",
-      overlay: :test,
+      overlay: :server,
       output_lines: lines
     }
 
@@ -195,8 +193,8 @@ defmodule Tidex.ViewTest do
   test "help sheet draws a keymap on top of the lobby" do
     {output, _} = render(overlay: :help)
     assert output =~ "help"
-    assert Termex.ANSI.strip(output) =~ "t  test sheet"
-    assert output =~ "arrows  scroll sheet"
+    assert Termex.ANSI.strip(output) =~ "t  run tests"
+    assert output =~ "arrows  scroll server"
     assert output =~ "esc closes"
   end
 
@@ -238,7 +236,7 @@ defmodule Tidex.ViewTest do
     refute Termex.ANSI.strip(output) =~ "y  write here"
   end
 
-  test "fail strip sits on the test sheet when tests failed" do
+  test "a failed run does not draw the test log on the lobby" do
     failures = [
       %{
         name: "test Foo.bar/1 (FooTest)",
@@ -248,20 +246,20 @@ defmodule Tidex.ViewTest do
       }
     ]
 
-    {output, state} =
+    {output, _} =
       render(
-        overlay: :test,
         test_state: :fail,
         failures: failures,
+        output_lines: ["1) test Foo.bar/1 (FooTest)", "Assertion with == failed"],
         width: 40,
         height: 20
       )
 
-    sheet = Layout.sheet(state)
-    assert sheet.fail.row == 1
-    assert sheet.log.row == 5
-    assert output =~ "fail 1/1"
-    assert output =~ "test Foo.bar/1"
-    assert output =~ "test/foo_test.exs:12"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "t  1 failing"
+    assert visible =~ "test Foo.bar/1"
+    assert visible =~ "e  test/foo_test.exs:12"
+    refute visible =~ "Assertion with == failed"
+    refute output =~ "test · fail"
   end
 end

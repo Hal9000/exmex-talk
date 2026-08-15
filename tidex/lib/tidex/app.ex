@@ -172,12 +172,8 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
-  def handle_event(%{state: %{overlay: :test}} = app, {:key, key}) when key in ["t", "T"] do
-    {:cont, start_tests(app)}
-  end
-
   def handle_event(app, {:key, key}) when key in ["t", "T"] do
-    {:cont, open_sheet(app, :test)}
+    {:cont, start_tests(app)}
   end
 
   def handle_event(%{state: %{overlay: :server}} = app, {:key, key}) when key in ["s", "S"] do
@@ -209,8 +205,8 @@ defmodule Tidex.App do
     {:cont, open_listed_file(app, String.to_integer(key))}
   end
 
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, key})
-      when overlay in [:test, :server] and key in [:up, :down, :page_up, :page_down] do
+  def handle_event(%{state: %{overlay: :server}} = app, {:key, key})
+      when key in [:up, :down, :page_up, :page_down] do
     {:cont, scroll_output(app, key)}
   end
 
@@ -294,14 +290,10 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(app.state.test_command, self(), ref)
 
     put_state(app, %{
-      overlay: :test,
       test_state: :running,
       test_ref: ref,
       test_pid: pid,
       test_log: [],
-      output_lines: [],
-      output_scroll: :follow,
-      output_source: :test,
       failures: [],
       failure_index: 0
     })

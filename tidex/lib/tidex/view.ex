@@ -53,11 +53,37 @@ defmodule Tidex.View do
   end
 
   defp test_lines(state) do
-    ["Test", key("t", "#{state.test_state}"), edit_line(state)]
+    ["Test", test_status_line(state)] ++ current_failure_lines(state)
   end
 
-  defp edit_line(state) do
+  defp test_status_line(state) do
+    n = length(state.failures)
+
+    if state.test_state == :fail and n > 0 do
+      key("t", "#{n} failing")
+    else
+      key("t", "#{state.test_state}")
+    end
+  end
+
+  defp current_failure_lines(state) do
     case Failures.current(state) do
+      nil ->
+        [key("e", "edit")]
+
+      failure ->
+        [failure_name_line(failure), edit_line(failure)]
+    end
+  end
+
+  defp failure_name_line(%{name: name}) when is_binary(name) and name != "" do
+    "   #{name}"
+  end
+
+  defp failure_name_line(_), do: "   (failure)"
+
+  defp edit_line(failure) do
+    case failure do
       %{file: file, line: line} when is_binary(file) and is_integer(line) ->
         key("e", "#{file}:#{line}")
 
@@ -95,38 +121,6 @@ defmodule Tidex.View do
     ["Files", key("f", "tidex.conf") | rows]
   end
 
-  defp render_fail(_device, _state, nil), do: :ok
-
-  defp render_fail(device, state, pane) do
-    current = Failures.current(state)
-    n = length(state.failures)
-    index = rem(state.failure_index, max(n, 1)) + 1
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "fail #{index}/#{n}")
-    inner = Layout.inner(pane)
-
-    Termex.write_region(
-      device,
-      inner.row,
-      inner.col,
-      inner.width,
-      inner.height,
-      fail_lines(current)
-    )
-  end
-
-  defp fail_lines(nil), do: []
-
-  defp fail_lines(failure) do
-    loc =
-      case failure do
-        %{file: file, line: line} when is_binary(file) and is_integer(line) -> "#{file}:#{line}"
-        %{file: file} when is_binary(file) -> file
-        _ -> ""
-      end
-
-    [failure.name, Enum.join(Enum.reject([loc, failure.snippet], &(&1 == "")), "  ")]
-  end
-
   defp render_log(device, state, pane, name) do
     inner = Layout.inner(pane)
     title = log_title(state.output_lines, inner.height, state.output_scroll, name)
@@ -152,10 +146,6 @@ defmodule Tidex.View do
     )
   end
 
-  defp menu_line(:test) do
-    Enum.join([hotkey("t", "run"), hotkey("e", "edit"), "esc back", hotkey("q", "quit")], "  ")
-  end
-
   defp menu_line(:server) do
     Enum.join(
       [hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse"), "esc back"],
@@ -175,12 +165,6 @@ defmodule Tidex.View do
   defp menu_line(:setup), do: "esc skip"
 
   defp menu_line(_), do: "esc back"
-
-  defp render_sheet(device, %{overlay: :test} = state) do
-    sheet = Layout.sheet(state)
-    render_fail(device, state, sheet.fail)
-    render_log(device, state, sheet.log, "test · #{state.test_state}")
-  end
 
   defp render_sheet(device, %{overlay: :server} = state) do
     sheet = Layout.sheet(state)
@@ -222,14 +206,14 @@ defmodule Tidex.View do
 
   defp help_lines do
     [
-      key("t", "test sheet (again to run)"),
+      key("t", "run tests"),
       key("s", "server sheet (again to start)"),
       key("x", "stop server"),
       key("b", "open browser"),
-      key("e", "editor (failure file)"),
+      key("e", "editor (current failure)"),
       key("f", "edit tidex.conf"),
       "1-4  listed files",
-      "arrows  scroll sheet",
+      "arrows  scroll server",
       "left/right  cycle failures",
       key("g", "git sheet"),
       key("?", "this help"),

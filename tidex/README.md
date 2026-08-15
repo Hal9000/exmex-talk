@@ -4,8 +4,10 @@ A language-agnostic development workbench built on
 [Termex](../termex).
 
 Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
-on the status screen. `t`, `s`, `g`, and `?` open one sheet at a time;
-`esc` returns to the lobby. Each sheet has its own one-line menu.
+on the status screen. `t` runs tests and stays on the lobby: a failure
+count and the current failure, left/right to cycle, `e` to edit that
+file. The full test log is kept but not shown. `s`, `g`, and `?` open
+one sheet at a time; `esc` returns to the lobby.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that
@@ -19,14 +21,14 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 
 | Key | Action |
 | --- | --- |
-| `t` | open the test sheet; press again to run tests |
+| `t` | run tests (lobby shows the count and one failure) |
 | `s` | open the server sheet; press again to start or restart |
 | `x` | stop server |
 | `b` | open browser URL |
 | `e` | editor; opens the current failure at line when there is one |
 | `f` | edit `tidex.conf` |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
-| arrows, PgUp/PgDn | scroll the open test or server sheet |
+| arrows, PgUp/PgDn | scroll the open server sheet |
 | left / right | cycle parsed test failures |
 | `?` | show/hide help |
 | `g` | show/hide git |
@@ -35,8 +37,8 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `q` | quit |
 
 The lobby bolds the key letter next to each command (`t  idle`,
-`s  down`, `f  tidex.conf`, …). A sheet replaces that list with its
-own menu (`run`, `start`, `add -u`, …).
+`s  down`, `f  tidex.conf`, …). After a failing run the Test group
+shows `t  N failing` and the current file:line.
 
 ```bash
 cd tidex

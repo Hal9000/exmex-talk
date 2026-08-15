@@ -35,7 +35,7 @@ defmodule Tidex.State do
 
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
-  @type overlay :: nil | :help | :git | :setup | :test | :server
+  @type overlay :: nil | :help | :git | :setup | :server
 
   @type t :: %__MODULE__{
           title: String.t(),

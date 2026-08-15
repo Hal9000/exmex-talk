@@ -37,17 +37,7 @@ defmodule Tidex.AppTest do
     Layout.inner(Layout.sheet(state).log)
   end
 
-  defp fail_lines(out, app) do
-    FakeTerminal.region_lines(out, Layout.inner(Layout.sheet(app.state).fail))
-  end
-
-  defp open_test(app) do
-    {:cont, app} = App.handle_event(app, {:key, "t"})
-    app
-  end
-
   defp run_tests(app) do
-    app = open_test(app)
     {:cont, app} = App.handle_event(app, {:key, "t"})
     app
   end
@@ -175,11 +165,10 @@ defmodule Tidex.AppTest do
 
   test "git add keeps the test log and stays on the git sheet" do
     {app, _out} = app([])
-    app = open_test(app)
 
     app = %{
       app
-      | state: %{app.state | output_lines: ["test line one", "test line two"]}
+      | state: %{app.state | test_log: ["test line one", "test line two"]}
     }
 
     {:cont, app} = App.handle_event(app, {:key, "g"})
@@ -196,11 +185,10 @@ defmodule Tidex.AppTest do
 
   test "opening the server sheet keeps the test log" do
     {app, _out} = app([])
-    app = open_test(app)
 
     app = %{
       app
-      | state: %{app.state | output_lines: ["still in the test log"]}
+      | state: %{app.state | test_log: ["still in the test log"]}
     }
 
     {:cont, app} = App.handle_event(app, {:key, "s"})
@@ -223,102 +211,26 @@ defmodule Tidex.AppTest do
     refute "still testing" in app.state.output_lines
   end
 
-  test "up pins the test sheet one line above the tail" do
+  test "running tests again clears the last run" do
     {app, _out} = app([])
-    app = open_test(app)
-    lines = Enum.map(1..25, &"row#{&1}")
-    app = %{app | state: %{app.state | output_lines: lines}}
 
-    {:cont, app} = App.handle_event(app, {:key, :up})
-    inner_h = output_inner(app.state).height
-    assert app.state.output_scroll == max(length(lines) - inner_h - 1, 0)
-  end
-
-  test "down at the tail stays in follow mode" do
-    {app, _out} = app([])
-    app = open_test(app)
-    lines = Enum.map(1..25, &"row#{&1}")
-    app = %{app | state: %{app.state | output_lines: lines, output_scroll: :follow}}
-
-    {:cont, app} = App.handle_event(app, {:key, :down})
-    assert app.state.output_scroll == :follow
-  end
-
-  test "page up jumps to the top of the log" do
-    {app, _out} = app([])
-    app = open_test(app)
-    lines = Enum.map(1..25, &"row#{&1}")
-    app = %{app | state: %{app.state | output_lines: lines}}
-
-    {:cont, app} = App.handle_event(app, {:key, :page_up})
-    assert app.state.output_scroll == 0
-  end
-
-  test "a later frame drops tail lines that scrolled out of the test sheet" do
-    {app, out} = app(width: 40, height: 12)
-    app = open_test(app)
-    lines = Enum.map(1..20, &"row#{&1}-end")
-    app = %{app | state: %{app.state | output_lines: lines}}
-
-    {:cont, app} = App.step(app, {:key, :down})
-    inner = output_inner(app.state)
-    visible = FakeTerminal.region_lines(out, inner)
-    assert List.last(visible) == "row20-end"
-    refute "row1-end" in visible
-
-    app = %{app | state: %{app.state | output_scroll: 0}}
-    {:cont, _app} = App.step(app, {:key, :left})
-    visible = FakeTerminal.region_lines(out, inner)
-    assert hd(visible) == "row1-end"
-    refute "row20-end" in visible
-    assert length(visible) == inner.height
-    assert FakeTerminal.text(out) =~ "row20-end"
-  end
-
-  test "new lines while pinned leave the window in place" do
-    {app, out} = app([])
-    app = run_tests(app)
-    ref = app.state.test_ref
-
-    lines = Enum.map(1..25, &"row#{&1}")
-    app = %{app | state: %{app.state | output_lines: lines, output_scroll: 0}}
-
-    {:cont, app} = App.step(app, {:command, ref, :line, "newest"})
-    assert app.state.output_scroll == 0
-    assert List.last(app.state.output_lines) == "newest"
-
-    visible = FakeTerminal.region_lines(out, output_inner(app.state))
-    assert hd(visible) == "row1"
-    refute "newest" in visible
-  end
-
-  test "new lines while following stay on the tail" do
-    {app, out} = app([])
-    app = run_tests(app)
-    ref = app.state.test_ref
-    lines = Enum.map(1..25, &"row#{&1}")
-    app = %{app | state: %{app.state | output_lines: lines, output_scroll: :follow}}
-
-    {:cont, app} = App.step(app, {:command, ref, :line, "newest"})
-    assert app.state.output_scroll == :follow
-    visible = FakeTerminal.region_lines(out, output_inner(app.state))
-    assert List.last(visible) == "newest"
-  end
-
-  test "running tests again resets scroll to follow" do
-    {app, _out} = app([])
-    app = open_test(app)
-    app = %{app | state: %{app.state | output_scroll: 3, output_lines: ["old"]}}
+    app = %{
+      app
+      | state: %{
+          app.state
+          | test_log: ["old"],
+            failures: [%{name: "old", file: "test/a.exs", line: 1, snippet: ""}]
+        }
+    }
 
     {:cont, app} = App.step(app, {:key, "t"})
-    assert app.state.output_scroll == :follow
-    assert app.state.output_lines == []
+    assert app.state.test_state == :running
+    assert app.state.test_log == []
     assert app.state.failures == []
   end
 
   test "left and right do not scroll" do
     {app, _out} = app([])
-    app = open_test(app)
     app = %{app | state: %{app.state | output_lines: Enum.map(1..25, &"row#{&1}")}}
 
     {:cont, app} = App.handle_event(app, {:key, :left})
@@ -344,39 +256,48 @@ defmodule Tidex.AppTest do
     "     ** (RuntimeError) timed out"
   ]
 
-  test "a failing test run fills the fail strip and left/right cycle it" do
+  test "a failing test run shows the count and one failure on the lobby" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
-    {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
-    app = %{app | state: %{app.state | output_lines: @exunit_fail}}
+    app = %{app | state: %{app.state | test_log: @exunit_fail}}
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.test_state == :fail
     assert length(app.state.failures) == 2
-    assert FakeTerminal.last_frame(out) =~ "fail 1/2"
-    assert fail_lines(out, app) |> Enum.any?(&(&1 =~ "Foo.bar"))
+    assert app.state.overlay == nil
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "2 failing"
+    assert visible =~ "test Foo.bar/1"
+    assert visible =~ "e  test/foo_test.exs:12"
+    refute visible =~ "Assertion with == failed"
+    refute visible =~ "test · fail"
 
     {:cont, app} = App.step(app, {:key, :right})
-    visible = fail_lines(out, app)
-    assert FakeTerminal.last_frame(out) =~ "fail 2/2"
-    assert Enum.any?(visible, &(&1 =~ "test boom"))
-    refute Enum.any?(visible, &(&1 =~ "Foo.bar"))
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "2 failing"
+    assert visible =~ "test boom"
+    assert visible =~ "e  test/foo_test.exs:20"
+    refute visible =~ "Foo.bar"
 
     {:cont, _app} = App.step(app, {:key, :left})
-    assert FakeTerminal.last_frame(out) =~ "fail 1/2"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "test Foo.bar/1"
+    refute visible =~ "test boom"
   end
 
   test "a passing run clears parsed failures" do
-    {app, _out} = app([])
-    {:cont, app} = App.step(app, {:key, "t"})
+    {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
-    app = %{app | state: %{app.state | output_lines: @exunit_fail, failures: [%{name: "old"}]}}
+    app = %{app | state: %{app.state | test_log: @exunit_fail, failures: [%{name: "old"}]}}
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
     assert app.state.failures == []
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "t  pass"
+    refute visible =~ "failing"
   end
 
   test "handle_event q returns quit" do
@@ -384,91 +305,53 @@ defmodule Tidex.AppTest do
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
   end
 
-  test "t from the lobby opens the test sheet without starting" do
+  test "t from the lobby starts the test command" do
     {app, out} = app(test_command: "mix test")
-    assert {:cont, app} = App.step(app, {:key, "t"})
-
-    refute_received {:started, _, _, _, _}
-    assert app.state.overlay == :test
-    assert app.state.test_state == :idle
-    assert FakeTerminal.last_frame(out) =~ "test · idle"
-  end
-
-  test "t on the test sheet starts the test command" do
-    {app, out} = app(test_command: "mix test")
-    {:cont, app} = App.step(app, {:key, "t"})
     assert {:cont, app} = App.step(app, {:key, "t"})
 
     assert_receive {:started, "mix test", notify, ref, _pid}
     assert notify == self()
+    assert app.state.overlay == nil
     assert app.state.test_state == :running
     assert app.state.test_ref == ref
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "test · running"
-    refute frame =~ "test · idle"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "t  running"
+    refute visible =~ "test · running"
   end
 
-  test "esc closes the test sheet back to the lobby" do
-    {app, out} = app([])
-    {:cont, app} = App.step(app, {:key, "t"})
-    app = %{app | state: %{app.state | output_lines: ["kept in the test log"]}}
-    {:cont, app} = App.step(app, {:key, :esc})
-
-    assert app.state.overlay == nil
-    assert app.state.test_log == ["kept in the test log"]
-    refute FakeTerminal.last_frame(out) =~ "kept in the test log"
-    assert FakeTerminal.last_frame(out) =~ "status"
-  end
-
-  test "t reopens the last test log without running again" do
-    {app, out} = app([])
-    {:cont, app} = App.step(app, {:key, "t"})
-    {:cont, app} = App.step(app, {:key, "t"})
-    assert_receive {:started, _, _, ref, _}
-    {:cont, app} = App.step(app, {:command, ref, :line, "previous run"})
-    {:cont, app} = App.step(app, {:command, ref, :exit, 0})
-    {:cont, app} = App.step(app, {:key, :esc})
-    {:cont, app} = App.step(app, {:key, "t"})
-
-    refute_received {:started, _, _, _, _}
-    assert app.state.overlay == :test
-    assert app.state.test_state == :pass
-    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["previous run"]
-  end
-
-  test "lines appear in the test sheet as they arrive" do
+  test "test output is kept but not drawn on the lobby" do
     {app, out} = app(test_command: "mix test")
-    {:cont, app} = App.step(app, {:key, "t"})
     {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
 
     {:cont, app} = App.step(app, {:command, ref, :line, "one"})
-    visible = FakeTerminal.region_lines(out, output_inner(app.state))
-    assert visible == ["one"]
-    refute "two" in visible
+    assert app.state.test_log == ["one"]
+    refute FakeTerminal.visible(out) =~ "one"
     assert app.state.test_state == :running
 
     {:cont, app} = App.step(app, {:command, ref, :line, "two"})
-    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["one", "two"]
+    assert app.state.test_log == ["one", "two"]
+    refute FakeTerminal.visible(out) =~ "two"
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "test · pass"
-    refute frame =~ "test · running"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "t  pass"
+    refute visible =~ "one"
+    refute visible =~ "test · pass"
   end
 
   test "non-zero test exit marks tests as fail" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
-    {:cont, app} = App.step(app, {:key, "t"})
     ref = app.state.test_ref
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
 
     assert app.state.test_state == :fail
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "test · fail"
-    refute frame =~ "test · running"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "t  fail"
+    refute visible =~ "t  running"
+    refute visible =~ "test · fail"
   end
 
   test "s from the lobby opens the server sheet without starting" do
@@ -632,17 +515,17 @@ defmodule Tidex.AppTest do
   test "stale command lines from a previous run are ignored" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
-    {:cont, app} = App.step(app, {:key, "t"})
     old_ref = app.state.test_ref
     {:cont, app} = App.step(app, {:key, "t"})
     new_ref = app.state.test_ref
 
     {:cont, app} = App.step(app, {:command, old_ref, :line, "stale"})
-    refute FakeTerminal.text(out) =~ "stale"
-    refute "stale" in FakeTerminal.region_lines(out, output_inner(app.state))
+    refute "stale" in app.state.test_log
+    refute FakeTerminal.visible(out) =~ "stale"
 
     {:cont, _app} = App.step(app, {:command, new_ref, :line, "fresh"})
-    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["fresh"]
+    assert app.state.test_log == ["fresh"]
+    refute FakeTerminal.visible(out) =~ "fresh"
   end
 
   test "server process exit marks the server down" do
