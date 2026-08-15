@@ -11,7 +11,8 @@ defmodule Tidex.ConfigTest do
   end
 
   test "defaults when no tidex.conf is found", %{dir: dir} do
-    config = Config.load(dir)
+    home = Path.join(dir, "user")
+    config = Config.load(dir, home: home)
     assert config.project == Path.basename(dir)
     assert config.server == "python3 -m http.server 4000"
     assert config.browser == "http://localhost:4000"
@@ -30,7 +31,7 @@ defmodule Tidex.ConfigTest do
     nested = Path.join(dir, "nested")
     File.mkdir_p!(nested)
 
-    config = Config.load(nested)
+    config = Config.load(nested, home: Path.join(dir, "user"))
     assert config.project == "demo"
     assert config.test == "echo configured"
     assert config.server == "echo serve"
@@ -47,7 +48,7 @@ defmodule Tidex.ConfigTest do
     file4:
     """)
 
-    config = Config.load(dir)
+    config = Config.load(dir, home: Path.join(dir, "user"))
     assert config.files == %{1 => "README.md", 3 => "lib/tidex.ex"}
   end
 
@@ -59,7 +60,7 @@ defmodule Tidex.ConfigTest do
     nested = Path.join(dir, "nested")
     File.mkdir_p!(nested)
 
-    config = Config.load(nested)
+    config = Config.load(nested, home: Path.join(dir, "user"))
     assert config.project == Path.basename(dir)
     assert config.test == "echo from-root"
   end
@@ -92,7 +93,8 @@ defmodule Tidex.ConfigTest do
 
   test "write! dumps guessed defaults and omits editor", %{dir: dir} do
     File.write!(Path.join(dir, "mix.exs"), "")
-    assert {:ok, path} = Config.write!(dir)
+    home = Path.join(dir, "user")
+    assert {:ok, path} = Config.write!(dir, home: home)
     assert path == Path.join(dir, "tidex.conf")
     body = File.read!(path)
     assert body =~ "project: #{Path.basename(dir)}"
@@ -106,10 +108,69 @@ defmodule Tidex.ConfigTest do
   test "write! lists README.md before mix.exs when both exist", %{dir: dir} do
     File.write!(Path.join(dir, "README.md"), "hi\n")
     File.write!(Path.join(dir, "mix.exs"), "")
-    assert {:ok, path} = Config.write!(dir)
+    home = Path.join(dir, "user")
+    assert {:ok, path} = Config.write!(dir, home: home)
     body = File.read!(path)
     assert body =~ ~r/^file1: README.md$/m
     assert body =~ ~r/^file2: mix.exs$/m
+  end
+
+  test "user editor is used when the project omits editor", %{dir: dir} do
+    home = Path.join(dir, "user")
+    File.mkdir_p!(home)
+    File.write!(Path.join(home, "tidex.conf"), "editor: hx\n")
+    File.write!(Path.join(dir, "tidex.conf"), "project: demo\n")
+
+    config = Config.load(dir, home: home)
+    assert config.editor == "hx"
+    assert config.project == "demo"
+  end
+
+  test "project tidex.conf wins editor over ~/.tidex", %{dir: dir} do
+    home = Path.join(dir, "user")
+    File.mkdir_p!(home)
+    File.write!(Path.join(home, "tidex.conf"), "editor: hx\n")
+    File.write!(Path.join(dir, "tidex.conf"), "editor: nvim\n")
+
+    config = Config.load(dir, home: home)
+    assert config.editor == "nvim"
+  end
+
+  test "catalog name is used when the project omits project", %{dir: dir} do
+    home = Path.join(dir, "user")
+    File.mkdir_p!(home)
+
+    File.write!(Path.join(home, "tidex.conf"), """
+    #{Path.expand(dir)}: catalog-name
+    """)
+
+    File.write!(Path.join(dir, "tidex.conf"), "test: echo from-root\n")
+    config = Config.load(dir, home: home)
+    assert config.project == "catalog-name"
+    assert config.test == "echo from-root"
+  end
+
+  test "walk skips $HOME and ~/.tidex tidex.conf files", %{dir: dir} do
+    fake_home = Path.join(dir, "home")
+    user = Path.join(fake_home, ".tidex")
+    project = Path.join(fake_home, "src/app")
+    File.mkdir_p!(user)
+    File.mkdir_p!(project)
+    File.write!(Path.join(fake_home, "tidex.conf"), "project: from-home\neditor: vi\n")
+    File.write!(Path.join(user, "tidex.conf"), "editor: hx\nproject: from-user\n")
+
+    assert Config.find_file(project, home: user) == nil
+    config = Config.load(project, home: user)
+    assert config.project == "app"
+    assert config.editor == "hx"
+  end
+
+  test "write! records the directory in the user catalog", %{dir: dir} do
+    home = Path.join(dir, "user")
+    File.write!(Path.join(dir, "mix.exs"), "")
+    assert {:ok, _} = Config.write!(dir, home: home)
+    user = Tidex.Home.load(home: home)
+    assert Tidex.Home.lookup(user, dir) == Path.basename(dir)
   end
 
   test "git_root is the upward toplevel", %{dir: dir} do

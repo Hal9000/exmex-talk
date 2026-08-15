@@ -20,7 +20,8 @@ defmodule Tidex.App do
             notify_ready: nil,
             tty: nil,
             keyboard: nil,
-            git_pid: nil
+            git_pid: nil,
+            home: []
 
   @type t :: %__MODULE__{
           device: Termex.Device.t(),
@@ -34,7 +35,8 @@ defmodule Tidex.App do
           notify_ready: pid() | nil,
           tty: Termex.RawMode.session(),
           keyboard: pid() | nil,
-          git_pid: pid() | nil
+          git_pid: pid() | nil,
+          home: keyword()
         }
 
   @spec new(keyword()) :: t()
@@ -42,18 +44,19 @@ defmodule Tidex.App do
     {width, height} = dimensions(opts)
     cwd = Path.expand(Keyword.get(opts, :cwd, File.cwd!()))
     injected? = Keyword.has_key?(opts, :config)
-    config = Keyword.get(opts, :config) || Config.load(cwd)
+    home = Keyword.take(opts, [:home])
+    config = Keyword.get(opts, :config) || Config.load(cwd, home)
 
     setup =
       cond do
         injected? -> nil
-        Setup.needed?(cwd) -> Setup.probe(cwd)
+        Config.find_file(cwd, home) == nil -> Setup.probe(cwd)
         true -> nil
       end
 
     config_path =
       Keyword.get(opts, :config_path) ||
-        unless(injected?, do: Config.find_file(cwd))
+        unless(injected?, do: Config.find_file(cwd, home))
 
     config_root =
       Keyword.get(opts, :config_root) ||
@@ -86,7 +89,8 @@ defmodule Tidex.App do
       git_reader: Keyword.get(opts, :git_reader, &Git.snapshot/0),
       keys: Keyword.get(opts, :keys, :device),
       poll_git: Keyword.get(opts, :poll_git, false),
-      notify_ready: Keyword.get(opts, :notify_ready)
+      notify_ready: Keyword.get(opts, :notify_ready),
+      home: home
     }
   end
 
@@ -550,15 +554,15 @@ defmodule Tidex.App do
   end
 
   defp do_setup_write(app, dir) do
-    case Config.write!(dir) do
+    case Config.write!(dir, app.home) do
       {:ok, _} -> apply_config(app)
       {:error, _} -> app
     end
   end
 
   defp apply_config(app) do
-    config = Config.load(app.state.cwd)
-    path = Config.find_file(app.state.cwd)
+    config = Config.load(app.state.cwd, app.home)
+    path = Config.find_file(app.state.cwd, app.home)
     root = if is_binary(path), do: Path.dirname(path), else: app.state.cwd
 
     put_state(app, %{

@@ -718,7 +718,8 @@ defmodule Tidex.AppTest do
 
     try do
       File.write!(Path.join(dir, "README.md"), "hi\n")
-      {app, _out} = app(cwd: dir)
+      home = Path.join(dir, "user")
+      {app, _out} = app(cwd: dir, home: home)
       {:cont, app} = App.step(app, {:key, "y"})
       assert app.state.overlay == nil
       assert File.exists?(Path.join(dir, "tidex.conf"))
@@ -727,6 +728,8 @@ defmodule Tidex.AppTest do
       body = File.read!(Path.join(dir, "tidex.conf"))
       refute body =~ ~r/^editor:/m
       assert body =~ ~r/^file1: README.md$/m
+      user = Tidex.Home.load(home: home)
+      assert Tidex.Home.lookup(user, dir) == Path.basename(dir)
     after
       File.rm_rf!(dir)
     end
@@ -752,7 +755,8 @@ defmodule Tidex.AppTest do
 
     try do
       git!(dir, ["init", "-b", "main"])
-      {app, _out} = app(cwd: nested, width: 80)
+      home = Path.join(dir, "user")
+      {app, _out} = app(cwd: nested, width: 80, home: home)
       assert app.state.setup.offer_git
       {:cont, app} = App.step(app, {:key, "g"})
       assert app.state.overlay == nil

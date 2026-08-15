@@ -10,8 +10,10 @@ parent directory): `project`, `test`, `server`, `browser`, `editor`,
 and optional `file1`–`file4`. Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
-`go.mod` when those names exist in that directory. If the file is
-missing, Tidex asks before writing one (`y` cwd, `g` git root, `n`/`esc`
+`go.mod` when those names exist in that directory. `~/.tidex/tidex.conf`
+holds a user `editor` fallback and a `dir: name` catalog; it is not on
+the walk toward `/`. A project file wins per key. If no project file is
+found, Tidex asks before writing one (`y` cwd, `g` git root, `n`/`esc`
 skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 
 | Key | Action |

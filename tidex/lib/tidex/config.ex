@@ -6,6 +6,11 @@ defmodule Tidex.Config do
   Known keys: `project`, `test`, `server`, `browser`, `editor`,
   and optional `file1`–`file4`. Missing file keys are omitted.
 
+  User defaults live in `~/.tidex/tidex.conf` and are not on that walk.
+  A project file wins per key. `editor` falls back to the user file,
+  then `$VISUAL` / `$EDITOR` / `vi`. A `dir: name` catalog can supply
+  the project label when the project file omits `project`.
+
   When no file is found, Tidex can write one after a prompt. It refuses
   `$HOME`, `/`, and `/tmp`.
   """
@@ -32,17 +37,19 @@ defmodule Tidex.Config do
           files: %{optional(1..4) => String.t()}
         }
 
-  @spec load(String.t()) :: t()
-  def load(cwd \\ File.cwd!()) do
+  @spec load(String.t(), keyword()) :: t()
+  def load(cwd \\ File.cwd!(), opts \\ []) do
     cwd = Path.expand(cwd)
+    user = Tidex.Home.load(opts)
 
-    case find_file(cwd) do
+    case find_file(cwd, opts) do
       nil ->
-        defaults(cwd)
+        apply_user(defaults(cwd), user, cwd)
 
       path ->
         root = Path.dirname(path)
-        merge(defaults(root), parse(File.read!(path)))
+        raw = parse(File.read!(path))
+        defaults(root) |> apply_user(user, root) |> merge_local(raw)
     end
   end
 
@@ -113,8 +120,8 @@ defmodule Tidex.Config do
     _ -> nil
   end
 
-  @spec write!(String.t()) :: {:ok, String.t()} | {:error, :blocked}
-  def write!(dir) do
+  @spec write!(String.t(), keyword()) :: {:ok, String.t()} | {:error, :blocked}
+  def write!(dir, opts \\ []) do
     dir = Path.expand(dir)
 
     if blocked?(dir) do
@@ -122,7 +129,9 @@ defmodule Tidex.Config do
     else
       File.mkdir_p!(dir)
       path = Path.join(dir, @filename)
-      File.write!(path, dump(with_detected_files(defaults(dir), dir)))
+      config = with_detected_files(defaults(dir), dir)
+      File.write!(path, dump(config))
+      _ = Tidex.Home.remember(dir, config.project, opts)
       {:ok, path}
     end
   end
@@ -135,7 +144,7 @@ defmodule Tidex.Config do
     test: #{config.test}
     server: #{config.server}
     browser: #{config.browser}
-    # editor falls back to $VISUAL / $EDITOR / vi
+    # editor falls back to ~/.tidex, then $VISUAL / $EDITOR / vi
     """ <> dump_files(config.files)
   end
 
@@ -159,18 +168,22 @@ defmodule Tidex.Config do
     |> Map.new(fn {name, n} -> {n, name} end)
   end
 
-  @spec find_file(String.t()) :: String.t() | nil
-  def find_file(dir) do
+  @spec find_file(String.t(), keyword()) :: String.t() | nil
+  def find_file(dir, opts \\ []) do
     dir = Path.expand(dir)
     path = Path.join(dir, @filename)
 
     cond do
+      skip_walk?(dir, opts) ->
+        parent = Path.dirname(dir)
+        if parent == dir, do: nil, else: find_file(parent, opts)
+
       File.exists?(path) ->
         path
 
       true ->
         parent = Path.dirname(dir)
-        if parent == dir, do: nil, else: find_file(parent)
+        if parent == dir, do: nil, else: find_file(parent, opts)
     end
   end
 
@@ -218,13 +231,19 @@ defmodule Tidex.Config do
     String.length(value) >= 2 and String.starts_with?(value, q) and String.ends_with?(value, q)
   end
 
-  defp merge(defaults, raw) when is_map(raw) do
+  defp apply_user(config, user, dir) do
+    editor = user.editor || config.editor
+    project = Tidex.Home.lookup(user, dir) || config.project
+    %{config | editor: editor, project: project}
+  end
+
+  defp merge_local(config, raw) when is_map(raw) do
     %__MODULE__{
-      project: pick(raw, "project", defaults.project),
-      test: pick(raw, "test", defaults.test),
-      server: pick(raw, "server", defaults.server),
-      browser: pick(raw, "browser", defaults.browser),
-      editor: pick(raw, "editor", defaults.editor),
+      project: pick(raw, "project", config.project),
+      test: pick(raw, "test", config.test),
+      server: pick(raw, "server", config.server),
+      browser: pick(raw, "browser", config.browser),
+      editor: pick(raw, "editor", config.editor),
       files: parse_files(raw)
     }
   end
@@ -242,6 +261,29 @@ defmodule Tidex.Config do
     case Map.get(map, key) do
       value when is_binary(value) and value != "" -> value
       _ -> fallback
+    end
+  end
+
+  defp skip_walk?(dir, opts) do
+    real_home = home_dir()
+    user = Tidex.Home.dir(opts)
+    user = if is_binary(user), do: Path.expand(user)
+
+    cond do
+      is_binary(real_home) and dir == real_home ->
+        true
+
+      is_binary(real_home) and dir == Path.join(real_home, ".tidex") ->
+        true
+
+      is_binary(user) and dir == user ->
+        true
+
+      is_binary(user) and Path.basename(user) == ".tidex" and dir == Path.dirname(user) ->
+        true
+
+      true ->
+        false
     end
   end
 

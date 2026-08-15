@@ -27,9 +27,11 @@ file1: README.md
 `file1`–`file4` are listed files. Missing keys are omitted. `1`–`4`
 open the ones that are present. `f` always edits `tidex.conf`.
 
-`project` is the status-pane label. If omitted, it defaults to the
-directory that contains `tidex.conf` (or cwd when the file is missing).
-`editor` falls back to `$VISUAL` / `$EDITOR` / `vi`.
+`project` is the status-pane label. If omitted, it defaults to a
+`dir: name` entry in `~/.tidex/tidex.conf`, then the directory that
+contains `tidex.conf` (or cwd when the file is missing). `editor`
+falls back to `~/.tidex/tidex.conf`, then `$VISUAL` / `$EDITOR` / `vi`.
+`~/.tidex/` is not on the walk toward `/`.
 
 If no `tidex.conf` is found, Tidex prompts before writing one: `y` writes
 in cwd, `g` writes at the nearest git root (when that path differs and
