@@ -23,19 +23,24 @@ content / size are decided. Then:
 
 ## Overlay keys (seal)
 
-`q` always quits. Help and git overlays swallow most other keys.
-Test and server overlays still leak lobby verbs (`t`, `e`, `f`, `1`–`4`,
-`x`, `b`, …). Sealing is agreed, not coded. Boxes with commands on the
-bottom interior line may make this fall out; do not special-case every
-overlay first.
+`q` always quits. Help and git (the modal ones) swallow most other
+keys. The leftover **server** takeover still leaks lobby verbs (`t`,
+`e`, `f`, `1`–`4`, `x`, `b`, …). That takeover should go away; sealing
+is for help / git / setup / the failure box. Do not special-case a
+server “sheet.”
 
 ## Lobby chrome (snapshot)
 
 Home is a lobby: one full-screen unicode status box, **grouped text**
 (not little boxes). Two columns Test|Server, Git|Files, then `? help` /
-`q quit`. Git / help / setup / server are still full-screen overlays
-with a 1-line menu on the last screen row, leftover chrome, outside the
-border. See **Boxes (not sheets)** below.
+`q quit`.
+
+**Modal (a box you pull up and dismiss):** help, git, setup. Today they
+are full-screen takeovers with a 1-line menu outside the border;
+content-sized boxes on the lobby are later (see **Boxes**). Failure
+box is this family, not built.
+
+**Not modal:** Test and Server groups. They update in place.
 
 **Hotkey line:** `s  down` means key `s` plus **status** `down`, not a
 command named down. The same helper draws verbs (`x  stop`) and status
@@ -46,10 +51,11 @@ command named down. The same helper draws verbs (`x  stop`) and status
 each log line). Passes stay `-` until a summary is parsed. Failed run
 with no parsed blocks → `t  fail`.
 
-**Server:** `:up` / `:down` is **our job only** (Task+Port `sh -c
-server:`), not LISTEN, not health. `s` opens the overlay; `s` again
-start-or-restart; `x` stop; `b` browse (`browser:` via `open` /
-`xdg-open`). Occupancy/restart is a later section.
+**Server (desired):** stay on the lobby. `s` does the job (start or
+restart), `x` stop, `b` browse. Do not open a second screen. Today
+`s` still opens a leftover full-screen log; that is wrong for this
+model. Occupancy/restart is a later section. Live facts on the Server
+group: see **Server group: standing vs flash**.
 
 **Termex (current, for the talk):** clip, no wrap; bold only, no hues;
 size `:io.columns` / `:io.rows` once at boot, 80×24 fallback; no
@@ -119,14 +125,16 @@ Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
-  splash — a box sized to the content.
+  splash — a box sized to the content. **Not** the Server group: that
+  stays lobby text.
 - **Splash:** ack and dismiss (`y` / `n` / `esc`). Setup is already this.
   No maximize.
 - **Small / capped:** help, one failure. Do not grow to the terminal
   just because the text is long.
-- **Maximize:** escape hatch for a log (server, maybe git). Same widget,
-  bigger pane. Not on every box. Same key to shrink (toggle), not a
-  third verb. `esc` dismisses (lobby).
+- **Maximize:** escape hatch for a long buffer (maybe git, maybe a
+  server log if we ever want one). Same widget, bigger pane. Not on
+  every box. Same key to shrink (toggle), not a third verb. `esc`
+  dismisses (lobby). Operating the server does not require this.
 - **Commands:** bottom interior line of **that box**. When maximized,
   that is the last screen row. Exceptions: splash with keys in the body;
   lobby, which is the menu.
@@ -148,16 +156,17 @@ lobby, drawn last; next lobby frame restores. Not a window manager.
 Internally, wrap vs clip can be options on one function (`write_region`
 or a sibling), not two pipelines.
 
-**Server minimized:** fairly wide, several lines, stuck on the tail
-(`:follow`). Clip, do not wrap. New lines stay at the bottom until
-PgUp. Feels like a console — sit it **low**, not centered.
+**Server log box:** optional later, not how you run the server. Status,
+errors, and warnings belong in the Server **group**. If a tail box
+exists someday: fairly wide, several lines, stuck on the tail
+(`:follow`), clip, sit **low**. Not a modal to start/stop.
 
 **Help:** midsize, roughly one topic. Search later. Maximize shows
 longer lines and more lines.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
-help ~50×10, centered; server log ~70×8, low. On 80×24 a 70-wide box
-still leaves a little lobby visible.
+help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
+visible around it.
 
 **Do not build yet** except as part of the failure view / first real
 box. Small bordered box + clip + scroll + follow-tail is enough to
@@ -223,6 +232,33 @@ Checking in hex / “assume dark” is the usual mistake; named ANSI
 User-only colors were a wrong collapse of “not in `tidex.conf`.”
 Per-project colors belong in the project tree, in the second file.
 
+## Server group: standing vs flash
+
+Realtime updates to the **Server portion of the lobby** are the
+feature. Not a second screen. Do not dump `server:` stdout into that
+group (the log can still be accumulated, unseen).
+
+**Standing** (until the situation changes), extra lines like git
+`dirty` / `untracked`:
+
+- Status: `down`, `up`, `starting` (job alive, not listening yet).
+- Error: job exited, `stop failed`, leftover listener after `x`.
+- Warning: `port in use`, `already listening` (unmanaged).
+
+**Flash** (~3 seconds, then gone): purely informational. “started”,
+“already down”, “restarted”. Not a substitute for standing status —
+`s  up` stays after “started” fades.
+
+Three seconds is a guess. Needs a timer (`Process.send_after` →
+redraw). Git polls already wake the UI; this is a one-shot, not a
+clock. Do not invent a toast stack. One flash line under Server is
+enough. A new standing fact replaces a flash.
+
+Splash (modal) stays only for a **decision**: “port in use, not our
+job — kill? y/n.” Occupancy details are in the next section.
+
+Do not build this before the failure box.
+
 ## Project server: up/down, occupancy, restart
 
 The **project** server (`server:` / `browser:` in `tidex.conf`), not
@@ -268,10 +304,10 @@ something is listening here. The LISTEN pid may be `docker-proxy`;
 killing it may not stop the container. Do not design around Docker.
 Pid-kill = “process that owns this port on this machine.”
 
-**Anomalies:** facts under Server on the lobby (`starting`, `port
-busy`, `stop failed`, `not listening`) — one line, like git dirty.
-Splash only for a **decision**: “port in use, not our job — kill?
-y/n.” Need the listening pid (`lsof`/`ss`), not occupancy alone.
+**Anomalies:** standing facts under Server on the lobby (`starting`,
+`port busy`, `stop failed`, `not listening`) — one line, like git
+dirty. Splash only for a **decision**: “port in use, not our job —
+kill? y/n.” Need the listening pid (`lsof`/`ss`), not occupancy alone.
 Auto-kill is too sharp. Ask once per boot if busy and we have no job;
 `n` remembered for that process. Persistent “busy, unmanaged” on the
 Server group if they leave it.
@@ -279,11 +315,11 @@ Server group if they leave it.
 Hung-but-listening is health (GET); later.
 
 **Restart:** stop then start. Stop is a no-op if nothing to kill.
-Restart when already dead is just start. No error. Today `s` on the
-server overlay already stop-then-starts; the lobby has no restart
-verb. If start, stop, and restart are three things, that is a third
-key (or `s` = start-if-down, another key = restart). Restart should
-wait until the port is free (or a short timeout) before spawn.
+Restart when already dead is just start. No error. Desired: `s` on the
+lobby is start-if-down, and the same `s` (or a later third key) is
+restart when already up. Today `s` opens a leftover log screen, then
+`s` again stop-then-starts. Restart should wait until the port is free
+(or a short timeout) before spawn.
 
 **Continuum to build later** (not before the failure box): (1) our
 job + exit, (2) LISTEN on the browser port, (3) after `x` if still
