@@ -20,6 +20,33 @@ defmodule Tidex.ViewTest do
     Layout.inner(Layout.sheet(state).log)
   end
 
+  test "a modal is drawn on the lobby, smaller than the screen" do
+    modal = %Tidex.Modal{
+      title: "demo",
+      lines: ["modal-body-unique"],
+      commands: "esc back",
+      max_width: 28,
+      max_height: 6
+    }
+
+    {output, state} = render(modal: modal, width: 40, height: 20)
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "project: exmex-talk"
+    assert visible =~ "t  idle"
+    assert visible =~ "modal-body-unique"
+    assert visible =~ "esc back"
+    assert visible =~ "demo"
+
+    pane = Tidex.Modal.pane(state, modal)
+    assert pane.width < state.width
+    assert pane.height < state.height
+    inner = Layout.inner(pane)
+    rows = FakeTerminal.region_lines(output, inner)
+    assert hd(rows) =~ "modal-body-unique"
+    assert List.last(rows) =~ "esc back"
+    refute Enum.any?(rows, &String.contains?(&1, "project:"))
+  end
+
   test "lobby draws grouped status and no output lake" do
     {output, _state} = render([])
 

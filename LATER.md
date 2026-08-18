@@ -124,6 +124,11 @@ Do not also try to detect a GUI.
 Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
+`Tidex.Modal` is that draw: content-sized, centered, capped, interior
+command row, blanks so the lobby does not bleed through. Tests cover
+the widget; nothing opens it yet. Help / git / setup still take over
+the screen. Failure box and `esc` wiring come next.
+
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that
   stays lobby text.

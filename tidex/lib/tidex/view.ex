@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Scroll, Setup, State}
+  alias Tidex.{Layout, Modal, Scroll, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -12,6 +12,10 @@ defmodule Tidex.View do
 
     if state.overlay == nil do
       render_status(device, state, layout.status)
+
+      if state.modal do
+        Modal.draw(device, state, state.modal)
+      end
     else
       render_sheet(device, state)
       render_menu(device, state)
