@@ -144,3 +144,70 @@ Checking in hex / “assume dark” is the usual mistake; named ANSI
 
 User-only colors were a wrong collapse of “not in `tidex.conf`.”
 Per-project colors belong in the project tree, in the second file.
+
+## Project server: up/down, occupancy, restart
+
+The **project** server (`server:` / `browser:` in `tidex.conf`), not
+anything inside Tidex. Not Phoenix-centric: that command is whatever
+the user configured (`mix phx.server`, `mix run --no-halt`, Puma,
+Webrick, …). Puma is a Ruby HTTP server (Rack; often with Rails).
+`python3 -m http.server` is only this repo’s stub.
+
+Today we only know **our job**: we spawn `sh -c server:` behind an
+Elixir Task/Port, set `:up` until that port exits or `x`. That is not
+the listener, not ready, not a server started in another terminal.
+`sh -c` plus killing the Task often kills the shell and **leaves the
+real server** (bad kill). Occupancy after `x` detects that;
+process-group / listener-pid kill is the repair.
+
+**Do not** grep `ps` for the command line (two projects, rewritten
+argv, BEAM). **Do** keep the OS pid of *our* spawn: gone → we are
+down; still there after `x` → stop failed. Age/`etime` is when that
+pid started, not when it accepted a socket. Idle LISTEN and hung look
+the same in `ps`. Age ≠ ready (fast servers vs compile/boot). No
+global “older than N seconds → up.”
+
+**LISTEN on the `browser:` port** (occupancy, not HTTP GET) is the
+modest probe. Something else can own the port. Boot can still be in
+progress.
+
+- In use at Tidex start → not *this* job. Might be another terminal,
+  an orphan from a previous Tidex, or another app. Label: “already
+  listening,” not “never Tidex.”
+- In use after `x` → bad kill (strong case).
+- In use before (re)start → port busy, second start will fail. If we
+  just killed: leftover. If we never owned a job: outside/orphan.
+  Say “port in use,” not “kill failed,” unless we just sent kill.
+- Not in use after start → often “not yet,” not “bad start.” Job
+  already exited → bad start (we already get `:exit`). Job alive,
+  port still closed → `starting`. A check immediately after spawn
+  false-fails slow boots. Retry, or show `starting` until LISTEN or
+  the job dies.
+- Not in use before kill → `x` is a no-op. Treat as down.
+
+**Docker** (we do not use it): occupancy on the host still means
+something is listening here. The LISTEN pid may be `docker-proxy`;
+killing it may not stop the container. Do not design around Docker.
+Pid-kill = “process that owns this port on this machine.”
+
+**Anomalies:** facts under Server on the lobby (`starting`, `port
+busy`, `stop failed`, `not listening`) — one line, like git dirty.
+Splash only for a **decision**: “port in use, not our job — kill?
+y/n.” Need the listening pid (`lsof`/`ss`), not occupancy alone.
+Auto-kill is too sharp. Ask once per boot if busy and we have no job;
+`n` remembered for that process. Persistent “busy, unmanaged” on the
+Server group if they leave it.
+
+Hung-but-listening is health (GET); later.
+
+**Restart:** stop then start. Stop is a no-op if nothing to kill.
+Restart when already dead is just start. No error. Today `s` on the
+server overlay already stop-then-starts; the lobby has no restart
+verb. If start, stop, and restart are three things, that is a third
+key (or `s` = start-if-down, another key = restart). Restart should
+wait until the port is free (or a short timeout) before spawn.
+
+**Continuum to build later** (not before the failure box): (1) our
+job + exit, (2) LISTEN on the browser port, (3) after `x` if still
+LISTEN then kill listener pid/group, (4) optional splash at start if
+busy and unmanaged. Skip command-line `ps` matching. Skip GET `/`.
