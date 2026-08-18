@@ -6,8 +6,9 @@ A language-agnostic development workbench built on
 Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
 on the status screen. `t` runs tests and stays on the lobby. The Test
 group shows `- pass` until a pass count is known, and a live fail
-count as ExUnit `N)` blocks arrive. Left/right cycle the current
-failure; `e` edits that file. The full test log is kept but not shown.
+count as ExUnit `N)` blocks arrive. `f` opens a failure box on the
+lobby; left/right cycle, `e` edits that file, `esc` closes. The full
+test log is kept but not shown.
 `s`, `g`, and `?` open one sheet at a time; `esc` returns to the lobby.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
@@ -23,14 +24,15 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | Key | Action |
 | --- | --- |
 | `t` | run tests (lobby shows `- pass` and a live fail count) |
+| `f` | open the failure box (no-op if none) |
+| `e` | editor at the current failure (while the box is open) |
 | `s` | open the server sheet; press again to start or restart |
 | `x` | stop server |
 | `b` | open browser URL |
-| `e` | editor; opens the current failure at line when there is one |
-| `f` | edit `tidex.conf` |
+| `0` | edit `tidex.conf` |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
 | arrows, PgUp/PgDn | scroll the open server sheet |
-| left / right | cycle parsed test failures |
+| left / right | cycle parsed test failures (while the box is open) |
 | `?` | show/hide help |
 | `g` | show/hide git |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
@@ -38,7 +40,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `q` | quit |
 
 The lobby bolds the key letter next to each command (`t  idle`,
-`s  down`, `f  tidex.conf`, …). After tests start, Test shows
+`s  down`, `0  tidex.conf`, …). After tests start, Test shows
 `t  - pass  N fail`. A failed run with no parsed blocks shows `t  fail`.
 
 ```bash

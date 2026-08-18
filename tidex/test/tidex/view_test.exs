@@ -1,7 +1,7 @@
 defmodule Tidex.ViewTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{FakeTerminal, Layout, State, View}
+  alias Tidex.{FakeTerminal, Layout, State, View, Failures}
 
   defp render(state_overrides) do
     {device, out} = FakeTerminal.open()
@@ -67,11 +67,11 @@ defmodule Tidex.ViewTest do
     refute visible =~ "?help"
     assert visible =~ "t  idle"
     assert visible =~ "s  down"
-    assert visible =~ "e  edit"
+    assert visible =~ "f  fail"
     assert visible =~ "x  stop"
     assert visible =~ "b  browse"
     assert visible =~ "g  (no repository)"
-    assert visible =~ "f  tidex.conf"
+    assert visible =~ "0  tidex.conf"
     assert visible =~ "?  help"
     assert visible =~ "q  quit"
     refute visible =~ "layout"
@@ -118,11 +118,11 @@ defmodule Tidex.ViewTest do
     refute visible =~ "file1"
   end
 
-  test "always lists f tidex.conf under Files" do
+  test "always lists 0 tidex.conf under Files" do
     {output, _} = render(files: %{})
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Files"
-    assert visible =~ "f  tidex.conf"
+    assert visible =~ "0  tidex.conf"
     refute visible =~ "1  "
   end
 
@@ -140,7 +140,7 @@ defmodule Tidex.ViewTest do
     {output, _} = render(test_state: :fail, failures: failures)
     visible = Termex.ANSI.strip(output)
     assert visible =~ "t  - pass  1 fail"
-    assert visible =~ "e  edit"
+    assert visible =~ "f  fail"
     refute visible =~ "test Foo"
     refute visible =~ "foo_test.exs"
     refute visible =~ "left behind"
@@ -152,7 +152,7 @@ defmodule Tidex.ViewTest do
     assert visible =~ "start"
     assert visible =~ "esc back"
     refute visible =~ "t  idle"
-    refute visible =~ "f  tidex.conf"
+    refute visible =~ "0  tidex.conf"
     refute visible =~ "?  help"
     refute visible =~ "test start"
   end
@@ -284,9 +284,47 @@ defmodule Tidex.ViewTest do
 
     visible = Termex.ANSI.strip(output)
     assert visible =~ "t  - pass  1 fail"
-    assert visible =~ "e  edit"
+    assert visible =~ "f  fail"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute output =~ "test · fail"
+  end
+
+  test "the failure box sits on the lobby at 60x7" do
+    failures = [
+      %{
+        name: "test Foo.bar/1 (FooTest)",
+        file: "test/foo_test.exs",
+        line: 12,
+        snippet: "Assertion with == failed · code:  assert 1"
+      }
+    ]
+
+    state_opts = [
+      test_state: :fail,
+      failures: failures,
+      failure_index: 0,
+      width: 80,
+      height: 24
+    ]
+
+    modal = Failures.modal(%{failures: failures, failure_index: 0})
+    {output, state} = render(Keyword.put(state_opts, :modal, modal))
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "project: exmex-talk"
+    assert visible =~ "t  - pass  1 fail"
+    assert visible =~ "test Foo.bar/1 (FooTest)"
+    assert visible =~ "test/foo_test.exs:12"
+    assert visible =~ "Assertion with == failed"
+    assert visible =~ "fail 1/1"
+
+    pane = Tidex.Modal.pane(state, modal)
+    assert pane.width == 60
+    assert pane.height == 7
+    inner = Layout.inner(pane)
+    rows = FakeTerminal.region_lines(output, inner)
+    assert hd(rows) =~ "test Foo.bar/1"
+    assert Enum.at(rows, 1) =~ "foo_test.exs:12"
+    assert List.last(rows) =~ "edit"
   end
 end

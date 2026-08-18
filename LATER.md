@@ -1,34 +1,24 @@
 # Later
 
-Ideas we agreed not to build yet. The **next** product slice is the
-failure box. Do not invent another slice until a real TTY look at the
-lobby (`mix tidex`). Everything below waits on that unless we say
-otherwise.
+Ideas we agreed not to build yet. The failure box is in. Do not invent
+the next slice until a real TTY look (`mix tidex`).
 
-## Failure box (next)
+## Failure box
 
-`e` and left/right already track a **hidden** current failure; you
-cannot see it. That hole is the failure box.
+`f` opens a 60×7 modal on the lobby (`fail N/M`, name, file:line, two
+snippet lines, `e  edit  left/right  esc`). No-op if none. `esc` or `f`
+closes. Left/right and `e` work only inside. `0` edits `tidex.conf`.
+Lobby `e` does nothing.
 
-**Keys:** `f` opens (no-op if none). Inside: left/right cycle, `e` edit,
-`esc` dismiss. Lobby `e` no longer jumps. **`0`** edits `tidex.conf`
-(with `1`–`4`); `f` is not conf.
-
-**Size:** width **60** (outer). Height **7** (outer): name, file:line,
-two snippet lines, command row, plus borders. Cap, do not grow with the
-stacktrace. On 80×24 that leaves lobby around it. Maximize later for
-more log.
-
-Do not dump the ExUnit `1)` block into the box. Build a `%Modal{}` from
-`Failures.current/1`.
+Maximize (more of the hidden test log) later. Do not dump the ExUnit
+`1)` block into the box.
 
 ## Overlay keys (seal)
 
 `q` always quits. Help and git (the modal ones) swallow most other
 keys. The leftover **server** takeover still leaks lobby verbs (`t`,
-`e`, `f`, `1`–`4`, `x`, `b`, …). That takeover should go away; sealing
-is for help / git / setup / the failure box. Do not special-case a
-server “sheet.”
+`0`, `1`–`4`, `x`, `b`, …). `f` from there opens the failure box and
+drops the takeover. That takeover should go away.
 
 ## Lobby chrome (snapshot)
 
@@ -38,8 +28,8 @@ Home is a lobby: one full-screen unicode status box, **grouped text**
 
 **Modal (a box you pull up and dismiss):** help, git, setup. Today they
 are full-screen takeovers with a 1-line menu outside the border;
-content-sized boxes on the lobby are later (see **Boxes**). Failure
-box is this family, not built.
+content-sized boxes on the lobby are later (see **Boxes**). The
+failure box is this family and is built.
 
 **Not modal:** Test and Server groups. They update in place.
 
@@ -50,7 +40,9 @@ command named down. The same helper draws verbs (`x  stop`) and status
 **Test line:** idle → `t  idle`; after start → `t  - pass  N fail`.
 `N` updates as ExUnit `1)` / `2)` headers stream (`Tidex.Failures` on
 each log line). Passes stay `-` until a summary is parsed. Failed run
-with no parsed blocks → `t  fail`.
+with no parsed blocks → `t  fail`. `f  fail` opens the box.
+
+**Files:** `0  tidex.conf`, then `1`–`4`.
 
 **Server (desired):** stay on the lobby. `s` does the job (start or
 restart), `x` stop, `b` browse. Do not open a second screen. Today
@@ -126,9 +118,9 @@ Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
 `Tidex.Modal` is that draw: content-sized, centered, capped, interior
-command row, blanks so the lobby does not bleed through. Tests cover
-the widget; nothing opens it yet. Help / git / setup still take over
-the screen. Failure box and `esc` wiring come next.
+command row, blanks so the lobby does not bleed through. The failure
+box uses it (`kind: :fail`, 60×7). Help / git / setup still take over
+the screen.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that

@@ -7,18 +7,22 @@ defmodule Tidex.Modal do
   defstruct title: nil,
             lines: [],
             commands: "",
+            kind: nil,
             max_width: 50,
-            max_height: 10
+            max_height: 10,
+            min_width: 3,
+            min_height: 3
 
   @type t :: %__MODULE__{
           title: String.t() | nil,
           lines: [iodata()],
           commands: iodata(),
+          kind: atom() | nil,
           max_width: pos_integer(),
-          max_height: pos_integer()
+          max_height: pos_integer(),
+          min_width: pos_integer(),
+          min_height: pos_integer()
         }
-
-  @min_outer 3
 
   @spec pane(%{width: pos_integer(), height: pos_integer()}, t()) :: Pane.t()
   def pane(screen, %__MODULE__{} = modal) do
@@ -80,18 +84,16 @@ defmodule Tidex.Modal do
       |> max(1)
 
     (inner + 2)
+    |> max(modal.min_width)
     |> min(modal.max_width)
-    |> min(screen.width)
-    |> max(@min_outer)
     |> min(screen.width)
     |> max(2)
   end
 
   defp outer_height(screen, modal) do
     (length(modal.lines) + 1 + 2)
+    |> max(modal.min_height)
     |> min(modal.max_height)
-    |> min(screen.height)
-    |> max(@min_outer)
     |> min(screen.height)
     |> max(2)
   end

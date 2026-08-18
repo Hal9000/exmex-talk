@@ -268,14 +268,14 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
     visible = FakeTerminal.visible(out)
     assert visible =~ "- pass  2 fail"
-    assert visible =~ "e  edit"
+    assert visible =~ "f  fail"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute visible =~ "test · fail"
 
     {:cont, app} = App.step(app, {:key, :right})
-    assert app.state.failure_index == 1
-    assert FakeTerminal.visible(out) =~ "- pass  2 fail"
+    assert app.state.failure_index == 0
+    assert app.state.modal == nil
   end
 
   test "failure headers update the lobby count while tests are running" do
@@ -425,17 +425,17 @@ defmodule Tidex.AppTest do
     assert_receive {:browser, "http://localhost:4000"}
   end
 
-  test "e yields to the editor command and redraws" do
+  test "e does nothing on the lobby" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
-    {app, out} = app(editor_command: "true", editor_runner: editor)
+    {app, _out} = app(editor_command: "true", editor_runner: editor)
 
-    {:cont, _app} = App.step(app, {:key, "e"})
-    assert_receive {:edited, "true"}
-    assert FakeTerminal.text(out) =~ "status"
+    {:cont, app} = App.step(app, {:key, "e"})
+    refute_received {:edited, _}
+    assert app.state.modal == nil
   end
 
-  test "f yields the editor on tidex.conf" do
+  test "0 yields the editor on tidex.conf" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
 
@@ -446,7 +446,7 @@ defmodule Tidex.AppTest do
         config_path: "/tmp/demo/tidex.conf"
       )
 
-    {:cont, _app} = App.step(app, {:key, "f"})
+    {:cont, _app} = App.step(app, {:key, "0"})
     assert_receive {:edited, "nvim '/tmp/demo/tidex.conf'"}
   end
 
@@ -482,7 +482,7 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
-  test "e opens the current failure at line for a known editor" do
+  test "e in the failure box opens the current failure at line" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
 
@@ -500,8 +500,113 @@ defmodule Tidex.AppTest do
         }
     }
 
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    assert app.state.modal.title == "fail 2/2"
+
     {:cont, _app} = App.step(app, {:key, "e"})
     assert_receive {:edited, "nvim +9 'test/b.exs'"}
+  end
+
+  test "f opens the failure box; esc and f close it" do
+    {app, out} = app(width: 80, height: 24)
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | failures: [
+              %{name: "test Foo", file: "test/a.exs", line: 3, snippet: "left behind"}
+            ]
+        }
+    }
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "test Foo"
+    assert visible =~ "test/a.exs:3"
+    assert visible =~ "left behind"
+    assert visible =~ "fail 1/1"
+    assert visible =~ "project: "
+
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal == nil
+    refute FakeTerminal.visible(out) =~ "test Foo"
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal == nil
+  end
+
+  test "f does nothing when there are no failures" do
+    {app, _out} = app([])
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal == nil
+  end
+
+  test "left and right cycle only inside the failure box" do
+    {app, out} = app(width: 80, height: 24)
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | failures: [
+              %{name: "one", file: "test/a.exs", line: 1, snippet: "first"},
+              %{name: "two", file: "test/b.exs", line: 2, snippet: "second"}
+            ]
+        }
+    }
+
+    {:cont, app} = App.step(app, {:key, :right})
+    assert app.state.failure_index == 0
+    assert app.state.modal == nil
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert FakeTerminal.visible(out) =~ "one"
+    refute FakeTerminal.visible(out) =~ "two"
+
+    {:cont, app} = App.step(app, {:key, :right})
+    assert app.state.failure_index == 1
+    assert FakeTerminal.visible(out) =~ "two"
+    refute FakeTerminal.visible(out) =~ "one"
+
+    {:cont, app} = App.step(app, {:key, :left})
+    assert app.state.failure_index == 0
+    assert FakeTerminal.visible(out) =~ "one"
+  end
+
+  test "the failure box swallows lobby keys" do
+    {app, _out} = app([])
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | failures: [%{name: "one", file: "a.exs", line: 1, snippet: "x"}]
+        }
+    }
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    {:cont, app} = App.step(app, {:key, "t"})
+    assert app.state.test_state == :idle
+    assert app.state.modal.kind == :fail
+  end
+
+  test "a parsed failing run can open the failure box" do
+    {app, out} = app(width: 80, height: 24)
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+    app = %{app | state: %{app.state | test_log: @exunit_fail}}
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "test Foo.bar/1 (FooTest)"
+    assert visible =~ "test/foo_test.exs:12"
+    refute visible =~ "  1) "
   end
 
   test "l does nothing on the lobby" do
@@ -564,7 +669,7 @@ defmodule Tidex.AppTest do
       )
 
     app = %{app | keyboard: pid1}
-    {:cont, app} = App.step(app, {:key, "e"})
+    {:cont, app} = App.step(app, {:key, "0"})
 
     assert_receive {:during_edit, false}
     assert is_pid(app.keyboard)

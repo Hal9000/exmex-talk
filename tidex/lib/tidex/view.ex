@@ -57,7 +57,7 @@ defmodule Tidex.View do
   end
 
   defp test_lines(state) do
-    ["Test", test_status_line(state), key("e", "edit")]
+    ["Test", test_status_line(state), key("f", "fail")]
   end
 
   defp test_status_line(%{test_state: :idle}), do: key("t", "idle")
@@ -91,7 +91,7 @@ defmodule Tidex.View do
       |> Enum.filter(&Map.has_key?(files, &1))
       |> Enum.map(fn n -> key("#{n}", files[n]) end)
 
-    ["Files", key("f", "tidex.conf") | rows]
+    ["Files", key("0", "tidex.conf") | rows]
   end
 
   defp render_log(device, state, pane, name) do
@@ -180,11 +180,12 @@ defmodule Tidex.View do
   defp help_lines do
     [
       key("t", "run tests"),
+      key("f", "failure box"),
+      key("e", "editor (in failure box)"),
       key("s", "server sheet (again to start)"),
       key("x", "stop server"),
       key("b", "open browser"),
-      key("e", "editor (current failure)"),
-      key("f", "edit tidex.conf"),
+      key("0", "edit tidex.conf"),
       "1-4  listed files",
       "arrows  scroll server",
       "left/right  cycle failures",

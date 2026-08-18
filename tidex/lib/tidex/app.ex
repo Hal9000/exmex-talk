@@ -143,6 +143,32 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, :esc}) do
+    {:cont, close_fail_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
+      when key in ["f", "F"] do
+    {:cont, close_fail_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
+      when key in ["e", "E"] do
+    {:cont, launch_editor(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, :left}) do
+    {:cont, cycle_fail_modal(app, -1)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, :right}) do
+    {:cont, cycle_fail_modal(app, 1)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(app, {:key, "?"}) do
     {:cont, toggle_sheet(app, :help)}
   end
@@ -193,11 +219,11 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
-  def handle_event(app, {:key, key}) when key in ["e", "E"] do
-    {:cont, launch_editor(app)}
+  def handle_event(app, {:key, key}) when key in ["f", "F"] do
+    {:cont, open_fail_modal(app)}
   end
 
-  def handle_event(app, {:key, key}) when key in ["f", "F"] do
+  def handle_event(app, {:key, "0"}) do
     {:cont, launch_editor(app, file: config_file(app.state))}
   end
 
@@ -208,14 +234,6 @@ defmodule Tidex.App do
   def handle_event(%{state: %{overlay: :server}} = app, {:key, key})
       when key in [:up, :down, :page_up, :page_down] do
     {:cont, scroll_output(app, key)}
-  end
-
-  def handle_event(app, {:key, :left}) do
-    {:cont, put_state(app, Failures.cycle(app.state, -1))}
-  end
-
-  def handle_event(app, {:key, :right}) do
-    {:cont, put_state(app, Failures.cycle(app.state, 1))}
   end
 
   def handle_event(app, {:key, _key}), do: {:cont, app}
@@ -295,7 +313,8 @@ defmodule Tidex.App do
       test_pid: pid,
       test_log: [],
       failures: [],
-      failure_index: 0
+      failure_index: 0,
+      modal: nil
     })
   end
 
@@ -331,6 +350,26 @@ defmodule Tidex.App do
 
     attach_keyboard(app)
   end
+
+  defp open_fail_modal(app) do
+    case Failures.modal(app.state) do
+      nil -> app
+      modal -> put_state(app, %{overlay: nil, modal: modal})
+    end
+  end
+
+  defp close_fail_modal(app), do: put_state(app, %{modal: nil})
+
+  defp cycle_fail_modal(app, delta) do
+    state = Failures.cycle(app.state, delta)
+    put_state(app, %{failure_index: state.failure_index, modal: Failures.modal(state)})
+  end
+
+  defp sync_fail_modal(%{state: %{modal: %{kind: :fail}}} = app) do
+    put_state(app, %{modal: Failures.modal(app.state)})
+  end
+
+  defp sync_fail_modal(app), do: app
 
   defp editor_command(app, opts) do
     {file, line} =
@@ -465,6 +504,7 @@ defmodule Tidex.App do
           failures: failures,
           failure_index: 0
         })
+        |> sync_fail_modal()
 
       app.state.server_ref == ref ->
         put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
@@ -514,7 +554,9 @@ defmodule Tidex.App do
     failures = Failures.parse(log_lines(app.state, :test))
     n = length(failures)
     index = if n == 0, do: 0, else: rem(app.state.failure_index, n)
+
     put_state(app, %{failures: failures, failure_index: index})
+    |> sync_fail_modal()
   end
 
   defp log_lines(state, source) do

@@ -25,7 +25,7 @@ file1: README.md
 ```
 
 `file1`–`file4` are listed files. Missing keys are omitted. `1`–`4`
-open the ones that are present. `f` always edits `tidex.conf`.
+open the ones that are present. `0` always edits `tidex.conf`.
 
 `project` is the status-pane label. If omitted, it defaults to a
 `dir: name` entry in `~/.tidex/tidex.conf`, then the directory that
@@ -65,8 +65,8 @@ cd tidex
 mix tidex
 ```
 
-Keys: `t` run tests (`- pass` and a live fail count on the lobby), `s`
-server sheet (again to start), `x` stop, `b` browser, `e` editor
-(current failure file+line), `f` edit `tidex.conf`, `1`–`4` listed
-files, arrows scroll the server sheet, left/right cycle failures, `?`
-help, `g` git, `esc` close sheet, `q` quit.
+Keys: `t` run tests (`- pass` and a live fail count on the lobby), `f`
+failure box (`e` edit, left/right cycle), `s` server sheet (again to
+start), `x` stop, `b` browser, `0` edit `tidex.conf`, `1`–`4` listed
+files, arrows scroll the server sheet, `?` help, `g` git, `esc` close
+box or sheet, `q` quit.

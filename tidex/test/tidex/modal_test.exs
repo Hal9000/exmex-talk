@@ -93,4 +93,21 @@ defmodule Tidex.ModalTest do
     assert hd(rows) =~ "only"
     assert List.last(rows) =~ "esc"
   end
+
+  test "min_width and min_height pin a small body on a large screen" do
+    modal = %Modal{
+      lines: ["hi"],
+      commands: "esc",
+      min_width: 60,
+      max_width: 60,
+      min_height: 7,
+      max_height: 7
+    }
+
+    pane = Modal.pane(screen(80, 24), modal)
+    assert pane.width == 60
+    assert pane.height == 7
+    assert pane.row == div(24 - 7, 2) + 1
+    assert pane.col == div(80 - 60, 2) + 1
+  end
 end
