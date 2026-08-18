@@ -108,3 +108,39 @@ signal is small.
   care.
 
 Not a Termex feature. Do not put it ahead of the failure box.
+
+## Colors and `tidex.theme`
+
+Informal. Behind the failure box. Today: monochrome + bold. Child
+commands may still emit their own ANSI.
+
+**First feature is not light/dark.** We do not paint a background; the
+terminal already has a theme. Bare minimum: semantic ANSI on this
+terminal’s palette, plus bold. Do not set default fg/bg. `NO_COLOR` /
+dumb `TERM` → bold only.
+
+**ANSI:** 8 names (black red green yellow blue magenta cyan white),
+optional bright set (16). Not 256 or truecolor at first.
+
+**Semantic knobs, few:** fail (red), pass/ok (green), optional warn
+(yellow), muted/secondary (dim). Maybe one accent for “which lobby.”
+Not per-pane chrome. Pass/fail on the Test line is the first color
+that means something.
+
+**Two files, same `key: value` syntax.** Colors are per-project
+*appearance*, not meat. Do not put them in `tidex.conf`.
+
+- **Meat** (`tidex.conf`): `project`, `test`, `server`, `browser`,
+  `editor`, `file1`–`file4`. How to operate the tree. Walk from cwd.
+- **Appearance** (`tidex.theme`, name negotiable): colors, later maybe
+  box sizes. `~/.tidex/tidex.theme` (defaults) and a file next to the
+  project `tidex.conf` (this lobby). Local wins per key; omit to
+  inherit. Same merge idea as today. Catalog and `editor:` stay where
+  they are.
+
+Committing the theme file is optional (demo look vs personal accent).
+Checking in hex / “assume dark” is the usual mistake; named ANSI
+(`red`, `bright-red`, `default`) is portable.
+
+User-only colors were a wrong collapse of “not in `tidex.conf`.”
+Per-project colors belong in the project tree, in the second file.
