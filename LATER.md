@@ -10,16 +10,17 @@ otherwise.
 `e` and left/right already track a **hidden** current failure; you
 cannot see it. That hole is the failure box.
 
-Do not code until `mix tidex` has been run on a real terminal and key /
-content / size are decided. Then:
+**Keys:** `f` opens (no-op if none). Inside: left/right cycle, `e` edit,
+`esc` dismiss. Lobby `e` no longer jumps. **`0`** edits `tidex.conf`
+(with `1`–`4`); `f` is not conf.
 
-- Small bordered box on the lobby (not a full-screen sheet).
-- One failure: name, file:line, snippet.
-- `esc` close; `e` edit; left/right cycle.
-- Maximize later for more of the hidden test log.
+**Size:** width **60** (outer). Height **7** (outer): name, file:line,
+two snippet lines, command row, plus borders. Cap, do not grow with the
+stacktrace. On 80×24 that leaves lobby around it. Maximize later for
+more log.
 
-`t` stays on the lobby. No test sheet. The log is still accumulated
-(`test_log`), not drawn, until a box (or maximize) shows a piece of it.
+Do not dump the ExUnit `1)` block into the box. Build a `%Modal{}` from
+`Failures.current/1`.
 
 ## Overlay keys (seal)
 
