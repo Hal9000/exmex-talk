@@ -34,3 +34,57 @@ remote host, and `browser:` `localhost` is that host’s loopback.
 
 False SSH yes costs one question. False no is today’s `b`. Accept that.
 Do not also try to detect a GUI.
+
+## Boxes (not sheets)
+
+Tentative. No radical decision. Replaces “sheet” with one box on the
+lobby, drawn last; next lobby frame restores. Not a window manager.
+
+- **Default:** no full-screen takeover. Git, help, setup, a failure, a
+  splash — a box sized to the content.
+- **Splash:** ack and dismiss (`y` / `n` / `esc`). Setup is already this.
+  No maximize.
+- **Small / capped:** help, one failure. Do not grow to the terminal
+  just because the text is long.
+- **Maximize:** escape hatch for a log (server, maybe git). Same widget,
+  bigger pane. Not on every box. Same key to shrink (toggle), not a
+  third verb. `esc` dismisses (lobby).
+- **Commands:** bottom interior line of **that box**. When maximized,
+  that is the last screen row. Exceptions: splash with keys in the body;
+  lobby, which is the menu.
+- **Borders:** we already draw unicode boxes with a title in the top
+  edge (`─ status ────`). Keep a border on anything that sits on the
+  lobby so it is not the status groups. Today’s “sheet menu” sits
+  *outside* the border; it should move inside.
+
+**Window on large text**
+
+- Today: `write_region` **clips** each line (CSI-safe). No wrap. Scroll
+  (follow tail, arrows / PgUp / PgDn, pin) exists and is wired to the
+  **server** overlay only. Help does not scroll; overflow vanishes.
+- Goal: a box on a long buffer scrolls. Wrap is **not** global.
+- **Clip** (default): logs, stacktraces, compiler columns.
+- **Wrap:** prose (help, splash) when clipped lines read badly.
+- Maximize = more columns (less clip / fewer wraps) and more rows.
+
+Internally, wrap vs clip can be options on one function (`write_region`
+or a sibling), not two pipelines.
+
+**Server minimized:** fairly wide, several lines, stuck on the tail
+(`:follow`). Clip, do not wrap. New lines stay at the bottom until
+PgUp. Feels like a console — sit it **low**, not centered.
+
+**Help:** midsize, roughly one topic. Search later. Maximize shows
+longer lines and more lines.
+
+**Crude sizes** (highly negotiable, two constants, not a layout DSL):
+help ~50×10, centered; server log ~70×8, low. On 80×24 a 70-wide box
+still leaves a little lobby visible.
+
+**Do not build yet** except as part of the failure view / first real
+box. Small bordered box + clip + scroll + follow-tail is enough to
+try. Add wrap when help actually reads badly. If every interesting box
+starts maximized, we have sheets again.
+
+**Failure view** fits a small bordered box (name, file:line, snippet,
+`e` / left-right / `esc`). Maximize could show more of the hidden log.
