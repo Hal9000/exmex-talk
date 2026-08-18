@@ -83,10 +83,14 @@ defmodule Tidex.App do
     %__MODULE__{
       device: Keyword.get(opts, :device, Termex.Device.stdio()),
       state: state,
-      runner: Keyword.get(opts, :runner, &default_runner/3),
+      runner:
+        Keyword.get(opts, :runner) ||
+          fn command, notify, ref ->
+            Command.start(command, notify, ref: ref, cd: config_root)
+          end,
       editor_runner: Keyword.get(opts, :editor_runner, &Open.editor/1),
       browser_runner: Keyword.get(opts, :browser_runner, &Open.browser/1),
-      git_reader: Keyword.get(opts, :git_reader, &Git.snapshot/0),
+      git_reader: Keyword.get(opts, :git_reader, fn -> Git.snapshot(config_root) end),
       keys: Keyword.get(opts, :keys, :device),
       poll_git: Keyword.get(opts, :poll_git, false),
       notify_ready: Keyword.get(opts, :notify_ready),

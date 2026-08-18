@@ -21,6 +21,18 @@ defmodule Tidex.CommandTest do
     assert_receive {:command, _ref, :exit, 7}, 1000
   end
 
+  test "cd runs the command in that directory" do
+    dir = Path.join(System.tmp_dir!(), "tidex-cd-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+    on_exit(fn -> File.rm_rf!(dir) end)
+
+    ref = make_ref()
+    assert {:ok, _} = Command.start("pwd", self(), ref: ref, cd: dir)
+    assert_receive {:command, ^ref, :line, line}, 1000
+    assert Path.expand(line) == Path.expand(dir)
+    assert_receive {:command, ^ref, :exit, 0}, 1000
+  end
+
   test "t runs a real test command and streams output into Tidex" do
     {ui, _device, out} =
       FakeTerminal.start_ui(test_command: "sh -c 'echo one; echo two; echo three'")

@@ -11,10 +11,11 @@ defmodule Tidex.Command do
   @spec start(String.t(), pid(), keyword()) :: {:ok, pid()}
   def start(command, notify, opts \\ []) when is_binary(command) and is_pid(notify) do
     ref = Keyword.fetch!(opts, :ref)
+    cd = Keyword.get(opts, :cd)
 
     spec = %{
       id: {:command, ref},
-      start: {Task, :start_link, [fn -> run(command, notify, ref) end]},
+      start: {Task, :start_link, [fn -> run(command, notify, ref, cd) end]},
       restart: :temporary,
       shutdown: :brutal_kill
     }
@@ -40,21 +41,21 @@ defmodule Tidex.Command do
     :ok
   end
 
-  defp run(command, notify, ref) do
+  defp run(command, notify, ref, cd) do
     executable = System.find_executable("sh") || "/bin/sh"
 
-    port =
-      Port.open(
-        {:spawn_executable, executable},
-        [
-          :binary,
-          :exit_status,
-          :stderr_to_stdout,
-          :hide,
-          args: ["-c", command],
-          line: 1024
-        ]
-      )
+    port_opts = [
+      :binary,
+      :exit_status,
+      :stderr_to_stdout,
+      :hide,
+      args: ["-c", command],
+      line: 1024
+    ]
+
+    port_opts = if is_binary(cd), do: Keyword.put(port_opts, :cd, cd), else: port_opts
+
+    port = Port.open({:spawn_executable, executable}, port_opts)
 
     listen(port, notify, ref)
   end

@@ -50,8 +50,11 @@ mix test
 mix tidex
 ```
 
-`mix tidex` needs a real TTY. Tests inject a `Termex.Device` backed by
-`StringIO` and drive the UI with messages, so they do not.
+`mix test` tests Tidex. `mix tidex` needs a real TTY and opens
+[`examples/proj1`](../examples/proj1) (a fixture app, not this tree).
+`mix tidex .` uses the current directory. Tests inject a `Termex.Device`
+backed by `StringIO` and drive the UI with messages, so they do not
+need a TTY.
 
 The runtime is a small OTP tree: `Tidex.Supervisor` starts a git poller
 and `Tidex.Workers` (`DynamicSupervisor`) for the keyboard and command

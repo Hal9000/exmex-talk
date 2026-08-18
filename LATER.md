@@ -72,8 +72,9 @@ application-first: Termex grows only when Tidex needs a capability.
 ## Talk repo / examples
 
 Do not use Tidex to develop Tidex. Examples are **talk-repo fixtures**,
-not a Tidex feature: e.g. `examples/proj1/tidex.conf` as ordinary
-projects in this repo. Embedded samples inside the workbench: no.
+not a Tidex feature. `examples/proj1/` is a tiny Elixir app with its
+own `tidex.conf`. `mix tidex` (from `tidex/`) opens that project;
+`test:` / `server:` run in that directory. `mix tidex .` uses cwd.
 
 Two languages later (an Elixir fixture and a Ruby one). Setup already
 guesses `test:` from `mix.exs` / `package.json` / `Cargo.toml` /

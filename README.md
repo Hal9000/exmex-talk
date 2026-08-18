@@ -11,7 +11,8 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | Project | Role |
 | --- | --- |
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
-| [`tidex/`](tidex) | Workbench: lobby, test/server/git/help sheets, browser, editor, OTP supervision |
+| [`tidex/`](tidex) | Workbench: lobby, test/server/git/help, browser, editor, OTP supervision |
+| [`examples/proj1/`](examples/proj1) | Fixture app Tidex operates on (not Tidex itself) |
 
 Project label and commands live in [`tidex.conf`](tidex.conf) (walked from
 cwd toward `/`):
@@ -60,13 +61,14 @@ Not covered: real `stty` raw mode on an interactive terminal, or a real
 
 ## Run
 
+From `tidex/`, on a real TTY. **Tidex operates on `examples/proj1`**, not
+on Tidex itself:
+
 ```bash
 cd tidex
 mix tidex
 ```
 
-Keys: `t` run tests (`- pass` and a live fail count on the lobby), `f`
-failure box (`e` edit, left/right cycle), `s` server sheet (again to
-start), `x` stop, `b` browser, `0` edit `tidex.conf`, `1`–`4` listed
-files, arrows scroll the server sheet, `?` help, `g` git, `esc` close
-box or sheet, `q` quit.
+`t` runs `mix test` in `examples/proj1` (one test fails on purpose).
+`f` opens that failure. `mix tidex .` uses the current directory
+instead. `mix tidex /path/to/other` uses that tree.

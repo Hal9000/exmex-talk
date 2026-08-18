@@ -60,6 +60,16 @@ defmodule Tidex.AppTest do
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
   end
 
+  test "cwd of the example app loads that project, not Tidex" do
+    root = Path.expand("../../../examples/proj1", __DIR__)
+    {app, _out} = app(cwd: root)
+    assert app.state.project_name == "proj1"
+    assert app.state.test_command == "mix test"
+    assert app.state.config_root == root
+    assert app.state.files[2] == "lib/proj1.ex"
+    assert app.state.overlay == nil
+  end
+
   test "? toggles the help overlay" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "?"})
