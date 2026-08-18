@@ -88,3 +88,23 @@ starts maximized, we have sheets again.
 
 **Failure view** fits a small bordered box (name, file:line, snippet,
 `e` / left-right / `esc`). Maximize could show more of the hidden log.
+
+## Terminal resize (SIGWINCH)
+
+First detection (`:io.columns()` / `:io.rows()` at boot) almost always
+works on a real TTY. We fall back to 80×24 if it does not (pipe, no
+pty). The gap is **stale size**: we snapshot once and never look again.
+
+Not too much trouble. Not before boxes have real sizes. Relayout (box
+geometry, 70×8 tail, scroll height, 16×12 floor) is the work; the
+signal is small.
+
+- **Cheaper:** re-read width/height at the start of every `View.render`.
+  Already redraw on keys, log lines, git polls. Resize applies on the
+  next event. Idle lobby stays stale until a key or a git tick. Usually
+  enough.
+- **SIGWINCH:** OTP `:os.set_signal(:sigwinch, :handle)` → UI process
+  redraws while idle. Polish. Windows has no SIGWINCH; ignore until we
+  care.
+
+Not a Termex feature. Do not put it ahead of the failure box.
