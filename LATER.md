@@ -1,6 +1,84 @@
 # Later
 
-Ideas we agreed not to build yet.
+Ideas we agreed not to build yet. The **next** product slice is the
+failure box. Do not invent another slice until a real TTY look at the
+lobby (`mix tidex`). Everything below waits on that unless we say
+otherwise.
+
+## Failure box (next)
+
+`e` and left/right already track a **hidden** current failure; you
+cannot see it. That hole is the failure box.
+
+Do not code until `mix tidex` has been run on a real terminal and key /
+content / size are decided. Then:
+
+- Small bordered box on the lobby (not a full-screen sheet).
+- One failure: name, file:line, snippet.
+- `esc` close; `e` edit; left/right cycle.
+- Maximize later for more of the hidden test log.
+
+`t` stays on the lobby. No test sheet. The log is still accumulated
+(`test_log`), not drawn, until a box (or maximize) shows a piece of it.
+
+## Overlay keys (seal)
+
+`q` always quits. Help and git overlays swallow most other keys.
+Test and server overlays still leak lobby verbs (`t`, `e`, `f`, `1`–`4`,
+`x`, `b`, …). Sealing is agreed, not coded. Boxes with commands on the
+bottom interior line may make this fall out; do not special-case every
+overlay first.
+
+## Lobby chrome (snapshot)
+
+Home is a lobby: one full-screen unicode status box, **grouped text**
+(not little boxes). Two columns Test|Server, Git|Files, then `? help` /
+`q quit`. Git / help / setup / server are still full-screen overlays
+with a 1-line menu on the last screen row, leftover chrome, outside the
+border. See **Boxes (not sheets)** below.
+
+**Hotkey line:** `s  down` means key `s` plus **status** `down`, not a
+command named down. The same helper draws verbs (`x  stop`) and status
+(`t  idle`, `g  main`). Confusing. Change later, not now.
+
+**Test line:** idle → `t  idle`; after start → `t  - pass  N fail`.
+`N` updates as ExUnit `1)` / `2)` headers stream (`Tidex.Failures` on
+each log line). Passes stay `-` until a summary is parsed. Failed run
+with no parsed blocks → `t  fail`.
+
+**Server:** `:up` / `:down` is **our job only** (Task+Port `sh -c
+server:`), not LISTEN, not health. `s` opens the overlay; `s` again
+start-or-restart; `x` stop; `b` browse (`browser:` via `open` /
+`xdg-open`). Occupancy/restart is a later section.
+
+**Termex (current, for the talk):** clip, no wrap; bold only, no hues;
+size `:io.columns` / `:io.rows` once at boot, 80×24 fallback; no
+SIGWINCH. Resize and colors are later sections.
+
+## Packaging
+
+Tidex is a **tool** (`tidex`, like an editor or linter). It is **never**
+a `mix.exs` dependency of the project under test.
+
+- Recommend an **escript** named `tidex`.
+- Keep in-repo `mix tidex` for developing Tidex itself.
+- Elixir users: `mix escript.install`.
+- Non-Elixir: a self-contained binary later (Bakeware / Burrito).
+- Both end on `tidex` on PATH, not `mix tidex`.
+
+**Termex is not a Hex package yet.** Fold it into the Tidex artifact.
+Split when a second application needs Termex. The talk thesis stays
+application-first: Termex grows only when Tidex needs a capability.
+
+## Talk repo / examples
+
+Do not use Tidex to develop Tidex. Examples are **talk-repo fixtures**,
+not a Tidex feature: e.g. `examples/proj1/tidex.conf` as ordinary
+projects in this repo. Embedded samples inside the workbench: no.
+
+Two languages later (an Elixir fixture and a Ruby one). Setup already
+guesses `test:` from `mix.exs` / `package.json` / `Cargo.toml` /
+`go.mod`. No Gemfile / Ruby yet. A language picker at setup is later.
 
 ## `b` over SSH
 
