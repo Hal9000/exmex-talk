@@ -45,6 +45,7 @@ defmodule Termex.KeysTest do
 
   test "a lone ESC is :esc" do
     assert keys("\e") == [:esc]
+    assert keys("\e\0") == [:esc]
   end
 
   test "mixes arrows with ordinary keys" do

@@ -8,6 +8,7 @@ defmodule Termex.Keys do
   """
 
   @esc "\e"
+  @buffer_key {__MODULE__, :input_buffer}
 
   @type t ::
           String.t()
@@ -32,6 +33,9 @@ defmodule Termex.Keys do
   defp read_escape(input) do
     case read_follow(input) do
       :eof ->
+        :esc
+
+      <<0>> ->
         :esc
 
       "[" ->
@@ -87,7 +91,7 @@ defmodule Termex.Keys do
 
   defp read_follow(input) do
     if tty_input?(input) do
-      briefly_nonblocking(fn -> read_byte(input) end)
+      buffered_byte()
     else
       read_byte(input)
     end
@@ -96,27 +100,53 @@ defmodule Termex.Keys do
   defp tty_input?(input) when input in [:stdio, :standard_io], do: true
   defp tty_input?(_), do: false
 
-  # After ESC, wait up to 100ms for the rest of a CSI/SS3 sequence so a
-  # lone Escape key can still be distinguished from an arrow. Arrow bytes
-  # are already in the kernel buffer; this timeout is only for ESC.
-  defp briefly_nonblocking(fun) do
-    System.cmd("stty", ["-icanon", "-echo", "min", "0", "time", "1"], stderr_to_stdout: true)
+  # OTP's native raw terminal returns all bytes currently available. Keep
+  # the rest in this keyboard process so ESC can be classified without a
+  # second blocking read.
+  defp read_byte(input) when input in [:stdio, :standard_io] do
+    case buffered_byte() do
+      :eof ->
+        input
+        |> IO.getn("", 1024)
+        |> buffer_chunk()
 
-    try do
-      fun.()
-    after
-      System.cmd("stty", ["-icanon", "-echo", "min", "1", "time", "0"], stderr_to_stdout: true)
+        buffered_byte()
+
+      byte ->
+        byte
     end
   end
 
-  defp read_byte(input) do
-    case IO.getn(input, "", 1) do
-      :eof -> :eof
-      {:error, _} -> :eof
-      "" -> :eof
-      key when is_binary(key) and byte_size(key) > 0 -> key
-      [char] when is_integer(char) -> <<char>>
-      _ -> :eof
+  defp read_byte(input), do: input |> IO.getn("", 1) |> normalize_byte()
+
+  defp buffer_chunk(result) do
+    case normalize_chunk(result) do
+      "" -> Process.delete(@buffer_key)
+      chunk -> Process.put(@buffer_key, chunk)
     end
   end
+
+  defp buffered_byte do
+    case Process.get(@buffer_key, "") do
+      <<byte::binary-size(1), rest::binary>> ->
+        if rest == "", do: Process.delete(@buffer_key), else: Process.put(@buffer_key, rest)
+        byte
+
+      _ ->
+        :eof
+    end
+  end
+
+  defp normalize_chunk(:eof), do: ""
+  defp normalize_chunk({:error, _}), do: ""
+  defp normalize_chunk(chunk) when is_binary(chunk), do: chunk
+  defp normalize_chunk(chunk) when is_list(chunk), do: IO.iodata_to_binary(chunk)
+  defp normalize_chunk(_), do: ""
+
+  defp normalize_byte(:eof), do: :eof
+  defp normalize_byte({:error, _}), do: :eof
+  defp normalize_byte(""), do: :eof
+  defp normalize_byte(key) when is_binary(key) and byte_size(key) > 0, do: key
+  defp normalize_byte([char]) when is_integer(char), do: <<char>>
+  defp normalize_byte(_), do: :eof
 end
