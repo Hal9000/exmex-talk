@@ -93,7 +93,7 @@ defmodule Tidex.ModalTest do
 
     assert text =~ "\e[#{divider_row};#{pane.col}H\e[96m├"
     assert text =~ "┤\e[0m"
-    assert text =~ "\e[#{command_row};#{inner.col}Hesc close"
+    assert text =~ "\e[#{command_row};#{inner.col}H\e[96mesc close\e[0m"
   end
 
   test "centers command hints within the footer" do
@@ -110,7 +110,21 @@ defmodule Tidex.ModalTest do
     command_row = inner.row + inner.height - 1
     offset = div(inner.width - String.length("esc"), 2)
 
-    assert FakeTerminal.text(out) =~ "\e[#{command_row};#{inner.col + offset}Hesc"
+    assert FakeTerminal.text(out) =~ "\e[#{command_row};#{inner.col + offset}H\e[96mesc\e[0m"
+  end
+
+  test "footer color survives a bold key reset" do
+    modal = %Modal{
+      title: "demo",
+      lines: ["body"],
+      commands: Termex.bold("e") <> "  edit",
+      min_width: 20,
+      max_width: 20
+    }
+
+    {out, _pane} = draw(modal)
+
+    assert FakeTerminal.text(out) =~ "\e[96m\e[1me\e[0m\e[96m  edit\e[0m"
   end
 
   test "clips a long body line to the inner width" do

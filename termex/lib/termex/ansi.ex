@@ -107,10 +107,21 @@ defmodule Termex.ANSI do
 
   @doc """
   Wrap `text` in a foreground color, unless `NO_COLOR` is present.
+
+  Color is re-applied after resets already present in `text`, so nested
+  bold and reverse spans do not cancel it for following text.
   """
   @spec wrap_color(iodata(), color(), map()) :: String.t()
   def wrap_color(text, color, env \\ System.get_env()) do
-    wrap_if_enabled(text, foreground(color), env)
+    text = IO.iodata_to_binary(text)
+    sequence = foreground(color)
+
+    if color_enabled?(env) do
+      text = String.replace(text, reset(), reset() <> sequence)
+      sequence <> text <> reset()
+    else
+      text
+    end
   end
 
   @doc """
