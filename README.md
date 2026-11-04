@@ -61,14 +61,27 @@ Not covered: real `stty` raw mode on an interactive terminal, or a real
 
 ## Run
 
-From `tidex/`, on a real TTY. **Tidex operates on `examples/proj1`**, not
-on Tidex itself:
+Build the command, then run it from the project Tidex should operate on.
+This requires Elixir and Erlang/OTP:
 
 ```bash
 cd tidex
-mix tidex
+mix escript.build
+cd ../examples/proj1
+../../tidex/tidex
 ```
 
 `t` runs `mix test` in `examples/proj1` (one test fails on purpose).
-`f` opens that failure. `mix tidex .` uses the current directory
-instead. `mix tidex /path/to/other` uses that tree.
+`f` opens that failure.
+
+To install `tidex` on your `PATH`:
+
+```bash
+cd tidex
+mix do escript.build + escript.install
+export PATH="$HOME/.mix/escripts:$PATH"
+```
+
+Running `tidex` uses the current directory. `tidex /path/to/project`
+uses another project tree. For in-tree development, `mix tidex` still
+opens `examples/proj1`, while `mix tidex .` uses the current directory.

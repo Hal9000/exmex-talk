@@ -3,11 +3,14 @@
 Talk-repo fixture: a tiny Elixir app for **Tidex to operate on**. It is
 not Tidex. One test fails on purpose so `t` then `f` has a failure box.
 
-From the `tidex/` directory (real TTY):
+Build Tidex, then run it here on a real TTY:
 
 ```bash
-mix tidex
+cd ../../tidex
+mix escript.build
+cd ../examples/proj1
+../../tidex/tidex
 ```
 
-That opens this project. `mix tidex .` would use the current directory
-instead. `0` edits this `tidex.conf`.
+The command uses its current directory, so that opens this project. `0`
+edits this `tidex.conf`.
