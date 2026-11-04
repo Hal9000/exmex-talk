@@ -59,6 +59,13 @@ defmodule Termex.ANSITest do
     assert Termex.reverse("selected") == "\e[7mselected\e[0m"
   end
 
+  test "foreground color re-applies itself after nested style resets" do
+    styled = Termex.bold("e") <> "  edit"
+
+    assert ANSI.wrap_color(styled, :bright_cyan, %{}) ==
+             "\e[96m\e[1me\e[0m\e[96m  edit\e[0m"
+  end
+
   test "standard and bright foreground colors use their SGR codes" do
     standard = ~w(black red green yellow blue magenta cyan white)a
 

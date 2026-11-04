@@ -13,7 +13,8 @@ test log is kept but not shown.
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` and `g` still open
 replacement sheets. Modal key hints occupy a one-line footer separated
-from the body by a horizontal rule and are centered within it.
+from the body by a horizontal rule; they are centered and use the same
+bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that

@@ -69,6 +69,7 @@ defmodule Tidex.Modal do
       commands = Termex.clip(modal.commands, inner.width)
       command_width = visible_width(commands)
       command_offset = div(max(inner.width - command_width, 0), 2)
+      commands = Termex.color(commands, :bright_cyan)
 
       Termex.write_clipped(
         device,
