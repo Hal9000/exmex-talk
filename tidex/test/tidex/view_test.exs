@@ -1,7 +1,18 @@
 defmodule Tidex.ViewTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Tidex.{FakeTerminal, Layout, State, View, Failures}
+
+  setup do
+    original = System.get_env("NO_COLOR")
+    System.delete_env("NO_COLOR")
+
+    on_exit(fn ->
+      if is_nil(original),
+        do: System.delete_env("NO_COLOR"),
+        else: System.put_env("NO_COLOR", original)
+    end)
+  end
 
   defp render(state_overrides) do
     {device, out} = FakeTerminal.open()
@@ -77,6 +88,18 @@ defmodule Tidex.ViewTest do
     assert visible =~ "q  quit"
     refute visible =~ "layout"
     assert output =~ "\e[1mt"
+    assert output =~ "\e[7midle   \e[0m"
+    assert output =~ "\e[7mdown   \e[0m"
+  end
+
+  test "NO_COLOR keeps status alignment without reverse video" do
+    System.put_env("NO_COLOR", "1")
+    {output, _state} = render([])
+
+    refute output =~ "\e[7m"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "t  idle"
+    assert visible =~ "s  down"
   end
 
   test "lobby is content-height, capped at 80 columns, and centered" do
@@ -92,18 +115,22 @@ defmodule Tidex.ViewTest do
     assert output =~ "Test"
   end
 
-  test "shows one current test and server state under the headings" do
+  test "shows aligned reverse-video test and server statuses" do
     {output, _} = render(test_state: :running)
-    assert Termex.ANSI.strip(output) =~ "t  - pass  0 fail"
+    assert output =~ "\e[7mrunning\e[0m"
+    assert Termex.ANSI.strip(output) =~ "t  running  0 fail"
 
     {output, _} = render(test_state: :pass)
-    assert Termex.ANSI.strip(output) =~ "t  - pass  0 fail"
+    assert output =~ "\e[7mpass   \e[0m"
+    assert Termex.ANSI.strip(output) =~ "t  pass"
 
     {output, _} = render(test_state: :fail)
+    assert output =~ "\e[7mfail   \e[0m"
     assert Termex.ANSI.strip(output) =~ "t  fail"
 
     {output, _} = render(server_state: :up)
-    assert output =~ "up"
+    assert output =~ "\e[7mup     \e[0m"
+    assert Termex.ANSI.strip(output) =~ "s  up"
   end
 
   test "shows git branch, dirty, and untracked on their own lines; omits zeros" do
@@ -146,14 +173,15 @@ defmodule Tidex.ViewTest do
     refute output =~ "git:     —"
   end
 
-  test "lobby shows dash passes and a fail count, not the failure body" do
+  test "lobby shows a fail count, not the failure body" do
     failures = [
       %{name: "test Foo", file: "test/foo_test.exs", line: 12, snippet: "left behind"}
     ]
 
     {output, _} = render(test_state: :fail, failures: failures)
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  - pass  1 fail"
+    assert output =~ "\e[7mfail   \e[0m"
+    assert visible =~ "t  fail     1 fail"
     assert visible =~ "f  fail"
     refute visible =~ "test Foo"
     refute visible =~ "foo_test.exs"
@@ -297,7 +325,7 @@ defmodule Tidex.ViewTest do
       )
 
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  - pass  1 fail"
+    assert visible =~ "t  fail     1 fail"
     assert visible =~ "f  fail"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
@@ -326,7 +354,7 @@ defmodule Tidex.ViewTest do
     {output, state} = render(Keyword.put(state_opts, :modal, modal))
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
-    assert visible =~ "t  - pass  1 fail"
+    assert visible =~ "t  fail     1 fail"
     assert visible =~ "test Foo.bar/1 (FooTest)"
     assert visible =~ "test/foo_test.exs:12"
     assert visible =~ "Assertion with == failed"

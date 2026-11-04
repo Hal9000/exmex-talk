@@ -3,6 +3,8 @@ defmodule Tidex.View do
 
   alias Tidex.{Layout, Modal, Scroll, Setup, State}
 
+  @status_width 7
+
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
     Termex.hide_cursor(device)
@@ -66,16 +68,20 @@ defmodule Tidex.View do
     ["Test", test_status_line(state), key("f", "fail")]
   end
 
-  defp test_status_line(%{test_state: :idle}), do: key("t", "idle")
+  defp test_status_line(%{test_state: :idle}), do: status_key("t", "idle")
 
-  defp test_status_line(%{test_state: :fail, failures: []}), do: key("t", "fail")
+  defp test_status_line(%{test_state: :running, failures: failures}),
+    do: status_key("t", "running", "#{length(failures)} fail")
 
-  defp test_status_line(state) do
-    key("t", "- pass  #{length(state.failures)} fail")
-  end
+  defp test_status_line(%{test_state: :pass}), do: status_key("t", "pass")
+
+  defp test_status_line(%{test_state: :fail, failures: []}), do: status_key("t", "fail")
+
+  defp test_status_line(%{test_state: :fail, failures: failures}),
+    do: status_key("t", "fail", "#{length(failures)} fail")
 
   defp server_lines(state) do
-    ["Server", key("s", "#{state.server_state}"), key("x", "stop"), key("b", "browse")]
+    ["Server", status_key("s", "#{state.server_state}"), key("x", "stop"), key("b", "browse")]
   end
 
   defp git_lines(%{branch: nil}) do
@@ -229,6 +235,11 @@ defmodule Tidex.View do
   end
 
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
+
+  defp status_key(letter, status, detail \\ nil) do
+    line = key(letter, status |> String.pad_trailing(@status_width) |> Termex.reverse())
+    if detail, do: line <> "  " <> detail, else: line
+  end
 
   defp git_status_lines(%{status: text}) when is_binary(text) and text != "" do
     String.split(text, "\n")
