@@ -1,7 +1,18 @@
 defmodule Tidex.ViewTest do
   use ExUnit.Case, async: false
 
-  alias Tidex.{FakeTerminal, Layout, State, View, Failures}
+  alias Tidex.{Failures, FakeTerminal, Help, Layout, State, View}
+
+  setup do
+    original = System.get_env("NO_COLOR")
+    System.delete_env("NO_COLOR")
+
+    on_exit(fn ->
+      if is_nil(original),
+        do: System.delete_env("NO_COLOR"),
+        else: System.put_env("NO_COLOR", original)
+    end)
+  end
 
   setup do
     original = System.get_env("NO_COLOR")
@@ -259,12 +270,19 @@ defmodule Tidex.ViewTest do
     assert FakeTerminal.text(out) =~ "row20-end"
   end
 
-  test "help sheet draws a keymap on top of the lobby" do
-    {output, _} = render(overlay: :help)
+  test "help modal draws a content-sized keymap over the lobby" do
+    modal = Help.modal()
+    {output, state} = render(modal: modal, width: 80, height: 24)
+    pane = Tidex.Modal.pane(state, modal)
+
     assert output =~ "help"
-    assert Termex.ANSI.strip(output) =~ "t  run tests"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Tidex · exmex-talk"
+    assert visible =~ "t  run tests"
     assert output =~ "arrows  scroll server"
-    assert output =~ "esc closes"
+    assert output =~ "esc close"
+    assert pane.width < state.width
+    assert pane.height < state.height
   end
 
   test "git sheet draws status text and the git keymap" do

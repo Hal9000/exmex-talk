@@ -71,22 +71,26 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
-  test "? toggles the help overlay" do
+  test "? toggles the help modal over the lobby" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "?"})
-    assert app.state.overlay == :help
-    assert FakeTerminal.last_frame(out) =~ "esc closes"
+    assert app.state.overlay == nil
+    assert app.state.modal.kind == :help
+    assert FakeTerminal.last_frame(out) =~ "esc close"
+    assert FakeTerminal.last_frame(out) =~ "Tidex · exmex-talk"
 
     {:cont, app} = App.step(app, {:key, "?"})
+    assert app.state.modal == nil
     assert app.state.overlay == nil
-    refute FakeTerminal.last_frame(out) =~ "esc closes"
-    assert FakeTerminal.text(out) =~ "esc closes"
+    refute FakeTerminal.last_frame(out) =~ "esc close"
+    assert FakeTerminal.text(out) =~ "esc close"
   end
 
-  test "esc closes the help overlay" do
+  test "esc closes the help modal" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "?"})
     {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.modal == nil
     assert app.state.overlay == nil
   end
 
@@ -100,7 +104,7 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.handle_event(app, {:key, "f"})
     {:cont, app} = App.handle_event(app, {:key, "1"})
     {:cont, app} = App.handle_event(app, {:key, :up})
-    assert app.state.overlay == :help
+    assert app.state.modal.kind == :help
     assert app.state.test_state == :idle
   end
 

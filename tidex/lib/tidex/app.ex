@@ -7,7 +7,20 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
-  alias Tidex.{Command, Config, Failures, Git, Keyboard, Layout, Open, Scroll, Setup, State, View}
+  alias Tidex.{
+    Command,
+    Config,
+    Failures,
+    Git,
+    Help,
+    Keyboard,
+    Layout,
+    Open,
+    Scroll,
+    Setup,
+    State,
+    View
+  }
 
   defstruct device: nil,
             state: %State{},
@@ -173,8 +186,17 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
+  def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, key})
+      when key in ["?", :esc] do
+    {:cont, close_help_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(app, {:key, "?"}) do
-    {:cont, toggle_sheet(app, :help)}
+    {:cont, open_help_modal(app)}
   end
 
   def handle_event(app, {:key, "g"}) do
@@ -198,7 +220,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key})
-      when overlay in [:help, :git] do
+      when overlay == :git do
     {:cont, app}
   end
 
@@ -452,6 +474,14 @@ defmodule Tidex.App do
     next = if app.state.overlay == sheet, do: nil, else: sheet
     put_state(app, %{overlay: next})
   end
+
+  defp open_help_modal(app) do
+    app
+    |> persist_visible()
+    |> put_state(%{overlay: nil, modal: Help.modal()})
+  end
+
+  defp close_help_modal(app), do: put_state(app, %{modal: nil})
 
   defp close_sheet(app) do
     app |> persist_visible() |> put_state(%{overlay: nil})
