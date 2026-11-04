@@ -267,7 +267,7 @@ defmodule Tidex.ViewTest do
     assert FakeTerminal.text(out) =~ "row20-end"
   end
 
-  test "help modal draws a content-sized keymap over the lobby" do
+  test "help modal draws a selectable topic menu over the lobby" do
     modal = Help.modal()
     {output, state} = render(modal: modal, width: 80, height: 24)
     pane = Tidex.Modal.pane(state, modal)
@@ -275,8 +275,9 @@ defmodule Tidex.ViewTest do
     assert output =~ "help"
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
-    assert visible =~ "t  run tests"
-    assert output =~ "arrows  scroll server"
+    assert visible =~ "> Tests — run and read status"
+    assert visible =~ "Failures — inspect and edit"
+    assert output =~ "enter open"
     assert output =~ "esc close"
     assert pane.width < state.width
     assert pane.height < state.height

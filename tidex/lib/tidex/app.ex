@@ -186,9 +186,51 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
-  def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, key})
-      when key in ["?", :esc] do
+  def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, "?"}) do
     {:cont, close_help_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help, page: :menu}}} = app, {:key, :esc}) do
+    {:cont, close_help_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help, page: {:topic, _}} = modal}} = app, {
+        :key,
+        :esc
+      }) do
+    {:cont, put_state(app, %{modal: Help.back(modal)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help, page: :menu} = modal}} = app, {
+        :key,
+        key
+      })
+      when key in ["\t", :down, :right] do
+    {:cont, put_state(app, %{modal: Help.move(modal, 1)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help, page: :menu} = modal}} = app, {
+        :key,
+        key
+      })
+      when key in [:up, :left] do
+    {:cont, put_state(app, %{modal: Help.move(modal, -1)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :help, page: :menu} = modal}} = app, {
+        :key,
+        key
+      })
+      when key in ["\r", "\n"] do
+    {:cont, put_state(app, %{modal: Help.open(modal)})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :help, page: {:topic, _}} = modal} = state} = app,
+        {:key, key}
+      )
+      when key in [:up, :down, :page_up, :page_down] do
+    {:cont, put_state(app, %{modal: Help.scroll(modal, key, state)})}
   end
 
   def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, _key}) do
