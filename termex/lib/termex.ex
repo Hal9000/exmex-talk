@@ -61,8 +61,8 @@ defmodule Termex do
   Wrap `text` in a foreground `color`, then reset.
 
   Supported colors are `:black`, `:red`, `:green`, `:yellow`, `:blue`,
-  `:magenta`, `:cyan`, and `:white`. Returns plain text when `NO_COLOR`
-  is present in the environment.
+  `:magenta`, `:cyan`, and `:white`, plus their `:bright_*` variants.
+  Returns plain text when `NO_COLOR` is present in the environment.
   """
   @spec color(iodata(), ANSI.color()) :: String.t()
   def color(text, color), do: ANSI.wrap_color(text, color)
@@ -133,28 +133,40 @@ defmodule Termex do
 
   @doc """
   Draw a rectangle. `opts` may include `:title`, which is clipped to the
-  top edge.
+  top edge, and `:frame_color`. Frame color honors `NO_COLOR`.
   """
   @spec box(Device.t(), pos_integer(), pos_integer(), pos_integer(), pos_integer(), keyword()) ::
           :ok
   def box(device, row, col, width, height, opts \\ []) when width >= 2 and height >= 2 do
     title = Keyword.get(opts, :title)
+    frame_color = Keyword.get(opts, :frame_color)
     inner_width = width - 2
     inner_height = height - 2
     right_col = col + width - 1
     bottom_row = row + height - 1
 
-    corner(device, row, col, :top_left)
-    corner(device, row, right_col, :top_right)
-    corner(device, bottom_row, col, :bottom_left)
-    corner(device, bottom_row, right_col, :bottom_right)
+    write_frame_at(device, row, col, Box.corner(:top_left), frame_color)
+    write_frame_at(device, row, right_col, Box.corner(:top_right), frame_color)
+    write_frame_at(device, bottom_row, col, Box.corner(:bottom_left), frame_color)
+    write_frame_at(device, bottom_row, right_col, Box.corner(:bottom_right), frame_color)
 
-    write_at(device, row, col + 1, Box.titled_edge(inner_width, title))
-    hline(device, bottom_row, col + 1, inner_width)
-    vline(device, row + 1, col, inner_height)
-    vline(device, row + 1, right_col, inner_height)
+    write_frame_at(device, row, col + 1, Box.titled_edge(inner_width, title), frame_color)
+    write_frame_at(device, bottom_row, col + 1, Box.horizontal(inner_width), frame_color)
+
+    if inner_height > 0 do
+      Enum.each(0..(inner_height - 1), fn offset ->
+        write_frame_at(device, row + 1 + offset, col, Box.vertical(), frame_color)
+        write_frame_at(device, row + 1 + offset, right_col, Box.vertical(), frame_color)
+      end)
+    end
+
     :ok
   end
+
+  defp write_frame_at(device, row, col, text, nil), do: write_at(device, row, col, text)
+
+  defp write_frame_at(device, row, col, text, color),
+    do: write_at(device, row, col, ANSI.wrap_color(text, color))
 
   @doc """
   Read a key from `device`.

@@ -195,21 +195,22 @@ Not a Termex feature. Do not put it ahead of the failure box.
 
 ## Colors and `tidex.theme`
 
-Informal. Behind the failure box. Today: monochrome + bold. Child
-commands may still emit their own ANSI.
+Informal. Behind the failure box. Today: bold hotkeys, reverse status
+fields, and bright-cyan modal frames. Child commands may still emit
+their own ANSI.
 
 **First feature is not light/dark.** We do not paint a background; the
 terminal already has a theme. Bare minimum: semantic ANSI on this
 terminal’s palette, plus bold. Do not set default fg/bg. `NO_COLOR` /
 dumb `TERM` → bold only.
 
-**ANSI:** 8 names (black red green yellow blue magenta cyan white),
-optional bright set (16). Not 256 or truecolor at first.
+**ANSI:** 16 names: black/red/green/yellow/blue/magenta/cyan/white and
+their bright variants. Not 256 or truecolor.
 
-**Semantic knobs, few:** fail (red), pass/ok (green), optional warn
-(yellow), muted/secondary (dim). Maybe one accent for “which lobby.”
-Not per-pane chrome. Pass/fail on the Test line is the first color
-that means something.
+**Semantic knobs, few:** active modal frame (bright cyan), fail (red),
+pass/ok (green), optional warn (yellow), muted/secondary (dim). Not
+per-pane chrome. Pass/fail on the Test line is the next color that
+means something.
 
 **Two files, same `key: value` syntax.** Colors are per-project
 *appearance*, not meat. Do not put them in `tidex.conf`.
