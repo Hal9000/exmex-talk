@@ -44,6 +44,14 @@ defmodule Termex.ANSITest do
     assert ANSI.strip("plain") == "plain"
   end
 
+  test "dim re-applies itself after nested style resets" do
+    styled = Termex.bold("t") <> "  tests"
+
+    assert ANSI.dim() == "\e[2m"
+    assert Termex.dim(styled) == "\e[2m\e[1mt\e[0m\e[2m  tests\e[0m"
+    assert ANSI.strip(Termex.dim(styled)) == "t  tests"
+  end
+
   test "foreground colors and reverse video wrap text" do
     assert ANSI.foreground(:red) == "\e[31m"
     assert ANSI.reverse() == "\e[7m"
@@ -70,6 +78,7 @@ defmodule Termex.ANSITest do
     refute ANSI.color_enabled?()
     assert Termex.color(["f", "ail"], :red) == "fail"
     assert Termex.reverse(["s", "elected"]) == "selected"
+    assert Termex.dim([Termex.bold("t"), "  tests"]) == "\e[1mt\e[0m  tests"
   end
 
   test "color policy can be checked without reading the process environment" do
@@ -78,5 +87,7 @@ defmodule Termex.ANSITest do
     assert ANSI.wrap_color("ok", :green, %{}) == "\e[32mok\e[0m"
     assert ANSI.wrap_color("ok", :green, %{"NO_COLOR" => "anything"}) == "ok"
     assert ANSI.wrap_reverse("selected", %{"NO_COLOR" => ""}) == "selected"
+    assert ANSI.wrap_dim("muted", %{}) == "\e[2mmuted\e[0m"
+    assert ANSI.wrap_dim("muted", %{"NO_COLOR" => ""}) == "muted"
   end
 end

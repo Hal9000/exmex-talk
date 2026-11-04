@@ -47,6 +47,11 @@ defmodule Tidex.ViewTest do
     assert visible =~ "modal-body-unique"
     assert visible =~ "esc back"
     assert visible =~ "demo"
+    assert output =~ "\e[2m"
+
+    {modal_start, _length} = :binary.match(output, "\e[96m")
+    modal_output = binary_part(output, modal_start, byte_size(output) - modal_start)
+    refute modal_output =~ "\e[2m"
 
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width < state.width
@@ -94,12 +99,15 @@ defmodule Tidex.ViewTest do
 
   test "NO_COLOR keeps status alignment without reverse video" do
     System.put_env("NO_COLOR", "1")
-    {output, _state} = render([])
+    {output, _state} = render(modal: Help.modal())
 
     refute output =~ "\e[7m"
+    refute output =~ "\e[2m"
+    refute output =~ "\e[96m"
     visible = Termex.ANSI.strip(output)
     assert visible =~ "t  idle"
     assert visible =~ "s  down"
+    assert visible =~ "help"
   end
 
   test "lobby is content-height, capped at 80 columns, and centered" do

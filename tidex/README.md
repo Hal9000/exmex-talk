@@ -43,7 +43,8 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 The lobby bolds the key letter next to each command (`t  idle`,
 `s  down`, `0  tidex.conf`, …). Test and Server statuses use aligned
 reverse-video fields. Modal frames use bright cyan as an active-layer
-accent. `NO_COLOR` removes both treatments while preserving alignment.
+accent, and the lobby dims behind an open modal. `NO_COLOR` removes
+these treatments while preserving alignment.
 
 ```bash
 cd tidex

@@ -10,7 +10,7 @@ Current surface:
 - clear the visible screen, move the cursor, write text
 - box drawing: horizontal line, vertical line, corners
 - clipped text regions so content stays inside a pane (CSI is not width)
-- bold, standard and bright foreground colors, and reverse video (SGR)
+- bold, dim, standard and bright foreground colors, and reverse video (SGR)
 - key input: single bytes, arrow/page keys, and a keyboard process that
   sends keys as messages
 - yield the terminal to an external program, then resume raw mode

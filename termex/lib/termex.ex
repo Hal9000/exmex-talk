@@ -58,6 +58,15 @@ defmodule Termex do
   def bold(text), do: ANSI.wrap_bold(text)
 
   @doc """
+  Wrap `text` in dim, then reset.
+
+  Existing styled spans may be nested inside `text`. Returns plain text
+  when `NO_COLOR` is present in the environment.
+  """
+  @spec dim(iodata()) :: String.t()
+  def dim(text), do: ANSI.wrap_dim(text)
+
+  @doc """
   Wrap `text` in a foreground `color`, then reset.
 
   Supported colors are `:black`, `:red`, `:green`, `:yellow`, `:blue`,
