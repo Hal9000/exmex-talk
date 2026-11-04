@@ -125,23 +125,12 @@ defmodule Tidex.View do
     )
   end
 
-  defp menu_line(:git) do
-    Enum.join(
-      [hotkey("a", "add") <> " -u", hotkey("c", "commit"), hotkey("p", "push"), "esc back"],
-      "  "
-    )
-  end
-
   defp menu_line(:setup), do: "esc skip"
 
   defp menu_line(_), do: "esc back"
 
   defp render_sheet(device, %{overlay: :setup} = state) do
     draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))
-  end
-
-  defp render_sheet(device, %{overlay: :git} = state) do
-    draw_overlay(device, state, "git", git_sheet_lines(state))
   end
 
   defp draw_overlay(device, state, title, lines) do
@@ -165,43 +154,10 @@ defmodule Tidex.View do
     )
   end
 
-  defp git_sheet_lines(state) do
-    git_status_lines(state.git) ++ git_log_lines(state)
-  end
-
-  defp git_log_lines(state) do
-    lines =
-      if state.output_source == :git do
-        state.output_lines
-      else
-        state.git_log
-      end
-
-    case lines do
-      [] -> []
-      lines -> ["" | lines]
-    end
-  end
-
-  defp hotkey(letter, word) do
-    if String.starts_with?(word, letter) do
-      Termex.bold(letter) <> String.replace_prefix(word, letter, "")
-    else
-      Termex.bold(letter) <> word
-    end
-  end
-
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 
   defp status_key(letter, status, detail \\ nil) do
     line = key(letter, status |> String.pad_trailing(@status_width) |> Termex.reverse())
     if detail, do: line <> "  " <> detail, else: line
   end
-
-  defp git_status_lines(%{status: text}) when is_binary(text) and text != "" do
-    String.split(text, "\n")
-  end
-
-  defp git_status_lines(%{branch: nil}), do: ["(no repository)"]
-  defp git_status_lines(_), do: ["(no status)"]
 end

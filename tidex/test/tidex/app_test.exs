@@ -159,35 +159,37 @@ defmodule Tidex.AppTest do
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
   end
 
-  test "g toggles the git overlay" do
+  test "g toggles the git modal over the lobby" do
     git = %{branch: "main", dirty: 1, status: "On branch main\nmodified: lib/tidex.ex"}
     {app, out} = app(git: git)
     {:cont, app} = App.step(app, {:key, "g"})
-    assert app.state.overlay == :git
+    assert app.state.overlay == nil
+    assert app.state.modal.kind == :git
     frame = FakeTerminal.last_frame(out)
+    assert frame =~ "Tidex · exmex-talk"
     assert frame =~ "On branch main"
     assert FakeTerminal.visible(out) =~ "add -u"
 
     {:cont, app} = App.step(app, {:key, "g"})
-    assert app.state.overlay == nil
+    assert app.state.modal == nil
     refute FakeTerminal.visible(out) =~ "add -u"
     assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "add -u"
   end
 
-  test "esc closes the git overlay" do
+  test "esc closes the git modal" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "g"})
     {:cont, app} = App.handle_event(app, {:key, :esc})
-    assert app.state.overlay == nil
+    assert app.state.modal == nil
   end
 
-  test "a from the git overlay runs git add -u" do
+  test "a from the git modal runs git add -u" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.step(app, {:key, "a"})
 
     assert_receive {:started, "git add -u", _notify, ref, _pid}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.output_source == :git
     assert app.state.git_cmd_ref == ref
 
@@ -195,15 +197,15 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.last_frame(out) =~ "staged"
   end
 
-  test "p from the git overlay runs git push" do
+  test "p from the git modal runs git push" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "g"})
     {:cont, app} = App.handle_event(app, {:key, "p"})
     assert_receive {:started, "git push", _, _, _}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
   end
 
-  test "c from the git overlay yields git commit" do
+  test "c from the git modal yields git commit" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
     {app, _out} = app(editor_runner: editor, git_reader: fn -> %{branch: "main", dirty: 0} end)
@@ -211,11 +213,11 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.step(app, {:key, "c"})
     assert_receive {:edited, "git commit"}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.git.status == ""
   end
 
-  test "a does nothing unless the git overlay is open" do
+  test "a does nothing unless the git modal is open" do
     {app, _out} = app([])
     runner = fn _cmd, _notify, _ref -> flunk("add should not run") end
     app = %{app | runner: runner}
@@ -223,7 +225,7 @@ defmodule Tidex.AppTest do
     assert app.state.git_cmd_ref == nil
   end
 
-  test "git add keeps the test log and stays on the git sheet" do
+  test "git add keeps the test log and stays in the git modal" do
     {app, _out} = app([])
 
     app = %{
@@ -237,10 +239,25 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.handle_event(app, {:command, git_ref, :line, "git add ok"})
 
     assert app.state.test_log == ["test line one", "test line two"]
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.output_source == :git
     assert app.state.output_lines == ["git add ok"]
     assert app.state.git_log == ["git add ok"]
+  end
+
+  test "the git modal scrolls and seals unrelated command keys" do
+    status = 1..25 |> Enum.map_join("\n", &"status line #{&1}")
+    {app, _out} = app(git: %{branch: "main", dirty: 25, status: status})
+
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    assert app.state.modal.scroll == :follow
+
+    {:cont, app} = App.handle_event(app, {:key, :up})
+    assert is_integer(app.state.modal.scroll)
+
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+    assert app.state.test_state == :idle
+    assert app.state.modal.kind == :git
   end
 
   test "starting the server stays on the lobby and keeps the test log" do
@@ -323,6 +340,13 @@ defmodule Tidex.AppTest do
     "     ** (RuntimeError) timed out"
   ]
 
+  @minitest_fail [
+    "  1) Failure:",
+    "CalculatorTest#test_add [test/calculator_test.rb:8]:",
+    "Expected: 5",
+    "  Actual: 4"
+  ]
+
   test "a failing test run shows the fail count on the lobby" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
@@ -360,6 +384,28 @@ defmodule Tidex.AppTest do
     assert length(app.state.failures) == 2
     assert FakeTerminal.visible(out) =~ "running  2 fail"
     refute FakeTerminal.visible(out) =~ "test boom"
+  end
+
+  test "a configured Minitest run feeds the same failure modal" do
+    {app, out} = app(test_format: :minitest, width: 80, height: 24)
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+
+    app =
+      Enum.reduce(@minitest_fail, app, fn line, app ->
+        {:cont, app} = App.step(app, {:command, ref, :line, line})
+        app
+      end)
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    assert app.state.test_state == :fail
+    assert [%{file: "test/calculator_test.rb", line: 8}] = app.state.failures
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "CalculatorTest#test_add"
+    assert visible =~ "test/calculator_test.rb:8"
   end
 
   test "a passing run clears parsed failures" do
@@ -784,6 +830,24 @@ defmodule Tidex.AppTest do
       assert body =~ ~r/^file1: README.md$/m
       user = Tidex.Home.load(home: home)
       assert Tidex.Home.lookup(user, dir) == Path.basename(dir)
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "setup applies the detected Ruby parser after writing config" do
+    dir = tmp_dir()
+
+    try do
+      File.write!(Path.join(dir, ".ruby-version"), "3.3\n")
+      home = Path.join(dir, "user")
+      {app, _out} = app(cwd: dir, home: home)
+      app = %{app | state: %{app.state | test_format: :exunit}}
+
+      {:cont, app} = App.step(app, {:key, "y"})
+
+      assert app.state.test_format == :minitest
+      assert app.state.test_command =~ "ruby -Itest"
     after
       File.rm_rf!(dir)
     end

@@ -6,6 +6,7 @@ defmodule Tidex.State do
             test_state: :idle,
             server_state: :down,
             test_command: "mix test",
+            test_format: :exunit,
             server_command: "python3 -m http.server 4000",
             browser_url: "http://localhost:4000",
             editor_command: "vi",
@@ -36,7 +37,7 @@ defmodule Tidex.State do
 
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
-  @type overlay :: nil | :git | :setup
+  @type overlay :: nil | :setup
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -44,6 +45,7 @@ defmodule Tidex.State do
           test_state: test_status(),
           server_state: server_status(),
           test_command: String.t(),
+          test_format: :exunit | :minitest | :none,
           server_command: String.t(),
           browser_url: String.t(),
           editor_command: String.t(),

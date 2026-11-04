@@ -42,9 +42,9 @@ defmodule Tidex.Help do
       title: "Git",
       summary: "status and commands",
       paragraphs: [
-        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open Git status.",
+        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open a Git status box over the lobby.",
         "Inside Git, a stages tracked changes with git add -u, c yields the terminal for git commit, and p pushes.",
-        "Esc returns to the lobby. Tidex refreshes its Git snapshot after a Git command finishes."
+        "Arrows and Page Up or Page Down scroll long status and command output. Esc returns to the lobby."
       ]
     },
     %{
@@ -53,7 +53,7 @@ defmodule Tidex.Help do
       summary: "project shortcuts",
       paragraphs: [
         "Press 0 to edit the project's tidex.conf. Keys 1 through 4 open the corresponding file1 through file4 entries.",
-        "Project configuration supplies the label, test command, server command, browser URL, editor, and optional file shortcuts.",
+        "Project configuration supplies the label, test command, ExUnit or Minitest failure format, server command, browser URL, editor, and optional file shortcuts.",
         "The editor falls back through the user Tidex config, VISUAL, EDITOR, and finally vi."
       ]
     },

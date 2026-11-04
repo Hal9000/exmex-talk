@@ -12,7 +12,8 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | --- | --- |
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
 | [`tidex/`](tidex) | Workbench: lobby, test/server/git/help, browser, editor, OTP supervision |
-| [`examples/proj1/`](examples/proj1) | Fixture app Tidex operates on (not Tidex itself) |
+| [`examples/proj1/`](examples/proj1) | Elixir/ExUnit fixture Tidex operates on |
+| [`examples/ruby_calc/`](examples/ruby_calc) | Ruby/Minitest fixture using the same failure box |
 
 Project label and commands live in [`tidex.conf`](tidex.conf) (walked from
 cwd toward `/`):
@@ -20,6 +21,7 @@ cwd toward `/`):
 ```
 project: exmex-talk
 test: mix test
+test_format: exunit
 server: python3 -m http.server 4000
 browser: http://localhost:4000
 file1: README.md
@@ -27,6 +29,8 @@ file1: README.md
 
 `file1`–`file4` are listed files. Missing keys are omitted. `1`–`4`
 open the ones that are present. `0` always edits `tidex.conf`.
+`test_format` is `exunit`, `minitest`, or `none`; it selects only the
+small failure-output parser, while `test` remains an arbitrary command.
 
 `project` is the status-pane label. If omitted, it defaults to a
 `dir: name` entry in `~/.tidex/tidex.conf`, then the directory that
@@ -73,6 +77,10 @@ cd ../examples/proj1
 
 `t` runs `mix test` in `examples/proj1` (one test fails on purpose).
 `f` opens that failure.
+
+For the Ruby fixture, run the same built command from
+`examples/ruby_calc`. Its failing Minitest assertion opens in the same
+failure box.
 
 To install `tidex` on your `PATH`:
 

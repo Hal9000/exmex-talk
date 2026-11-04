@@ -12,12 +12,13 @@ test log is kept but not shown.
 `?` opens a help box over the lobby. Tab or arrows select a topic and
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` starts or restarts the
-server directly from the lobby; only `g` still opens a replacement
-sheet. Modal key hints occupy a one-line footer separated
+server directly from the lobby. `g` opens a scrollable Git box over the
+lobby; setup is the remaining replacement sheet. Modal key hints occupy
+a one-line footer separated
 from the body by a horizontal rule; they are centered and use the same
 bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
-directory): `project`, `test`, `server`, `browser`, `editor`, and
+directory): `project`, `test`, `test_format`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
@@ -37,13 +38,20 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `b` | open browser URL |
 | `0` | edit `tidex.conf` |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
-| arrows, PgUp/PgDn | navigate or scroll the open Help box |
+| arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
 | left / right | cycle parsed test failures (while the box is open) |
 | `?` | show/hide help |
-| `g` | show/hide git |
+| `g` | show/hide the Git box |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
 | `esc` | close the current box or sheet |
 | `q` | quit |
+
+Failure navigation supports `test_format: exunit` (the default for Mix
+projects) and `test_format: minitest` (the default for detected Ruby
+projects). Use `test_format: none` for an arbitrary command whose output
+Tidex should not parse. The configured `test:` command remains the
+source of truth; this is deliberately not a language/plugin framework.
+[`examples/ruby_calc`](../examples/ruby_calc) is the small Ruby fixture.
 
 The lobby bolds the key letter next to each command (`t  idle`,
 `s  down`, `0  tidex.conf`, …). Test and Server statuses use aligned

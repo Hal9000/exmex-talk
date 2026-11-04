@@ -1,7 +1,7 @@
 defmodule Tidex.ViewTest do
   use ExUnit.Case, async: false
 
-  alias Tidex.{Failures, FakeTerminal, Help, Layout, State, View}
+  alias Tidex.{Failures, FakeTerminal, GitModal, Help, Layout, State, View}
 
   setup do
     original = System.get_env("NO_COLOR")
@@ -207,19 +207,27 @@ defmodule Tidex.ViewTest do
     assert pane.height < state.height
   end
 
-  test "git sheet draws status text and the git keymap" do
+  test "git modal draws status and its keymap over the dimmed lobby" do
     git = %{
       branch: "main",
       dirty: 1,
       status: "On branch main\nChanges not staged for commit:\n  modified: lib/tidex.ex"
     }
 
-    {output, _} = render(overlay: :git, git: git)
+    state = %State{git: git, width: 80, height: 24}
+    modal = GitModal.modal(state)
+    {output, state} = render(git: git, modal: modal, width: 80, height: 24)
+    pane = Tidex.Modal.pane(state, modal)
+
+    assert Termex.ANSI.strip(output) =~ "Tidex · exmex-talk"
     assert output =~ "git"
     assert Termex.ANSI.strip(output) =~ "add -u"
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
-    assert Termex.ANSI.strip(output) =~ "esc back"
+    assert Termex.ANSI.strip(output) =~ "esc close"
+    assert pane.width == 60
+    assert pane.width < state.width
+    assert pane.height < state.height
   end
 
   test "setup overlay asks where to write tidex.conf" do

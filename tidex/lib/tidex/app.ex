@@ -12,6 +12,7 @@ defmodule Tidex.App do
     Config,
     Failures,
     Git,
+    GitModal,
     Help,
     Keyboard,
     Open,
@@ -82,6 +83,7 @@ defmodule Tidex.App do
       title: Keyword.get(opts, :title, "Tidex"),
       project_name: Keyword.get(opts, :project_name, config.project),
       test_command: Keyword.get(opts, :test_command, config.test),
+      test_format: Keyword.get(opts, :test_format, config.test_format),
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
@@ -208,6 +210,38 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["g", "G", :esc] do
+    {:cont, close_git_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["a", "A"] do
+    {:cont, git_add(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["c", "C"] do
+    {:cont, git_commit(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["p", "P"] do
+    {:cont, git_push(app)}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git} = modal} = state} = app,
+        {:key, key}
+      )
+      when key in [:up, :down, :page_up, :page_down] do
+    {:cont, put_state(app, %{modal: GitModal.scroll(modal, key, state)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, "?"}) do
     {:cont, close_help_modal(app)}
   end
@@ -264,28 +298,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, "g"}) do
-    {:cont, toggle_sheet(app, :git)}
-  end
-
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, :esc}) when overlay != nil do
-    {:cont, close_sheet(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["a", "A"] do
-    {:cont, git_add(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["c", "C"] do
-    {:cont, git_commit(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["p", "P"] do
-    {:cont, git_push(app)}
-  end
-
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key})
-      when overlay == :git do
-    {:cont, app}
+    {:cont, open_git_modal(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ["t", "T"] do
@@ -328,7 +341,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:git, snapshot}) when is_map(snapshot) do
-    {:cont, put_state(app, %{git: normalize_git(snapshot)})}
+    {:cont, app |> put_state(%{git: normalize_git(snapshot)}) |> sync_git_modal()}
   end
 
   @spec default_runner(String.t(), pid(), reference()) :: {:ok, pid()}
@@ -505,6 +518,7 @@ defmodule Tidex.App do
     app
     |> attach_keyboard()
     |> put_state(%{git: normalize_git(app.git_reader.())})
+    |> sync_git_modal()
   end
 
   defp start_git_cmd(app, command) do
@@ -512,8 +526,9 @@ defmodule Tidex.App do
     ref = make_ref()
     {:ok, pid} = app.runner.(command, self(), ref)
 
-    put_state(app, %{
-      overlay: :git,
+    app
+    |> put_state(%{
+      overlay: nil,
       git_cmd_ref: ref,
       git_cmd_pid: pid,
       git_log: [],
@@ -521,13 +536,15 @@ defmodule Tidex.App do
       output_scroll: :follow,
       output_source: :git
     })
+    |> sync_git_modal()
   end
 
-  defp toggle_sheet(app, sheet) do
+  defp open_git_modal(app) do
     app = persist_visible(app)
-    next = if app.state.overlay == sheet, do: nil, else: sheet
-    put_state(app, %{overlay: next})
+    put_state(app, %{overlay: nil, modal: GitModal.modal(app.state)})
   end
+
+  defp close_git_modal(app), do: app |> persist_visible() |> put_state(%{modal: nil})
 
   defp open_help_modal(app) do
     app
@@ -536,10 +553,6 @@ defmodule Tidex.App do
   end
 
   defp close_help_modal(app), do: put_state(app, %{modal: nil})
-
-  defp close_sheet(app) do
-    app |> persist_visible() |> put_state(%{overlay: nil})
-  end
 
   defp maybe_append_output(app, ref, line) do
     cond do
@@ -554,7 +567,11 @@ defmodule Tidex.App do
     cond do
       app.state.test_ref == ref ->
         test_state = if status == 0, do: :pass, else: :fail
-        failures = if status == 0, do: [], else: Failures.parse(log_lines(app.state, :test))
+
+        failures =
+          if status == 0,
+            do: [],
+            else: Failures.parse(log_lines(app.state, :test), app.state.test_format)
 
         put_state(app, %{
           test_state: test_state,
@@ -569,11 +586,13 @@ defmodule Tidex.App do
         put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
 
       app.state.git_cmd_ref == ref ->
-        put_state(app, %{
+        app
+        |> put_state(%{
           git_cmd_ref: nil,
           git_cmd_pid: nil,
           git: normalize_git(app.git_reader.())
         })
+        |> sync_git_modal()
 
       true ->
         app
@@ -601,15 +620,15 @@ defmodule Tidex.App do
 
     app = put_state(app, changes)
 
-    if source == :test do
-      refresh_test_failures(app)
-    else
-      app
+    case source do
+      :test -> refresh_test_failures(app)
+      :git -> sync_git_modal(app)
+      _ -> app
     end
   end
 
   defp refresh_test_failures(app) do
-    failures = Failures.parse(log_lines(app.state, :test))
+    failures = Failures.parse(log_lines(app.state, :test), app.state.test_format)
     n = length(failures)
     index = if n == 0, do: 0, else: rem(app.state.failure_index, n)
 
@@ -628,6 +647,12 @@ defmodule Tidex.App do
   defp log_field(:test), do: :test_log
   defp log_field(:server), do: :server_log
   defp log_field(:git), do: :git_log
+
+  defp sync_git_modal(%{state: %{modal: %{kind: :git, scroll: scroll}}} = app) do
+    put_state(app, %{modal: GitModal.modal(app.state, scroll)})
+  end
+
+  defp sync_git_modal(app), do: app
 
   defp stop_tracked(app, :test) do
     Command.stop(app.state.test_pid)
@@ -675,6 +700,7 @@ defmodule Tidex.App do
       setup: nil,
       project_name: config.project,
       test_command: config.test,
+      test_format: config.test_format,
       server_command: config.server,
       browser_url: config.browser,
       editor_command: config.editor,
