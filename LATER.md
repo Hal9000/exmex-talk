@@ -118,8 +118,8 @@ Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
 `Tidex.Modal` is that draw: content-sized, centered, capped, with a
-one-line command footer separated by its own horizontal rule. It blanks
-the interior so the lobby does not bleed through. The failure box uses
+centered one-line command footer separated by its own horizontal rule.
+It blanks the interior so the lobby does not bleed through. The failure box uses
 it (`kind: :fail`, 60×8), and Help is the first experimental conversion.
 Git / setup still take over the screen.
 

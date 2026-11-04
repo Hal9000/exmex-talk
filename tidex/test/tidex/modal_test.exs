@@ -96,6 +96,23 @@ defmodule Tidex.ModalTest do
     assert text =~ "\e[#{command_row};#{inner.col}Hesc close"
   end
 
+  test "centers command hints within the footer" do
+    modal = %Modal{
+      title: "demo",
+      lines: ["body"],
+      commands: "esc",
+      min_width: 20,
+      max_width: 20
+    }
+
+    {out, pane} = draw(modal)
+    inner = Layout.inner(pane)
+    command_row = inner.row + inner.height - 1
+    offset = div(inner.width - String.length("esc"), 2)
+
+    assert FakeTerminal.text(out) =~ "\e[#{command_row};#{inner.col + offset}Hesc"
+  end
+
   test "clips a long body line to the inner width" do
     modal = %Modal{
       lines: ["KEEP_START" <> String.duplicate("x", 80) <> "KEEP_END"],
@@ -147,7 +164,7 @@ defmodule Tidex.ModalTest do
     rows = FakeTerminal.region_lines(out, inner)
     refute Enum.any?(rows, &String.contains?(&1, "Z"))
     assert hd(rows) =~ "only"
-    assert List.last(rows) =~ "esc"
+    assert FakeTerminal.visible(out) =~ "esc"
   end
 
   test "min_width and min_height pin a small body on a large screen" do
