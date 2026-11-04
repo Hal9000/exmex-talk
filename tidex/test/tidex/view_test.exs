@@ -348,7 +348,7 @@ defmodule Tidex.ViewTest do
     refute output =~ "test · fail"
   end
 
-  test "the failure box sits on the lobby at 60x7" do
+  test "the failure box sits on the lobby at 60x8 with a command footer" do
     failures = [
       %{
         name: "test Foo.bar/1 (FooTest)",
@@ -378,7 +378,7 @@ defmodule Tidex.ViewTest do
 
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width == 60
-    assert pane.height == 7
+    assert pane.height == 8
     inner = Layout.inner(pane)
     rows = FakeTerminal.region_lines(output, inner)
     assert hd(rows) =~ "test Foo.bar/1"

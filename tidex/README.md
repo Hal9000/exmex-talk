@@ -12,7 +12,8 @@ test log is kept but not shown.
 `?` opens a help box over the lobby. Tab or arrows select a topic and
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` and `g` still open
-replacement sheets.
+replacement sheets. Modal key hints occupy a one-line footer separated
+from the body by a horizontal rule.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that

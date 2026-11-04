@@ -34,8 +34,8 @@ defmodule Tidex.ModalTest do
     pane = Modal.pane(screen(80, 24), modal)
     # inner width = max("there"=5, "esc"=3, title "demo"+3=7) = 7 → outer 9
     assert pane.width == 9
-    # 2 body rows + commands + 2 borders = 5
-    assert pane.height == 5
+    # 2 body rows + divider + commands + 2 borders = 6
+    assert pane.height == 6
     assert pane.width < 80
     assert pane.height < 24
   end
@@ -43,9 +43,9 @@ defmodule Tidex.ModalTest do
   test "centers on the screen" do
     modal = %Modal{lines: ["hi"], commands: "esc", max_width: 50, max_height: 10}
     pane = Modal.pane(screen(40, 20), modal)
-    # inner width 3 ("esc"), outer 5; height 1 body + commands + 2 borders = 4
+    # inner width 3 ("esc"), outer 5; height 1 body + divider + commands + 2 borders = 5
     assert pane.width == 5
-    assert pane.height == 4
+    assert pane.height == 5
     assert pane.row == div(20 - pane.height, 2) + 1
     assert pane.col == div(40 - pane.width, 2) + 1
   end
@@ -81,6 +81,19 @@ defmodule Tidex.ModalTest do
     assert Enum.at(rows, 1) =~ "line 4"
     assert List.last(rows) =~ "esc back"
     refute Enum.any?(rows, &String.contains?(&1, "line 1"))
+  end
+
+  test "draws the command hints in a separated one-line footer" do
+    modal = %Modal{title: "demo", lines: ["body"], commands: "esc close"}
+    {out, pane} = draw(modal)
+    text = FakeTerminal.text(out)
+    inner = Layout.inner(pane)
+    divider_row = inner.row + inner.height - 2
+    command_row = inner.row + inner.height - 1
+
+    assert text =~ "\e[#{divider_row};#{pane.col}H\e[96m├"
+    assert text =~ "┤\e[0m"
+    assert text =~ "\e[#{command_row};#{inner.col}Hesc close"
   end
 
   test "clips a long body line to the inner width" do

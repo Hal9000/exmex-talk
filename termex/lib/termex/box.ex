@@ -23,6 +23,10 @@ defmodule Termex.Box do
   def corner(:bottom_left), do: "└"
   def corner(:bottom_right), do: "┘"
 
+  @spec junction(:left | :right) :: String.t()
+  def junction(:left), do: "├"
+  def junction(:right), do: "┤"
+
   @doc """
   Top border inner segment, optionally with a clipped title.
 

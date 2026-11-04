@@ -46,7 +46,7 @@ defmodule Tidex.FailuresTest do
     assert Failures.current(Failures.cycle(state, 1)).name == "b"
   end
 
-  test "modal is a 60x7 fail box from the current failure" do
+  test "modal is a 60x8 fail box from the current failure" do
     state = %{
       failures: [
         %{
@@ -74,14 +74,14 @@ defmodule Tidex.FailuresTest do
     assert modal.title == "fail 2/2"
     assert modal.min_width == 60
     assert modal.max_width == 60
-    assert modal.min_height == 7
-    assert modal.max_height == 7
+    assert modal.min_height == 8
+    assert modal.max_height == 8
     assert hd(modal.lines) == "test boom (FooTest)"
     assert Enum.at(modal.lines, 1) == "test/foo_test.exs:20"
     assert Enum.at(modal.lines, 2) =~ "RuntimeError"
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width == 60
-    assert pane.height == 7
+    assert pane.height == 8
   end
 
   test "showing? is true only on a failed run with parsed failures" do

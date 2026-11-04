@@ -172,6 +172,25 @@ defmodule Termex do
     :ok
   end
 
+  @doc """
+  Draw a horizontal divider across a box.
+
+  The divider includes left/right junctions and may use `:frame_color`,
+  matching `box/6`.
+  """
+  @spec box_divider(Device.t(), pos_integer(), pos_integer(), pos_integer(), keyword()) :: :ok
+  def box_divider(device, row, col, width, opts \\ []) when width >= 2 do
+    text = Box.junction(:left) <> Box.horizontal(width - 2) <> Box.junction(:right)
+
+    text =
+      case Keyword.get(opts, :frame_color) do
+        nil -> text
+        color -> ANSI.wrap_color(text, color)
+      end
+
+    write_at(device, row, col, text)
+  end
+
   defp write_frame_at(device, row, col, text, nil), do: write_at(device, row, col, text)
 
   defp write_frame_at(device, row, col, text, color),
