@@ -1,7 +1,22 @@
 defmodule Termex.ANSITest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Termex.ANSI
+
+  setup do
+    original = System.get_env("NO_COLOR")
+
+    on_exit(fn ->
+      if is_nil(original) do
+        System.delete_env("NO_COLOR")
+      else
+        System.put_env("NO_COLOR", original)
+      end
+    end)
+
+    System.delete_env("NO_COLOR")
+    :ok
+  end
 
   describe "clear_visible/0" do
     test "returns CSI 2J and does not home the cursor" do
@@ -27,5 +42,35 @@ defmodule Termex.ANSITest do
     assert Termex.bold("t") == "\e[1mt\e[0m"
     assert ANSI.strip("\e[1mt\e[0mest") == "test"
     assert ANSI.strip("plain") == "plain"
+  end
+
+  test "foreground colors and reverse video wrap text" do
+    assert ANSI.foreground(:red) == "\e[31m"
+    assert ANSI.reverse() == "\e[7m"
+    assert Termex.color("fail", :red) == "\e[31mfail\e[0m"
+    assert Termex.reverse("selected") == "\e[7mselected\e[0m"
+  end
+
+  test "all eight foreground colors use standard SGR codes" do
+    colors = ~w(black red green yellow blue magenta cyan white)a
+
+    assert Enum.map(colors, &ANSI.foreground/1) ==
+             Enum.map(30..37, &"\e[#{&1}m")
+  end
+
+  test "NO_COLOR presence suppresses color and reverse, even when empty" do
+    System.put_env("NO_COLOR", "")
+
+    refute ANSI.color_enabled?()
+    assert Termex.color(["f", "ail"], :red) == "fail"
+    assert Termex.reverse(["s", "elected"]) == "selected"
+  end
+
+  test "color policy can be checked without reading the process environment" do
+    assert ANSI.color_enabled?(%{})
+    refute ANSI.color_enabled?(%{"NO_COLOR" => "1"})
+    assert ANSI.wrap_color("ok", :green, %{}) == "\e[32mok\e[0m"
+    assert ANSI.wrap_color("ok", :green, %{"NO_COLOR" => "anything"}) == "ok"
+    assert ANSI.wrap_reverse("selected", %{"NO_COLOR" => ""}) == "selected"
   end
 end

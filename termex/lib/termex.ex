@@ -4,8 +4,8 @@ defmodule Termex do
 
   Termex grows only when an application needs a new capability. Tidex
   currently needs: clear, cursor, write, keys (including arrows), boxes,
-  clipped text (CSI is width 0), bold, and yielding the terminal to an
-  external editor.
+  clipped text (CSI is width 0), text styles, and yielding the terminal
+  to an external editor.
   """
 
   alias Termex.{ANSI, Box, Clip, Device, Keyboard, Keys, RawMode}
@@ -56,6 +56,24 @@ defmodule Termex do
   @doc "Wrap `text` in bold, then reset."
   @spec bold(iodata()) :: String.t()
   def bold(text), do: ANSI.wrap_bold(text)
+
+  @doc """
+  Wrap `text` in a foreground `color`, then reset.
+
+  Supported colors are `:black`, `:red`, `:green`, `:yellow`, `:blue`,
+  `:magenta`, `:cyan`, and `:white`. Returns plain text when `NO_COLOR`
+  is present in the environment.
+  """
+  @spec color(iodata(), ANSI.color()) :: String.t()
+  def color(text, color), do: ANSI.wrap_color(text, color)
+
+  @doc """
+  Wrap `text` in reverse video, then reset.
+
+  Returns plain text when `NO_COLOR` is present in the environment.
+  """
+  @spec reverse(iodata()) :: String.t()
+  def reverse(text), do: ANSI.wrap_reverse(text)
 
   @doc "Write `text` at `{row, col}`, truncated to `width` columns."
   @spec write_clipped(Device.t(), pos_integer(), pos_integer(), non_neg_integer(), iodata()) ::
