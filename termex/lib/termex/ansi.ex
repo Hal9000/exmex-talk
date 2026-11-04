@@ -69,6 +69,9 @@ defmodule Termex.ANSI do
   @spec bold() :: String.t()
   def bold, do: @esc <> "[1m"
 
+  @spec dim() :: String.t()
+  def dim, do: @esc <> "[2m"
+
   @spec foreground(color()) :: String.t()
   def foreground(color), do: @esc <> "[#{Map.fetch!(@foregrounds, color)}m"
 
@@ -82,6 +85,24 @@ defmodule Termex.ANSI do
   @spec wrap_bold(iodata()) :: String.t()
   def wrap_bold(text) do
     bold() <> IO.iodata_to_binary(text) <> reset()
+  end
+
+  @doc """
+  Wrap `text` in dim SGR, unless `NO_COLOR` is present.
+
+  Dim is re-applied after resets already present in `text`, so nested
+  bold, color, and reverse spans do not cancel it for following text.
+  """
+  @spec wrap_dim(iodata(), map()) :: String.t()
+  def wrap_dim(text, env \\ System.get_env()) do
+    text = IO.iodata_to_binary(text)
+
+    if color_enabled?(env) do
+      text = String.replace(text, reset(), reset() <> dim())
+      dim() <> text <> reset()
+    else
+      text
+    end
   end
 
   @doc """

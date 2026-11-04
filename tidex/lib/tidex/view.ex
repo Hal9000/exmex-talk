@@ -12,10 +12,11 @@ defmodule Tidex.View do
     Termex.move(device, 1, 1)
 
     if state.overlay == nil do
-      render_status(device, state)
-
       if state.modal do
+        render_dimmed_status(device, state)
         Modal.draw(device, state, state.modal)
+      else
+        render_status(device, state)
       end
     else
       render_sheet(device, state)
@@ -23,6 +24,14 @@ defmodule Tidex.View do
     end
 
     :ok
+  end
+
+  defp render_dimmed_status(device, state) do
+    {:ok, output} = StringIO.open("")
+    render_status(%{device | output: output}, state)
+    {_input, text} = StringIO.contents(output)
+    StringIO.close(output)
+    Termex.write(device, Termex.dim(text))
   end
 
   defp render_status(device, state) do

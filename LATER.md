@@ -196,8 +196,8 @@ Not a Termex feature. Do not put it ahead of the failure box.
 ## Colors and `tidex.theme`
 
 Informal. Behind the failure box. Today: bold hotkeys, reverse status
-fields, and bright-cyan modal frames. Child commands may still emit
-their own ANSI.
+fields, bright-cyan modal frames, and a dimmed lobby behind a modal.
+Child commands may still emit their own ANSI.
 
 **First feature is not light/dark.** We do not paint a background; the
 terminal already has a theme. Bare minimum: semantic ANSI on this
@@ -207,9 +207,9 @@ dumb `TERM` → bold only.
 **ANSI:** 16 names: black/red/green/yellow/blue/magenta/cyan/white and
 their bright variants. Not 256 or truecolor.
 
-**Semantic knobs, few:** active modal frame (bright cyan), fail (red),
-pass/ok (green), optional warn (yellow), muted/secondary (dim). Not
-per-pane chrome. Pass/fail on the Test line is the next color that
+**Semantic knobs, few:** active modal frame (bright cyan), modal
+background (dim), fail (red), pass/ok (green), optional warn (yellow).
+Not per-pane chrome. Pass/fail on the Test line is the next color that
 means something.
 
 **Two files, same `key: value` syntax.** Colors are per-project
