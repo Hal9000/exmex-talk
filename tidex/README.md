@@ -9,7 +9,8 @@ group shows `running N fail` with a live fail count as ExUnit `N)`
 blocks arrive, then `pass`, `N fail`, or `fail`. `f` opens a failure box on the
 lobby; left/right cycle, `e` edits that file, `esc` closes. The full
 test log is kept but not shown.
-`s`, `g`, and `?` open one sheet at a time; `esc` returns to the lobby.
+`?` opens a help box over the lobby. `s` and `g` still open replacement
+sheets; `esc` returns to the lobby.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `server`, `browser`, `editor`, and
 optional `file1`–`file4`. Missing `project` defaults to that
@@ -36,7 +37,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `?` | show/hide help |
 | `g` | show/hide git |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
-| `esc` | close the current sheet |
+| `esc` | close the current box or sheet |
 | `q` | quit |
 
 The lobby bolds the key letter next to each command (`t  idle`,

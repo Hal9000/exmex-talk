@@ -15,7 +15,7 @@ Maximize (more of the hidden test log) later. Do not dump the ExUnit
 
 ## Overlay keys (seal)
 
-`q` always quits. Help and git (the modal ones) swallow most other
+`q` always quits. The Help box and Git takeover swallow most other
 keys. The leftover **server** takeover still leaks lobby verbs (`t`,
 `0`, `1`–`4`, `x`, `b`, …). `f` from there opens the failure box and
 drops the takeover. That takeover should go away.
@@ -26,10 +26,9 @@ Home is a lobby: one full-screen unicode status box, **grouped text**
 (not little boxes). Two columns Test|Server, Git|Files, then `? help` /
 `q quit`.
 
-**Modal (a box you pull up and dismiss):** help, git, setup. Today they
-are full-screen takeovers with a 1-line menu outside the border;
-content-sized boxes on the lobby are later (see **Boxes**). The
-failure box is this family and is built.
+**Modal (a box you pull up and dismiss):** help, git, setup. Help and
+the failure box are content-sized boxes on the lobby. Git and setup
+still take over the screen with a 1-line menu outside the border.
 
 **Not modal:** Test and Server groups. They update in place.
 
@@ -120,8 +119,8 @@ lobby, drawn last; next lobby frame restores. Not a window manager.
 
 `Tidex.Modal` is that draw: content-sized, centered, capped, interior
 command row, blanks so the lobby does not bleed through. The failure
-box uses it (`kind: :fail`, 60×7). Help / git / setup still take over
-the screen.
+box uses it (`kind: :fail`, 60×7), and Help is the first experimental
+conversion. Git / setup still take over the screen.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that
@@ -167,10 +166,9 @@ longer lines and more lines.
 help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
 visible around it.
 
-**Do not build yet** except as part of the failure view / first real
-box. Small bordered box + clip + scroll + follow-tail is enough to
-try. Add wrap when help actually reads badly. If every interesting box
-starts maximized, we have sheets again.
+Do not convert another takeover until the Help experiment gets a real
+TTY look. Add wrap when help actually reads badly. If every interesting
+box starts maximized, we have sheets again.
 
 **Failure view** fits a small bordered box (name, file:line, snippet,
 `e` / left-right / `esc`). Maximize could show more of the hidden log.

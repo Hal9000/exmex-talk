@@ -145,8 +145,6 @@ defmodule Tidex.View do
     )
   end
 
-  defp menu_line(:help), do: "esc back"
-
   defp menu_line(:setup), do: "esc skip"
 
   defp menu_line(_), do: "esc back"
@@ -158,10 +156,6 @@ defmodule Tidex.View do
 
   defp render_sheet(device, %{overlay: :setup} = state) do
     draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))
-  end
-
-  defp render_sheet(device, %{overlay: :help} = state) do
-    draw_overlay(device, state, "help", help_lines())
   end
 
   defp render_sheet(device, %{overlay: :git} = state) do
@@ -187,25 +181,6 @@ defmodule Tidex.View do
       inner.height,
       List.duplicate(blank, max(inner.height, 0))
     )
-  end
-
-  defp help_lines do
-    [
-      key("t", "run tests"),
-      key("f", "failure box"),
-      key("e", "editor (in failure box)"),
-      key("s", "server sheet (again to start)"),
-      key("x", "stop server"),
-      key("b", "open browser"),
-      key("0", "edit tidex.conf"),
-      "1-4  listed files",
-      "arrows  scroll server",
-      "left/right  cycle failures",
-      key("g", "git sheet"),
-      key("?", "this help"),
-      key("q", "quit"),
-      "esc closes"
-    ]
   end
 
   defp git_sheet_lines(state) do
