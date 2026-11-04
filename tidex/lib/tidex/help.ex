@@ -1,7 +1,7 @@
 defmodule Tidex.Help do
   @moduledoc false
 
-  alias Tidex.{Layout, Modal, Scroll}
+  alias Tidex.{Modal, Scroll}
 
   @menu_width 46
   @text_width 46
@@ -99,13 +99,7 @@ defmodule Tidex.Help do
 
   @spec scroll(Modal.t(), term(), %{width: pos_integer(), height: pos_integer()}) :: Modal.t()
   def scroll(%Modal{kind: :help, page: {:topic, _}} = modal, key, screen) do
-    body_height =
-      screen
-      |> Modal.pane(modal)
-      |> Layout.inner()
-      |> Map.fetch!(:height)
-      |> Kernel.-(1)
-      |> max(0)
+    body_height = Modal.body_height(screen, modal)
 
     delta =
       case key do

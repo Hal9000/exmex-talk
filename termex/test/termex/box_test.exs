@@ -26,6 +26,11 @@ defmodule Termex.BoxTest do
     assert Box.corner(:bottom_right) == "┘"
   end
 
+  test "junctions connect an interior horizontal divider" do
+    assert Box.junction(:left) == "├"
+    assert Box.junction(:right) == "┤"
+  end
+
   test "titled_edge clips the title to the inner width" do
     edge = Box.titled_edge(10, "status")
     assert String.length(edge) == 10
@@ -88,5 +93,12 @@ defmodule Termex.BoxTest do
     assert :ok = Termex.box(device, 1, 1, 12, 4, title: "status", frame_color: :bright_cyan)
 
     refute Capture.text(out) =~ "\e[96m"
+  end
+
+  test "box divider draws colored junctions and a horizontal rule" do
+    {device, out} = Capture.open()
+    assert :ok = Termex.box_divider(device, 3, 2, 8, frame_color: :bright_cyan)
+
+    assert Capture.text(out) == "\e[3;2H\e[96m├──────┤\e[0m"
   end
 end

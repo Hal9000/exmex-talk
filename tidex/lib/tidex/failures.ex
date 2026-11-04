@@ -54,8 +54,8 @@ defmodule Tidex.Failures do
       commands: Termex.bold("e") <> "  edit  left/right  esc",
       min_width: 60,
       max_width: 60,
-      min_height: 7,
-      max_height: 7
+      min_height: 8,
+      max_height: 8
     }
   end
 

@@ -5,7 +5,7 @@ the next slice until a real TTY look (`mix tidex`).
 
 ## Failure box
 
-`f` opens a 60×7 modal on the lobby (`fail N/M`, name, file:line, two
+`f` opens a 60×8 modal on the lobby (`fail N/M`, name, file:line, two
 snippet lines, `e  edit  left/right  esc`). No-op if none. `esc` or `f`
 closes. Left/right and `e` work only inside. `0` edits `tidex.conf`.
 Lobby `e` does nothing.
@@ -117,10 +117,11 @@ Do not also try to detect a GUI.
 Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
-`Tidex.Modal` is that draw: content-sized, centered, capped, interior
-command row, blanks so the lobby does not bleed through. The failure
-box uses it (`kind: :fail`, 60×7), and Help is the first experimental
-conversion. Git / setup still take over the screen.
+`Tidex.Modal` is that draw: content-sized, centered, capped, with a
+one-line command footer separated by its own horizontal rule. It blanks
+the interior so the lobby does not bleed through. The failure box uses
+it (`kind: :fail`, 60×8), and Help is the first experimental conversion.
+Git / setup still take over the screen.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that

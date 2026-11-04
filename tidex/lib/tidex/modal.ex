@@ -47,7 +47,7 @@ defmodule Tidex.Modal do
   def draw(device, screen, %__MODULE__{} = modal) do
     pane = pane(screen, modal)
     inner = Layout.inner(pane)
-    body_height = max(inner.height - 1, 0)
+    body_height = body_height(screen, modal)
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height,
       title: modal.title,
@@ -58,6 +58,12 @@ defmodule Tidex.Modal do
 
     lines = Scroll.visible(modal.lines, body_height, modal.scroll)
     Termex.write_region(device, inner.row, inner.col, inner.width, body_height, lines)
+
+    if inner.height >= 2 do
+      Termex.box_divider(device, inner.row + inner.height - 2, pane.col, pane.width,
+        frame_color: :bright_cyan
+      )
+    end
 
     if inner.height > 0 do
       Termex.write_clipped(
@@ -70,6 +76,16 @@ defmodule Tidex.Modal do
     end
 
     :ok
+  end
+
+  @spec body_height(%{width: pos_integer(), height: pos_integer()}, t()) :: non_neg_integer()
+  def body_height(screen, %__MODULE__{} = modal) do
+    screen
+    |> pane(modal)
+    |> Layout.inner()
+    |> Map.fetch!(:height)
+    |> Kernel.-(2)
+    |> max(0)
   end
 
   defp fill(_device, %{width: w, height: h}) when w <= 0 or h <= 0, do: :ok
@@ -103,7 +119,7 @@ defmodule Tidex.Modal do
   end
 
   defp outer_height(screen, modal) do
-    (length(modal.lines) + 1 + 2)
+    (length(modal.lines) + 1 + 1 + 2)
     |> max(modal.min_height)
     |> min(modal.max_height)
     |> min(screen.height)
