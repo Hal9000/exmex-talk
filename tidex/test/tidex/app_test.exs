@@ -49,7 +49,7 @@ defmodule Tidex.AppTest do
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
     output = FakeTerminal.text(out)
 
-    assert output =~ "status"
+    assert output =~ "Tidex · exmex-talk"
     assert output =~ "tidex stopped"
   end
 
@@ -538,7 +538,7 @@ defmodule Tidex.AppTest do
     assert visible =~ "test/a.exs:3"
     assert visible =~ "left behind"
     assert visible =~ "fail 1/1"
-    assert visible =~ "project: "
+    assert visible =~ "Tidex · exmex-talk"
 
     {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil

@@ -31,7 +31,7 @@ defmodule Tidex.ViewTest do
 
     {output, state} = render(modal: modal, width: 40, height: 20)
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "project: exmex-talk"
+    assert visible =~ "Tidex · exmex-talk"
     assert visible =~ "t  idle"
     assert visible =~ "modal-body-unique"
     assert visible =~ "esc back"
@@ -53,9 +53,9 @@ defmodule Tidex.ViewTest do
     assert output =~ "\e[2J"
     assert output =~ "┌"
     assert output =~ "└"
-    assert output =~ "status"
+    assert output =~ "Tidex · exmex-talk"
     refute output =~ "output"
-    assert output =~ "project: exmex-talk"
+    refute output =~ "project:"
     assert output =~ "Test"
     assert output =~ "Server"
     assert output =~ "idle"
@@ -76,6 +76,19 @@ defmodule Tidex.ViewTest do
     assert visible =~ "q  quit"
     refute visible =~ "layout"
     assert output =~ "\e[1mt"
+  end
+
+  test "lobby is content-height, capped at 80 columns, and centered" do
+    files = %{1 => "README.md", 2 => "lib/proj1.ex", 3 => "test/proj1_test.exs"}
+    git = %{branch: "main", dirty: 3, untracked: 2}
+    {output, _state} = render(width: 140, height: 40, files: files, git: git)
+
+    pane = Layout.lobby(140, 40, 12)
+    assert pane == %Layout.Pane{row: 14, col: 31, width: 80, height: 14}
+    assert output =~ "\e[14;31H┌"
+    assert output =~ "\e[27;31H└"
+    assert output =~ "Tidex · exmex-talk"
+    assert output =~ "Test"
   end
 
   test "shows one current test and server state under the headings" do
@@ -311,7 +324,7 @@ defmodule Tidex.ViewTest do
     modal = Failures.modal(%{failures: failures, failure_index: 0})
     {output, state} = render(Keyword.put(state_opts, :modal, modal))
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "project: exmex-talk"
+    assert visible =~ "Tidex · exmex-talk"
     assert visible =~ "t  - pass  1 fail"
     assert visible =~ "test Foo.bar/1 (FooTest)"
     assert visible =~ "test/foo_test.exs:12"

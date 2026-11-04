@@ -5,13 +5,11 @@ defmodule Tidex.View do
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
-    layout = Layout.compute(state)
-
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 
     if state.overlay == nil do
-      render_status(device, state, layout.status)
+      render_status(device, state)
 
       if state.modal do
         Modal.draw(device, state, state.modal)
@@ -24,24 +22,31 @@ defmodule Tidex.View do
     :ok
   end
 
-  defp render_status(device, state, pane) do
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "status")
+  defp render_status(device, state) do
+    rows = status_line_count(state)
+    pane = Layout.lobby(state.width, state.height, rows)
     inner = Layout.inner(pane)
     lines = status_lines(state, inner)
+    title = "#{state.title} · #{state.project_name}"
+
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
     Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
   end
 
   defp status_lines(state, inner) do
     col = max(div(inner.width, 2), 8)
 
-    [
-      "project: #{state.project_name}",
-      ""
-    ] ++
-      zip_pad(test_lines(state), server_lines(state), col) ++
+    zip_pad(test_lines(state), server_lines(state), col) ++
       [""] ++
       zip_pad(git_lines(state.git), file_lines(state.files), col) ++
       ["", pad(key("?", "help"), col) <> key("q", "quit")]
+  end
+
+  defp status_line_count(state) do
+    max(length(test_lines(state)), length(server_lines(state))) +
+      1 +
+      max(length(git_lines(state.git)), length(file_lines(state.files))) +
+      2
   end
 
   defp zip_pad(left, right, col) do

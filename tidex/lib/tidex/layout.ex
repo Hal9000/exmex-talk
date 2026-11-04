@@ -28,6 +28,7 @@ defmodule Tidex.Layout do
   @menu_rows 1
   @fail_height 4
   @min_log_with_fail 4
+  @lobby_max_width 80
 
   @spec compute(Tidex.State.t()) :: t()
   def compute(%Tidex.State{} = state) do
@@ -45,6 +46,21 @@ defmodule Tidex.Layout do
       status: %Pane{row: 1, col: 1, width: width, height: height},
       fail: nil,
       output: nil
+    }
+  end
+
+  @spec lobby(pos_integer(), pos_integer(), pos_integer()) :: Pane.t()
+  def lobby(screen_width, screen_height, content_rows) do
+    screen_width = max(screen_width, 16)
+    screen_height = max(screen_height, 12)
+    width = min(screen_width, @lobby_max_width)
+    height = min(max(content_rows + 2, 3), screen_height)
+
+    %Pane{
+      row: div(screen_height - height, 2) + 1,
+      col: div(screen_width - width, 2) + 1,
+      width: width,
+      height: height
     }
   end
 
