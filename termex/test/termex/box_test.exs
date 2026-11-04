@@ -1,7 +1,18 @@
 defmodule Termex.BoxTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Termex.{Box, Capture}
+
+  setup do
+    original = System.get_env("NO_COLOR")
+    System.delete_env("NO_COLOR")
+
+    on_exit(fn ->
+      if is_nil(original),
+        do: System.delete_env("NO_COLOR"),
+        else: System.put_env("NO_COLOR", original)
+    end)
+  end
 
   test "horizontal/1 repeats the line character" do
     assert Box.horizontal(5) == "─────"
@@ -58,5 +69,24 @@ defmodule Termex.BoxTest do
     assert text =~ "│"
     assert text =~ "─"
     assert text =~ "status"
+  end
+
+  test "box can color only its frame and title" do
+    {device, out} = Capture.open()
+    assert :ok = Termex.box(device, 1, 1, 12, 4, title: "status", frame_color: :bright_cyan)
+    text = Capture.text(out)
+
+    assert text =~ "\e[96m┌\e[0m"
+    assert text =~ "\e[96m─ status "
+    assert text =~ "\e[96m│\e[0m"
+    assert Termex.ANSI.strip(text) =~ "status"
+  end
+
+  test "NO_COLOR suppresses box frame color" do
+    System.put_env("NO_COLOR", "1")
+    {device, out} = Capture.open()
+    assert :ok = Termex.box(device, 1, 1, 12, 4, title: "status", frame_color: :bright_cyan)
+
+    refute Capture.text(out) =~ "\e[96m"
   end
 end

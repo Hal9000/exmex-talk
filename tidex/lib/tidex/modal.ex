@@ -43,7 +43,11 @@ defmodule Tidex.Modal do
     inner = Layout.inner(pane)
     body_height = max(inner.height - 1, 0)
 
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: modal.title)
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height,
+      title: modal.title,
+      frame_color: :bright_cyan
+    )
+
     fill(device, inner)
     Termex.write_region(device, inner.row, inner.col, inner.width, body_height, modal.lines)
 

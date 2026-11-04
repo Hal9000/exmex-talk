@@ -1,7 +1,18 @@
 defmodule Tidex.ModalTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Tidex.{FakeTerminal, Layout, Modal}
+
+  setup do
+    original = System.get_env("NO_COLOR")
+    System.delete_env("NO_COLOR")
+
+    on_exit(fn ->
+      if is_nil(original),
+        do: System.delete_env("NO_COLOR"),
+        else: System.put_env("NO_COLOR", original)
+    end)
+  end
 
   defp screen(w, h), do: %{width: w, height: h}
 
@@ -70,9 +81,23 @@ defmodule Tidex.ModalTest do
     assert String.length(Termex.ANSI.strip(body)) <= inner.width
   end
 
-  test "writes the title on the top edge" do
+  test "colors the frame and title without coloring the body" do
     modal = %Modal{title: "demo", lines: ["body"], commands: "esc"}
     {out, _pane} = draw(modal)
+    text = FakeTerminal.text(out)
+
+    assert FakeTerminal.visible(out) =~ "demo"
+    assert text =~ "\e[96m┌\e[0m"
+    assert text =~ "\e[96m─ demo "
+    refute text =~ "\e[96mbody"
+  end
+
+  test "NO_COLOR leaves the modal frame uncolored" do
+    System.put_env("NO_COLOR", "1")
+    modal = %Modal{title: "demo", lines: ["body"], commands: "esc"}
+    {out, _pane} = draw(modal)
+
+    refute FakeTerminal.text(out) =~ "\e[96m"
     assert FakeTerminal.visible(out) =~ "demo"
   end
 

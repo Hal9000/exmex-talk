@@ -15,10 +15,34 @@ defmodule Termex.ANSI do
     blue: 34,
     magenta: 35,
     cyan: 36,
-    white: 37
+    white: 37,
+    bright_black: 90,
+    bright_red: 91,
+    bright_green: 92,
+    bright_yellow: 93,
+    bright_blue: 94,
+    bright_magenta: 95,
+    bright_cyan: 96,
+    bright_white: 97
   }
 
-  @type color :: :black | :red | :green | :yellow | :blue | :magenta | :cyan | :white
+  @type color ::
+          :black
+          | :red
+          | :green
+          | :yellow
+          | :blue
+          | :magenta
+          | :cyan
+          | :white
+          | :bright_black
+          | :bright_red
+          | :bright_green
+          | :bright_yellow
+          | :bright_blue
+          | :bright_magenta
+          | :bright_cyan
+          | :bright_white
 
   @doc """
   Erase the visible screen (CSI `2J`).

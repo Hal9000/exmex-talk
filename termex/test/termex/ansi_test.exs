@@ -51,11 +51,17 @@ defmodule Termex.ANSITest do
     assert Termex.reverse("selected") == "\e[7mselected\e[0m"
   end
 
-  test "all eight foreground colors use standard SGR codes" do
-    colors = ~w(black red green yellow blue magenta cyan white)a
+  test "standard and bright foreground colors use their SGR codes" do
+    standard = ~w(black red green yellow blue magenta cyan white)a
 
-    assert Enum.map(colors, &ANSI.foreground/1) ==
+    bright =
+      ~w(bright_black bright_red bright_green bright_yellow bright_blue bright_magenta bright_cyan bright_white)a
+
+    assert Enum.map(standard, &ANSI.foreground/1) ==
              Enum.map(30..37, &"\e[#{&1}m")
+
+    assert Enum.map(bright, &ANSI.foreground/1) ==
+             Enum.map(90..97, &"\e[#{&1}m")
   end
 
   test "NO_COLOR presence suppresses color and reverse, even when empty" do
