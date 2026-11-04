@@ -1,33 +1,171 @@
 defmodule Tidex.Help do
   @moduledoc false
 
-  alias Tidex.Modal
+  alias Tidex.{Layout, Modal, Scroll}
 
-  @column_width 24
+  @menu_width 46
+  @text_width 46
+
+  @topics [
+    %{
+      id: :tests,
+      title: "Tests",
+      summary: "run and read status",
+      paragraphs: [
+        "Press t from the lobby to run the project's configured test command. Tidex stays on the lobby while output is collected in the background.",
+        "The Test status moves through idle, running, pass, and fail. While tests run, parsed ExUnit failure headers update the fail count.",
+        "A successful run clears earlier failures. A nonzero exit with no recognizable failure block still reports fail."
+      ]
+    },
+    %{
+      id: :failures,
+      title: "Failures",
+      summary: "inspect and edit",
+      paragraphs: [
+        "After a failed test run, press f to open the failure box. If Tidex parsed no failures, f does nothing.",
+        "Use left and right to move between failures. Press e to yield the terminal to your configured editor at the current file and line.",
+        "Esc or f closes the failure box. The complete test log is retained but is not dumped onto the lobby."
+      ]
+    },
+    %{
+      id: :server,
+      title: "Server",
+      summary: "start, stop, browse",
+      paragraphs: [
+        "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
+        "Currently s opens the server sheet; press s there to start or restart. Press x to stop the managed job and b to open the configured URL.",
+        "The server sheet is a known temporary design. The intended model keeps operation and live facts on the lobby."
+      ]
+    },
+    %{
+      id: :git,
+      title: "Git",
+      summary: "status and commands",
+      paragraphs: [
+        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open Git status.",
+        "Inside Git, a stages tracked changes with git add -u, c yields the terminal for git commit, and p pushes.",
+        "Esc returns to the lobby. Tidex refreshes its Git snapshot after a Git command finishes."
+      ]
+    },
+    %{
+      id: :files,
+      title: "Files & config",
+      summary: "project shortcuts",
+      paragraphs: [
+        "Press 0 to edit the project's tidex.conf. Keys 1 through 4 open the corresponding file1 through file4 entries.",
+        "Project configuration supplies the label, test command, server command, browser URL, editor, and optional file shortcuts.",
+        "The editor falls back through the user Tidex config, VISUAL, EDITOR, and finally vi."
+      ]
+    },
+    %{
+      id: :navigation,
+      title: "Navigation",
+      summary: "keys and modal rules",
+      paragraphs: [
+        "Tidex uses single-key commands; Enter is not required. Bold letters in the lobby are available commands.",
+        "At most one modal box sits over the lobby. A modal seals unrelated keys, Esc backs out, and q always quits Tidex.",
+        "In this Help menu, Tab or the arrow keys select a topic and Enter opens it. Topic text scrolls with arrows or Page Up and Page Down."
+      ]
+    }
+  ]
 
   @spec modal() :: Modal.t()
   def modal do
+    menu(0)
+  end
+
+  @spec move(Modal.t(), integer()) :: Modal.t()
+  def move(%Modal{kind: :help, page: :menu} = modal, delta) do
+    selection = Integer.mod(modal.selection + delta, length(@topics))
+    menu(selection)
+  end
+
+  @spec open(Modal.t()) :: Modal.t()
+  def open(%Modal{kind: :help, page: :menu} = modal) do
+    topic = Enum.at(@topics, modal.selection)
+
+    %{
+      modal
+      | page: {:topic, topic.id},
+        title: "help · #{topic.title}",
+        lines: topic_lines(topic),
+        commands: "↑/↓ pgup/pgdn scroll   esc topics   ? close",
+        scroll: 0
+    }
+  end
+
+  @spec back(Modal.t()) :: Modal.t()
+  def back(%Modal{kind: :help} = modal), do: menu(modal.selection)
+
+  @spec scroll(Modal.t(), term(), %{width: pos_integer(), height: pos_integer()}) :: Modal.t()
+  def scroll(%Modal{kind: :help, page: {:topic, _}} = modal, key, screen) do
+    body_height =
+      screen
+      |> Modal.pane(modal)
+      |> Layout.inner()
+      |> Map.fetch!(:height)
+      |> Kernel.-(1)
+      |> max(0)
+
+    delta =
+      case key do
+        :up -> -1
+        :down -> 1
+        :page_up -> -max(body_height, 1)
+        :page_down -> max(body_height, 1)
+      end
+
+    %{modal | scroll: Scroll.step(modal.lines, body_height, modal.scroll, delta)}
+  end
+
+  defp menu(selection) do
     %Modal{
       kind: :help,
       title: "help",
-      lines: [
-        pair(key("t", "run tests"), key("s", "server sheet/start")),
-        pair(key("f", "failure box"), key("x", "stop server")),
-        pair(key("e", "edit failure"), key("b", "open browser")),
-        pair(key("0", "edit tidex.conf"), "1-4  listed files"),
-        pair(key("g", "git sheet"), "arrows  scroll server"),
-        pair("left/right  failures", key("?", "close help"))
-      ],
-      commands: key("q", "quit") <> "   esc close",
+      page: :menu,
+      selection: selection,
+      lines: menu_lines(selection),
+      commands: "tab/↑↓ select   enter open   esc close",
+      min_width: 50,
       max_width: 50,
+      min_height: 10,
       max_height: 10
     }
   end
 
-  defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
+  defp menu_lines(selection) do
+    @topics
+    |> Enum.with_index()
+    |> Enum.map(fn {topic, index} ->
+      text = "#{topic.title} — #{topic.summary}" |> String.pad_trailing(@menu_width)
 
-  defp pair(left, right) do
-    visible = left |> Termex.ANSI.strip() |> String.length()
-    left <> String.duplicate(" ", max(@column_width - visible, 1)) <> right
+      if index == selection do
+        "> " <> Termex.reverse(text)
+      else
+        "  " <> text
+      end
+    end)
+  end
+
+  defp topic_lines(topic) do
+    topic.paragraphs
+    |> Enum.map(&wrap(&1, @text_width))
+    |> Enum.intersperse([""])
+    |> List.flatten()
+  end
+
+  defp wrap(text, width) do
+    text
+    |> String.split()
+    |> Enum.reduce([], fn word, lines ->
+      case lines do
+        [line | rest] when byte_size(line) + byte_size(word) + 1 <= width ->
+          [line <> " " <> word | rest]
+
+        _ ->
+          [word | lines]
+      end
+    end)
+    |> Enum.reverse()
   end
 end

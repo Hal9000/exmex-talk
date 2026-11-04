@@ -94,6 +94,32 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
+  test "help menu selects topics, opens details, scrolls, and backs out" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "?"})
+    assert app.state.modal.page == :menu
+    assert app.state.modal.selection == 0
+
+    {:cont, app} = App.handle_event(app, {:key, "\t"})
+    {:cont, app} = App.handle_event(app, {:key, :down})
+    {:cont, app} = App.handle_event(app, {:key, :up})
+    assert app.state.modal.selection == 1
+
+    {:cont, app} = App.handle_event(app, {:key, "\r"})
+    assert app.state.modal.page == {:topic, :failures}
+    assert app.state.modal.title == "help · Failures"
+
+    {:cont, app} = App.handle_event(app, {:key, :down})
+    assert app.state.modal.scroll == 1
+
+    {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.modal.page == :menu
+    assert app.state.modal.selection == 1
+
+    {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.modal == nil
+  end
+
   test "command keys are ignored while help is open" do
     {app, _out} = app([])
     runner = fn _cmd, _notify, _ref -> flunk("help should block commands") end

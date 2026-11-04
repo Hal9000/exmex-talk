@@ -1,13 +1,16 @@
 defmodule Tidex.Modal do
   @moduledoc false
 
-  alias Tidex.Layout
+  alias Tidex.{Layout, Scroll}
   alias Tidex.Layout.Pane
 
   defstruct title: nil,
             lines: [],
             commands: "",
             kind: nil,
+            page: nil,
+            selection: 0,
+            scroll: 0,
             max_width: 50,
             max_height: 10,
             min_width: 3,
@@ -18,6 +21,9 @@ defmodule Tidex.Modal do
           lines: [iodata()],
           commands: iodata(),
           kind: atom() | nil,
+          page: term(),
+          selection: non_neg_integer(),
+          scroll: Scroll.t(),
           max_width: pos_integer(),
           max_height: pos_integer(),
           min_width: pos_integer(),
@@ -49,7 +55,9 @@ defmodule Tidex.Modal do
     )
 
     fill(device, inner)
-    Termex.write_region(device, inner.row, inner.col, inner.width, body_height, modal.lines)
+
+    lines = Scroll.visible(modal.lines, body_height, modal.scroll)
+    Termex.write_region(device, inner.row, inner.col, inner.width, body_height, lines)
 
     if inner.height > 0 do
       Termex.write_clipped(

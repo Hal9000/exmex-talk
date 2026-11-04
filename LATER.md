@@ -143,9 +143,9 @@ conversion. Git / setup still take over the screen.
 
 **Window on large text**
 
-- Today: `write_region` **clips** each line (CSI-safe). No wrap. Scroll
-  (follow tail, arrows / PgUp / PgDn, pin) exists and is wired to the
-  **server** overlay only. Help does not scroll; overflow vanishes.
+- `write_region` still **clips** each line (CSI-safe). Help wraps its
+  plain prose before drawing and scrolls the modal body; the Server
+  overlay also scrolls its clipped log.
 - Goal: a box on a long buffer scrolls. Wrap is **not** global.
 - **Clip** (default): logs, stacktraces, compiler columns.
 - **Wrap:** prose (help, splash) when clipped lines read badly.
@@ -159,16 +159,17 @@ errors, and warnings belong in the Server **group**. If a tail box
 exists someday: fairly wide, several lines, stuck on the tail
 (`:follow`), clip, sit **low**. Not a modal to start/stop.
 
-**Help:** midsize, roughly one topic. Search later. Maximize shows
-longer lines and more lines.
+**Help:** a six-topic menu in one modal. Tab/arrows select, Enter
+replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn
+scroll, and Esc returns to the menu. Search and maximize are later.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
 help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
 visible around it.
 
-Do not convert another takeover until the Help experiment gets a real
-TTY look. Add wrap when help actually reads badly. If every interesting
-box starts maximized, we have sheets again.
+Do not convert another takeover until the interactive Help experiment
+is accepted. If every interesting box starts maximized, we have sheets
+again.
 
 **Failure view** fits a small bordered box (name, file:line, snippet,
 `e` / left-right / `esc`). Maximize could show more of the hidden log.

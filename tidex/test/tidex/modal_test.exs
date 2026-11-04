@@ -65,6 +65,24 @@ defmodule Tidex.ModalTest do
     refute Enum.any?(rows, &String.contains?(&1, "line 20"))
   end
 
+  test "scroll selects a later body window while keeping the command row" do
+    modal = %Modal{
+      lines: Enum.map(1..10, &"line #{&1}"),
+      commands: "esc back",
+      scroll: 2,
+      max_width: 20,
+      max_height: 6
+    }
+
+    {out, pane} = draw(modal, 80, 24)
+    rows = FakeTerminal.region_lines(out, Layout.inner(pane))
+
+    assert hd(rows) =~ "line 3"
+    assert Enum.at(rows, 1) =~ "line 4"
+    assert List.last(rows) =~ "esc back"
+    refute Enum.any?(rows, &String.contains?(&1, "line 1"))
+  end
+
   test "clips a long body line to the inner width" do
     modal = %Modal{
       lines: ["KEEP_START" <> String.duplicate("x", 80) <> "KEEP_END"],
