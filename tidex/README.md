@@ -11,8 +11,9 @@ lobby; left/right cycle, `e` edits that file, `esc` closes. The full
 test log is kept but not shown.
 `?` opens a help box over the lobby. Tab or arrows select a topic and
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
-returns to the topic list, then closes Help. `s` and `g` still open
-replacement sheets. Modal key hints occupy a one-line footer separated
+returns to the topic list, then closes Help. `s` starts or restarts the
+server directly from the lobby; only `g` still opens a replacement
+sheet. Modal key hints occupy a one-line footer separated
 from the body by a horizontal rule; they are centered and use the same
 bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
@@ -31,12 +32,12 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `t` | run tests (lobby shows `running` and a live fail count) |
 | `f` | open the failure box (no-op if none) |
 | `e` | editor at the current failure (while the box is open) |
-| `s` | open the server sheet; press again to start or restart |
+| `s` | start or restart the server from the lobby |
 | `x` | stop server |
 | `b` | open browser URL |
 | `0` | edit `tidex.conf` |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
-| arrows, PgUp/PgDn | scroll the open server sheet |
+| arrows, PgUp/PgDn | navigate or scroll the open Help box |
 | left / right | cycle parsed test failures (while the box is open) |
 | `?` | show/hide help |
 | `g` | show/hide git |

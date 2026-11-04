@@ -36,7 +36,7 @@ defmodule Tidex.State do
 
   @type test_status :: :idle | :running | :pass | :fail
   @type server_status :: :up | :down
-  @type overlay :: nil | :git | :setup | :server
+  @type overlay :: nil | :git | :setup
 
   @type t :: %__MODULE__{
           title: String.t(),
@@ -49,7 +49,7 @@ defmodule Tidex.State do
           editor_command: String.t(),
           output_lines: [String.t()],
           output_scroll: Tidex.Scroll.t(),
-          output_source: :test | :server | :git | nil,
+          output_source: :test | :git | nil,
           test_log: [String.t()],
           server_log: [String.t()],
           git_log: [String.t()],

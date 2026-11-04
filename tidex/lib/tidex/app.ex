@@ -14,9 +14,7 @@ defmodule Tidex.App do
     Git,
     Help,
     Keyboard,
-    Layout,
     Open,
-    Scroll,
     Setup,
     State,
     View
@@ -30,6 +28,8 @@ defmodule Tidex.App do
             git_reader: &Git.snapshot/0,
             keys: :device,
             poll_git: false,
+            resize: false,
+            dimension_reader: &Tidex.App.terminal_dimensions/0,
             notify_ready: nil,
             tty: nil,
             keyboard: nil,
@@ -45,6 +45,8 @@ defmodule Tidex.App do
           git_reader: (-> Git.snapshot()),
           keys: :device | :none,
           poll_git: boolean(),
+          resize: boolean(),
+          dimension_reader: (-> {pos_integer(), pos_integer()}),
           notify_ready: pid() | nil,
           tty: Termex.RawMode.session(),
           keyboard: pid() | nil,
@@ -54,7 +56,8 @@ defmodule Tidex.App do
 
   @spec new(keyword()) :: t()
   def new(opts \\ []) do
-    {width, height} = dimensions(opts)
+    dimension_reader = Keyword.get(opts, :dimension_reader, &terminal_dimensions/0)
+    {width, height} = dimensions(opts, dimension_reader)
     cwd = Path.expand(Keyword.get(opts, :cwd, File.cwd!()))
     injected? = Keyword.has_key?(opts, :config)
     home = Keyword.take(opts, [:home])
@@ -106,6 +109,13 @@ defmodule Tidex.App do
       git_reader: Keyword.get(opts, :git_reader, fn -> Git.snapshot(config_root) end),
       keys: Keyword.get(opts, :keys, :device),
       poll_git: Keyword.get(opts, :poll_git, false),
+      resize:
+        Keyword.get(
+          opts,
+          :resize,
+          not (Keyword.has_key?(opts, :width) or Keyword.has_key?(opts, :height))
+        ),
+      dimension_reader: dimension_reader,
       notify_ready: Keyword.get(opts, :notify_ready),
       home: home
     }
@@ -130,14 +140,26 @@ defmodule Tidex.App do
 
   @spec step(t(), term()) :: {:cont, t()} | {:quit, t()}
   def step(app, event) do
+    app = refresh_dimensions(app)
+
     case handle_event(app, event) do
       {:cont, app} ->
+        app = refresh_dimensions(app)
         View.render(app.device, app.state)
         {:cont, app}
 
       {:quit, app} ->
         {:quit, app}
     end
+  end
+
+  @doc false
+  @spec refresh_dimensions(t()) :: t()
+  def refresh_dimensions(%{resize: false} = app), do: app
+
+  def refresh_dimensions(app) do
+    {width, height} = app.dimension_reader.()
+    %{app | state: %{app.state | width: width, height: height}}
   end
 
   @spec handle_event(t(), term()) :: {:cont, t()} | {:quit, t()}
@@ -270,12 +292,8 @@ defmodule Tidex.App do
     {:cont, start_tests(app)}
   end
 
-  def handle_event(%{state: %{overlay: :server}} = app, {:key, key}) when key in ["s", "S"] do
-    {:cont, start_or_restart_server(app)}
-  end
-
   def handle_event(app, {:key, key}) when key in ["s", "S"] do
-    {:cont, open_sheet(app, :server)}
+    {:cont, start_or_restart_server(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ["x", "X"] do
@@ -297,11 +315,6 @@ defmodule Tidex.App do
 
   def handle_event(app, {:key, key}) when key in ~w(1 2 3 4) do
     {:cont, open_listed_file(app, String.to_integer(key))}
-  end
-
-  def handle_event(%{state: %{overlay: :server}} = app, {:key, key})
-      when key in [:up, :down, :page_up, :page_down] do
-    {:cont, scroll_output(app, key)}
   end
 
   def handle_event(app, {:key, _key}), do: {:cont, app}
@@ -393,14 +406,13 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
 
     put_state(app, %{
-      overlay: :server,
+      overlay: nil,
       server_state: :up,
       server_ref: ref,
       server_pid: pid,
       server_log: [],
       output_lines: [],
-      output_scroll: :follow,
-      output_source: :server
+      output_source: nil
     })
   end
 
@@ -529,36 +541,6 @@ defmodule Tidex.App do
     app |> persist_visible() |> put_state(%{overlay: nil})
   end
 
-  defp open_sheet(app, source) do
-    app = persist_visible(app)
-    lines = Map.fetch!(app.state, log_field(source))
-
-    put_state(app, %{
-      overlay: source,
-      output_source: source,
-      output_lines: lines,
-      output_scroll: :follow
-    })
-  end
-
-  defp scroll_output(app, key) do
-    height = output_inner_height(app.state)
-    delta = scroll_delta(key, height)
-
-    put_state(app, %{
-      output_scroll: Scroll.step(app.state.output_lines, height, app.state.output_scroll, delta)
-    })
-  end
-
-  defp scroll_delta(:up, _height), do: -1
-  defp scroll_delta(:down, _height), do: 1
-  defp scroll_delta(:page_up, height), do: -max(height, 1)
-  defp scroll_delta(:page_down, height), do: max(height, 1)
-
-  defp output_inner_height(state) do
-    Layout.inner(Layout.sheet(state).log).height
-  end
-
   defp maybe_append_output(app, ref, line) do
     cond do
       app.state.test_ref == ref -> append_log(app, :test, line)
@@ -601,7 +583,6 @@ defmodule Tidex.App do
   defp persist_visible(app) do
     case app.state.output_source do
       :test -> put_state(app, %{test_log: app.state.output_lines})
-      :server -> put_state(app, %{server_log: app.state.output_lines})
       :git -> put_state(app, %{git_log: app.state.output_lines})
       _ -> app
     end
@@ -721,17 +702,20 @@ defmodule Tidex.App do
     %{app | keyboard: nil}
   end
 
-  defp put_state(app, %State{} = state), do: %{app | state: state}
-
   defp put_state(app, changes) do
     %{app | state: struct(app.state, changes)}
   end
 
-  defp dimensions(opts) do
-    width = Keyword.get(opts, :width) || detect_columns()
-    height = Keyword.get(opts, :height) || detect_rows()
+  defp dimensions(opts, dimension_reader) do
+    {detected_width, detected_height} = dimension_reader.()
+    width = Keyword.get(opts, :width) || detected_width
+    height = Keyword.get(opts, :height) || detected_height
     {width, height}
   end
+
+  @doc false
+  @spec terminal_dimensions() :: {pos_integer(), pos_integer()}
+  def terminal_dimensions, do: {detect_columns(), detect_rows()}
 
   defp detect_columns do
     case :io.columns() do

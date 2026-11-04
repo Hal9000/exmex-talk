@@ -33,8 +33,8 @@ defmodule Tidex.Help do
       summary: "start, stop, browse",
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
-        "Currently s opens the server sheet; press s there to start or restart. Press x to stop the managed job and b to open the configured URL.",
-        "The server sheet is a known temporary design. The intended model keeps operation and live facts on the lobby."
+        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop and b to open the configured URL.",
+        "Server output is retained but does not replace the lobby. The up status currently means the tracked job is alive; listener readiness is not yet probed."
       ]
     },
     %{

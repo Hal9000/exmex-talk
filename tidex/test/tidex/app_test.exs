@@ -1,7 +1,7 @@
 defmodule Tidex.AppTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{App, FakeTerminal, Layout}
+  alias Tidex.{App, FakeTerminal}
 
   defp fake_runner(parent \\ self()) do
     fn command, notify, ref ->
@@ -33,10 +33,6 @@ defmodule Tidex.AppTest do
     {app, out}
   end
 
-  defp output_inner(state) do
-    Layout.inner(Layout.sheet(state).log)
-  end
-
   defp run_tests(app) do
     {:cont, app} = App.handle_event(app, {:key, "t"})
     app
@@ -59,6 +55,29 @@ defmodule Tidex.AppTest do
     runner = fn _cmd, _notify, _ref -> flunk("unknown keys should not run a command") end
 
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
+  end
+
+  test "refreshes terminal dimensions before the next redraw" do
+    dimensions = start_supervised!({Agent, fn -> {80, 24} end})
+    {device, _out} = FakeTerminal.open()
+
+    app =
+      App.new(
+        device: device,
+        config: %Tidex.Config{},
+        dimension_reader: fn -> Agent.get(dimensions, & &1) end,
+        resize: true,
+        keys: :none
+      )
+
+    assert app.state.width == 80
+    assert app.state.height == 24
+
+    Agent.update(dimensions, fn _ -> {120, 40} end)
+    {:cont, app} = App.step(app, {:key, "z"})
+
+    assert app.state.width == 120
+    assert app.state.height == 40
   end
 
   test "cwd of the example app loads that project, not Tidex" do
@@ -224,7 +243,7 @@ defmodule Tidex.AppTest do
     assert app.state.git_log == ["git add ok"]
   end
 
-  test "opening the server sheet keeps the test log" do
+  test "starting the server stays on the lobby and keeps the test log" do
     {app, _out} = app([])
 
     app = %{
@@ -233,23 +252,30 @@ defmodule Tidex.AppTest do
     }
 
     {:cont, app} = App.handle_event(app, {:key, "s"})
+    assert_receive {:started, _, _, _, pid}
     assert app.state.test_log == ["still in the test log"]
-    assert app.state.overlay == :server
-    assert app.state.output_source == :server
+    assert app.state.overlay == nil
+    assert app.state.output_source == nil
     assert app.state.output_lines == []
+    Process.exit(pid, :kill)
   end
 
-  test "a running test still appends while the server sheet is showing" do
+  test "test and server output append independently on the lobby" do
     {app, _out} = app([])
     app = run_tests(app)
     test_ref = app.state.test_ref
     {:cont, app} = App.handle_event(app, {:key, "s"})
+    server_ref = app.state.server_ref
     {:cont, app} = App.handle_event(app, {:command, test_ref, :line, "still testing"})
+    {:cont, app} = App.handle_event(app, {:command, server_ref, :line, "server line"})
 
     assert app.state.test_log == ["still testing"]
-    assert app.state.overlay == :server
-    assert app.state.output_source == :server
+    assert app.state.server_log == ["server line"]
+    assert app.state.overlay == nil
+    assert app.state.output_source == nil
     refute "still testing" in app.state.output_lines
+    Process.exit(app.state.test_pid, :kill)
+    Process.exit(app.state.server_pid, :kill)
   end
 
   test "running tests again clears the last run" do
@@ -404,34 +430,25 @@ defmodule Tidex.AppTest do
     refute visible =~ "test · fail"
   end
 
-  test "s from the lobby opens the server sheet without starting" do
+  test "s starts the server directly from the lobby and retains its output" do
     {app, out} = app(server_command: "python3 -m http.server 4000")
     {:cont, app} = App.step(app, {:key, "s"})
 
-    refute_received {:started, _, _, _, _}
-    assert app.state.overlay == :server
-    assert app.state.server_state == :down
-    assert FakeTerminal.last_frame(out) =~ "server · down"
-  end
-
-  test "s on the server sheet starts the server and streams into it" do
-    {app, out} = app(server_command: "python3 -m http.server 4000")
-    {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
-
-    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, _pid}
+    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, pid}
+    assert app.state.overlay == nil
     assert app.state.server_state == :up
-    assert FakeTerminal.last_frame(out) =~ "server · up"
+    assert FakeTerminal.visible(out) =~ "s  up"
 
-    {:cont, _app} = App.step(app, {:command, ref, :line, "listening"})
-    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["listening"]
+    {:cont, app} = App.step(app, {:command, ref, :line, "listening"})
+    assert app.state.server_log == ["listening"]
+    refute FakeTerminal.visible(out) =~ "listening"
+    Process.exit(pid, :kill)
   end
 
   test "s restarts a running server" do
     parent = self()
     {app, _out} = app(runner: fake_runner(parent), server_command: "server")
 
-    {:cont, app} = App.step(app, {:key, "s"})
     {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, _, pid1}
     assert Process.alive?(pid1)
@@ -448,16 +465,15 @@ defmodule Tidex.AppTest do
   test "x stops the server" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, _, pid}
     assert Process.alive?(pid)
 
     {:cont, app} = App.step(app, {:key, "x"})
     refute Process.alive?(pid)
     assert app.state.server_state == :down
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "server · down"
-    refute frame =~ "server · up"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "s  down"
+    refute visible =~ "s  up"
   end
 
   test "b launches the browser url" do
@@ -686,14 +702,13 @@ defmodule Tidex.AppTest do
   test "server process exit marks the server down" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, ref, _pid}
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.server_state == :down
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "server · down"
-    refute frame =~ "server · up"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "s  down"
+    refute visible =~ "s  up"
   end
 
   test "editor stops the current keyboard and starts a new one" do

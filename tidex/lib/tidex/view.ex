@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Modal, Scroll, Setup, State}
+  alias Tidex.{Layout, Modal, Setup, State}
 
   @status_width 7
 
@@ -115,21 +115,6 @@ defmodule Tidex.View do
     ["Files", key("0", "tidex.conf") | rows]
   end
 
-  defp render_log(device, state, pane, name) do
-    inner = Layout.inner(pane)
-    title = log_title(state.output_lines, inner.height, state.output_scroll, name)
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
-    lines = Scroll.visible(state.output_lines, inner.height, state.output_scroll)
-    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
-  end
-
-  defp log_title(lines, height, scroll, name) do
-    case Scroll.title(lines, height, scroll) do
-      "output" -> name
-      "output " <> rest -> "#{name} #{rest}"
-    end
-  end
-
   defp render_menu(device, state) do
     Termex.write_clipped(
       device,
@@ -137,13 +122,6 @@ defmodule Tidex.View do
       1,
       state.width,
       menu_line(state.overlay)
-    )
-  end
-
-  defp menu_line(:server) do
-    Enum.join(
-      [hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse"), "esc back"],
-      "  "
     )
   end
 
@@ -157,11 +135,6 @@ defmodule Tidex.View do
   defp menu_line(:setup), do: "esc skip"
 
   defp menu_line(_), do: "esc back"
-
-  defp render_sheet(device, %{overlay: :server} = state) do
-    sheet = Layout.sheet(state)
-    render_log(device, state, sheet.log, "server · #{state.server_state}")
-  end
 
   defp render_sheet(device, %{overlay: :setup} = state) do
     draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))

@@ -38,6 +38,7 @@ defmodule Tidex.UI do
       app
       |> App.attach_keyboard()
       |> App.attach_git()
+      |> App.refresh_dimensions()
 
     View.render(app.device, app.state)
 
