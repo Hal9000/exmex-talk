@@ -14,17 +14,6 @@ defmodule Tidex.ViewTest do
     end)
   end
 
-  setup do
-    original = System.get_env("NO_COLOR")
-    System.delete_env("NO_COLOR")
-
-    on_exit(fn ->
-      if is_nil(original),
-        do: System.delete_env("NO_COLOR"),
-        else: System.put_env("NO_COLOR", original)
-    end)
-  end
-
   defp render(state_overrides) do
     {device, out} = FakeTerminal.open()
 
