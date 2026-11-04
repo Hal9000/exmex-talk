@@ -5,8 +5,8 @@ A language-agnostic development workbench built on
 
 Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
 on the status screen. `t` runs tests and stays on the lobby. The Test
-group shows `- pass` until a pass count is known, and a live fail
-count as ExUnit `N)` blocks arrive. `f` opens a failure box on the
+group shows `running N fail` with a live fail count as ExUnit `N)`
+blocks arrive, then `pass`, `N fail`, or `fail`. `f` opens a failure box on the
 lobby; left/right cycle, `e` edits that file, `esc` closes. The full
 test log is kept but not shown.
 `s`, `g`, and `?` open one sheet at a time; `esc` returns to the lobby.
@@ -23,7 +23,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 
 | Key | Action |
 | --- | --- |
-| `t` | run tests (lobby shows `- pass` and a live fail count) |
+| `t` | run tests (lobby shows `running` and a live fail count) |
 | `f` | open the failure box (no-op if none) |
 | `e` | editor at the current failure (while the box is open) |
 | `s` | open the server sheet; press again to start or restart |
@@ -40,8 +40,8 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `q` | quit |
 
 The lobby bolds the key letter next to each command (`t  idle`,
-`s  down`, `0  tidex.conf`, …). After tests start, Test shows
-`t  - pass  N fail`. A failed run with no parsed blocks shows `t  fail`.
+`s  down`, `0  tidex.conf`, …). Test and Server statuses use aligned
+reverse-video fields; `NO_COLOR` turns them into aligned plain text.
 
 ```bash
 cd tidex
