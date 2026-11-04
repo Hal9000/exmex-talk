@@ -8,21 +8,33 @@ defmodule Tidex.Failures do
           snippet: String.t()
         }
 
-  @header ~r/^\s+\d+\)\s+(.*)$/
-  @file_line ~r/(\S+\.exs):(\d+)/
+  @exunit_header ~r/^\s+\d+\)\s+(.*\S)\s*$/
+  @exunit_file_line ~r/(\S+\.exs):(\d+)/
+  @minitest_header ~r/^\s+\d+\)\s+(Failure|Error):\s*$/
+  @ruby_file_line ~r/([^\s\[]+\.rb):(\d+)/
 
   @spec showing?(map()) :: boolean()
   def showing?(%{test_state: :fail, failures: [_ | _]}), do: true
   def showing?(_), do: false
 
-  @spec parse([String.t()] | String.t()) :: [t()]
-  def parse(text) when is_binary(text), do: parse(String.split(text, "\n"))
+  @spec parse([String.t()] | String.t(), :exunit | :minitest | :none) :: [t()]
+  def parse(text, format \\ :exunit)
 
-  def parse(lines) when is_list(lines) do
+  def parse(text, format) when is_binary(text), do: parse(String.split(text, "\n"), format)
+
+  def parse(lines, :exunit) when is_list(lines) do
     lines
-    |> chunk()
-    |> Enum.map(&parse_chunk/1)
+    |> chunks(&exunit_header?/1)
+    |> Enum.map(&parse_exunit_chunk/1)
   end
+
+  def parse(lines, :minitest) when is_list(lines) do
+    lines
+    |> chunks(&minitest_header?/1)
+    |> Enum.map(&parse_minitest_chunk/1)
+  end
+
+  def parse(lines, :none) when is_list(lines), do: []
 
   @spec current(map()) :: t() | nil
   def current(%{failures: []}), do: nil
@@ -79,56 +91,88 @@ defmodule Tidex.Failures do
 
   defp snippet_lines(_), do: []
 
-  defp chunk(lines) do
+  defp chunks(lines, header?) do
     {chunks, current} =
       Enum.reduce(lines, {[], []}, fn line, {chunks, current} ->
-        if header?(line) do
-          {push(chunks, current), [line]}
+        if header?.(line) do
+          {push(chunks, current, header?), [line]}
         else
           {chunks, current ++ [line]}
         end
       end)
 
-    push(chunks, current)
+    push(chunks, current, header?)
     |> Enum.reverse()
   end
 
-  defp push(chunks, []), do: chunks
+  defp push(chunks, [], _header?), do: chunks
 
-  defp push(chunks, [first | _] = current) do
-    if header?(first), do: [current | chunks], else: chunks
+  defp push(chunks, [first | _] = current, header?) do
+    if header?.(first), do: [current | chunks], else: chunks
   end
 
-  defp header?(line), do: Regex.match?(@header, line)
+  defp exunit_header?(line), do: Regex.match?(@exunit_header, line)
+  defp minitest_header?(line), do: Regex.match?(@minitest_header, line)
 
-  defp parse_chunk([header | rest]) do
+  defp parse_exunit_chunk([header | rest]) do
     name =
-      case Regex.run(@header, header) do
+      case Regex.run(@exunit_header, header) do
         [_, name] -> String.trim(name)
         _ -> String.trim(header)
       end
 
-    {file, line} = file_line(rest)
-    snippet = snippet(rest)
+    {file, line} = file_line(rest, @exunit_file_line)
+    snippet = snippet(rest, @exunit_file_line)
 
     %{name: name, file: file, line: line, snippet: snippet}
   end
 
-  defp file_line(lines) do
+  defp parse_minitest_chunk([header | rest]) do
+    kind =
+      case Regex.run(@minitest_header, header) do
+        [_, kind] -> kind
+        _ -> "Failure"
+      end
+
+    name_line = Enum.find(rest, "", &(String.trim(&1) != ""))
+
+    name =
+      name_line
+      |> String.trim()
+      |> String.replace(~r/\s+\[[^\]]+\.rb:\d+\]:?\s*$/, "")
+      |> String.trim_trailing(":")
+      |> case do
+        "" -> kind
+        name -> name
+      end
+
+    {file, line} = file_line(rest, @ruby_file_line)
+    snippet = minitest_snippet(rest, name_line)
+
+    %{name: name, file: file, line: line, snippet: snippet}
+  end
+
+  defp file_line(lines, pattern) do
     Enum.find_value(lines, {nil, nil}, fn line ->
-      case Regex.run(@file_line, line) do
+      case Regex.run(pattern, line) do
         [_, file, number] -> {file, String.to_integer(number)}
         _ -> nil
       end
     end)
   end
 
-  defp snippet(lines) do
+  defp snippet(lines, file_line_pattern) do
     lines
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == "" or String.starts_with?(&1, "stacktrace")))
-    |> Enum.reject(&Regex.match?(@file_line, &1))
+    |> Enum.reject(&Regex.match?(file_line_pattern, &1))
     |> Enum.take(2)
     |> Enum.join(" · ")
+  end
+
+  defp minitest_snippet(lines, name_line) do
+    lines
+    |> Enum.reject(&(&1 == name_line))
+    |> snippet(@ruby_file_line)
   end
 end

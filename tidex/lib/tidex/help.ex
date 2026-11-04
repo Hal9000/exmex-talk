@@ -33,8 +33,8 @@ defmodule Tidex.Help do
       summary: "start, stop, browse",
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
-        "Currently s opens the server sheet; press s there to start or restart. Press x to stop the managed job and b to open the configured URL.",
-        "The server sheet is a known temporary design. The intended model keeps operation and live facts on the lobby."
+        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop and b to open the configured URL.",
+        "Server output is retained but does not replace the lobby. The up status currently means the tracked job is alive; listener readiness is not yet probed."
       ]
     },
     %{
@@ -42,9 +42,9 @@ defmodule Tidex.Help do
       title: "Git",
       summary: "status and commands",
       paragraphs: [
-        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open Git status.",
+        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open a Git status box over the lobby.",
         "Inside Git, a stages tracked changes with git add -u, c yields the terminal for git commit, and p pushes.",
-        "Esc returns to the lobby. Tidex refreshes its Git snapshot after a Git command finishes."
+        "Arrows and Page Up or Page Down scroll long status and command output. Esc returns to the lobby."
       ]
     },
     %{
@@ -53,7 +53,7 @@ defmodule Tidex.Help do
       summary: "project shortcuts",
       paragraphs: [
         "Press 0 to edit the project's tidex.conf. Keys 1 through 4 open the corresponding file1 through file4 entries.",
-        "Project configuration supplies the label, test command, server command, browser URL, editor, and optional file shortcuts.",
+        "Project configuration supplies the label, test command, ExUnit or Minitest failure format, server command, browser URL, editor, and optional file shortcuts.",
         "The editor falls back through the user Tidex config, VISUAL, EDITOR, and finally vi."
       ]
     },

@@ -1,7 +1,7 @@
 defmodule Tidex.ViewTest do
   use ExUnit.Case, async: false
 
-  alias Tidex.{Failures, FakeTerminal, Help, Layout, State, View}
+  alias Tidex.{Failures, FakeTerminal, GitModal, Help, Layout, State, View}
 
   setup do
     original = System.get_env("NO_COLOR")
@@ -25,10 +25,6 @@ defmodule Tidex.ViewTest do
 
     assert :ok = View.render(device, state)
     {FakeTerminal.text(out), state}
-  end
-
-  defp log_inner(state) do
-    Layout.inner(Layout.sheet(state).log)
   end
 
   test "a modal is drawn on the lobby, smaller than the screen" do
@@ -195,77 +191,6 @@ defmodule Tidex.ViewTest do
     refute visible =~ "left behind"
   end
 
-  test "a sheet replaces the lobby commands with its own menu" do
-    {output, _} = render(overlay: :server, output_lines: ["hello from server"])
-    visible = Termex.ANSI.strip(output)
-    assert visible =~ "start"
-    assert visible =~ "esc back"
-    refute visible =~ "t  idle"
-    refute visible =~ "0  tidex.conf"
-    refute visible =~ "?  help"
-    refute visible =~ "test start"
-  end
-
-  test "clips output that would overflow the pane" do
-    long = "KEEP_START" <> String.duplicate("x", 80) <> "KEEP_END"
-
-    {output, _} =
-      render(width: 24, height: 16, overlay: :server, output_lines: [long])
-
-    assert output =~ "KEEP_START"
-    refute output =~ "KEEP_END"
-  end
-
-  test "server sheet keeps the latest lines when they overflow height" do
-    lines = Enum.map(1..20, &"row#{&1}-end")
-    {output, state} = render(width: 40, height: 12, overlay: :server, output_lines: lines)
-    inner = log_inner(state)
-    visible = FakeTerminal.region_lines(output, inner)
-
-    assert List.last(visible) == "row20-end"
-    assert length(visible) == inner.height
-    refute "row1-end" in visible
-  end
-
-  test "a pinned scroll offset shows older output instead of the tail" do
-    lines = Enum.map(1..20, &"row#{&1}-end")
-
-    {output, state} =
-      render(width: 40, height: 12, overlay: :server, output_lines: lines, output_scroll: 0)
-
-    inner = log_inner(state)
-    visible = FakeTerminal.region_lines(output, inner)
-
-    assert hd(visible) == "row1-end"
-    refute "row20-end" in visible
-    assert output =~ "server · down 1-"
-  end
-
-  test "last frame drops lines that scrolled out after a redraw" do
-    {device, out} = FakeTerminal.open()
-    lines = Enum.map(1..20, &"row#{&1}-end")
-
-    state = %State{
-      width: 40,
-      height: 12,
-      project_name: "exmex-talk",
-      overlay: :server,
-      output_lines: lines
-    }
-
-    inner = log_inner(state)
-
-    assert :ok = View.render(device, state)
-    assert List.last(FakeTerminal.region_lines(out, inner)) == "row20-end"
-    assert FakeTerminal.text(out) =~ "row20-end"
-
-    assert :ok = View.render(device, %{state | output_scroll: 0})
-    visible = FakeTerminal.region_lines(out, inner)
-    assert hd(visible) == "row1-end"
-    refute "row20-end" in visible
-    assert FakeTerminal.text(out) =~ "row20-end"
-  end
-
   test "help modal draws a selectable topic menu over the lobby" do
     modal = Help.modal()
     {output, state} = render(modal: modal, width: 80, height: 24)
@@ -282,19 +207,27 @@ defmodule Tidex.ViewTest do
     assert pane.height < state.height
   end
 
-  test "git sheet draws status text and the git keymap" do
+  test "git modal draws status and its keymap over the dimmed lobby" do
     git = %{
       branch: "main",
       dirty: 1,
       status: "On branch main\nChanges not staged for commit:\n  modified: lib/tidex.ex"
     }
 
-    {output, _} = render(overlay: :git, git: git)
+    state = %State{git: git, width: 80, height: 24}
+    modal = GitModal.modal(state)
+    {output, state} = render(git: git, modal: modal, width: 80, height: 24)
+    pane = Tidex.Modal.pane(state, modal)
+
+    assert Termex.ANSI.strip(output) =~ "Tidex · exmex-talk"
     assert output =~ "git"
     assert Termex.ANSI.strip(output) =~ "add -u"
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
-    assert Termex.ANSI.strip(output) =~ "esc back"
+    assert Termex.ANSI.strip(output) =~ "esc close"
+    assert pane.width == 60
+    assert pane.width < state.width
+    assert pane.height < state.height
   end
 
   test "setup overlay asks where to write tidex.conf" do

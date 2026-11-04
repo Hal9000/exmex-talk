@@ -23,6 +23,7 @@ defmodule Tidex.ConfigTest do
     File.write!(Path.join(dir, "tidex.conf"), """
     project: demo
     test: echo configured
+    test_format: minitest
     server: echo serve
     browser: http://example.test
     editor: true
@@ -34,6 +35,7 @@ defmodule Tidex.ConfigTest do
     config = Config.load(nested, home: Path.join(dir, "user"))
     assert config.project == "demo"
     assert config.test == "echo configured"
+    assert config.test_format == :minitest
     assert config.server == "echo serve"
     assert config.browser == "http://example.test"
     assert config.editor == "true"
@@ -99,6 +101,7 @@ defmodule Tidex.ConfigTest do
     body = File.read!(path)
     assert body =~ "project: #{Path.basename(dir)}"
     assert body =~ "test: mix test"
+    assert body =~ "test_format: exunit"
     assert body =~ "server: python3 -m http.server 4000"
     refute body =~ ~r/^editor:/m
     assert body =~ ~r/^file1: mix.exs$/m
@@ -113,6 +116,28 @@ defmodule Tidex.ConfigTest do
     body = File.read!(path)
     assert body =~ ~r/^file1: README.md$/m
     assert body =~ ~r/^file2: mix.exs$/m
+  end
+
+  test "Ruby markers select a Minitest command and parser", %{dir: dir} do
+    File.write!(Path.join(dir, ".ruby-version"), "3.3\n")
+
+    config = Config.defaults(dir)
+
+    assert config.test =~ "ruby -Itest"
+    assert config.test =~ "test/**/*_test.rb"
+    assert config.test =~ "require File.expand_path(f)"
+    assert config.test_format == :minitest
+    assert Config.project_markers?(dir)
+  end
+
+  test "Ruby markers take precedence over a frontend package.json", %{dir: dir} do
+    File.write!(Path.join(dir, "Gemfile"), "")
+    File.write!(Path.join(dir, "package.json"), "{}")
+
+    config = Config.defaults(dir)
+
+    assert config.test =~ "ruby -Itest"
+    assert config.test_format == :minitest
   end
 
   test "user editor is used when the project omits editor", %{dir: dir} do

@@ -15,10 +15,8 @@ Maximize (more of the hidden test log) later. Do not dump the ExUnit
 
 ## Overlay keys (seal)
 
-`q` always quits. The Help box and Git takeover swallow most other
-keys. The leftover **server** takeover still leaks lobby verbs (`t`,
-`0`, `1`–`4`, `x`, `b`, …). `f` from there opens the failure box and
-drops the takeover. That takeover should go away.
+`q` always quits. The Help and Git boxes swallow most other keys.
+Server operation stays on the lobby and has no takeover.
 
 ## Lobby chrome (snapshot)
 
@@ -26,9 +24,9 @@ Home is a lobby: one full-screen unicode status box, **grouped text**
 (not little boxes). Two columns Test|Server, Git|Files, then `? help` /
 `q quit`.
 
-**Modal (a box you pull up and dismiss):** help, git, setup. Help and
-the failure box are content-sized boxes on the lobby. Git and setup
-still take over the screen with a 1-line menu outside the border.
+**Modal (a box you pull up and dismiss):** help, git, and failures.
+They are content-sized boxes on the lobby. Setup still takes over the
+screen with a 1-line menu outside the border.
 
 **Not modal:** Test and Server groups. They update in place.
 
@@ -36,22 +34,20 @@ still take over the screen with a 1-line menu outside the border.
 command named down. The same helper draws verbs (`x  stop`) and status
 (`t  idle`, `g  main`). Confusing. Change later, not now.
 
-**Test line:** idle → `t  idle`; after start → `t  - pass  N fail`.
-`N` updates as ExUnit `1)` / `2)` headers stream (`Tidex.Failures` on
-each log line). Passes stay `-` until a summary is parsed. Failed run
-with no parsed blocks → `t  fail`. `f  fail` opens the box.
+**Test line:** idle → running → pass/fail. `N` updates as configured
+ExUnit or Minitest failure headers stream (`Tidex.Failures` on each log
+line). A failed run with no parsed blocks still reports `fail`.
+`f  fail` opens the box.
 
 **Files:** `0  tidex.conf`, then `1`–`4`.
 
-**Server (desired):** stay on the lobby. `s` does the job (start or
-restart), `x` stop, `b` browse. Do not open a second screen. Today
-`s` still opens a leftover full-screen log; that is wrong for this
-model. Occupancy/restart is a later section. Live facts on the Server
-group: see **Server group: standing vs flash**.
+**Server:** stays on the lobby. `s` starts or restarts, `x` stops, and
+`b` browses. Output is retained without replacing the lobby.
+Occupancy/readiness is later; see **Server group: standing vs flash**.
 
-**Termex (current, for the talk):** clip, no wrap; bold only, no hues;
-size `:io.columns` / `:io.rows` once at boot, 80×24 fallback; no
-SIGWINCH. Resize and colors are later sections.
+**Termex (current, for the talk):** clip plus Help-specific prose wrap;
+bold/reverse/dim and named ANSI colors. Tidex re-reads terminal
+dimensions before redraw, with an 80×24 fallback; no SIGWINCH.
 
 ## Packaging
 
@@ -75,9 +71,10 @@ not a Tidex feature. `examples/proj1/` is a tiny Elixir app with its
 own `tidex.conf`. `mix tidex` (from `tidex/`) opens that project;
 `test:` / `server:` run in that directory. `mix tidex .` uses cwd.
 
-Two languages later (an Elixir fixture and a Ruby one). Setup already
-guesses `test:` from `mix.exs` / `package.json` / `Cargo.toml` /
-`go.mod`. No Gemfile / Ruby yet. A language picker at setup is later.
+There are two fixtures: `proj1` (Elixir/ExUnit) and `ruby_calc`
+(Ruby/Minitest). `test_format:` selects the small failure parser;
+`test:` remains the arbitrary command. Setup guesses Ruby from
+`Gemfile`, `Rakefile`, or `.ruby-version`. A language picker is later.
 
 ## `b` over SSH
 
@@ -119,9 +116,9 @@ lobby, drawn last; next lobby frame restores. Not a window manager.
 
 `Tidex.Modal` is that draw: content-sized, centered, capped, with a
 centered bright-cyan command footer separated by its own horizontal
-rule. It blanks the interior so the lobby does not bleed through. The failure box uses
-it (`kind: :fail`, 60×8), and Help is the first experimental conversion.
-Git / setup still take over the screen.
+rule. It blanks the interior so the lobby does not bleed through. The
+failure box uses it (`kind: :fail`, 60×8); Help and Git are converted.
+Setup still takes over the screen.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that
@@ -139,14 +136,14 @@ Git / setup still take over the screen.
   lobby, which is the menu.
 - **Borders:** we already draw unicode boxes with a title in the top
   edge (`─ status ────`). Keep a border on anything that sits on the
-  lobby so it is not the status groups. Today’s “sheet menu” sits
-  *outside* the border; it should move inside.
+  lobby so it is not the status groups. Setup’s sheet menu still sits
+  *outside* the border; it should move inside when setup is converted.
 
 **Window on large text**
 
 - `write_region` still **clips** each line (CSI-safe). Help wraps its
-  plain prose before drawing and scrolls the modal body; the Server
-  overlay also scrolls its clipped log.
+  plain prose before drawing and scrolls the modal body. If an optional
+  Server log box exists later, it should scroll its clipped log.
 - Goal: a box on a long buffer scrolls. Wrap is **not** global.
 - **Clip** (default): logs, stacktraces, compiler columns.
 - **Wrap:** prose (help, splash) when clipped lines read badly.
@@ -164,31 +161,29 @@ exists someday: fairly wide, several lines, stuck on the tail
 replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn
 scroll, and Esc returns to the menu. Search and maximize are later.
 
+**Git:** a 60–64 column, 10–12 row modal. It clips status and command
+output, follows the tail, and scrolls with arrows/PgUp/PgDn. Add,
+commit, and push stay in the centered footer. It remains a status view,
+not a full Git client.
+
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
 help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
 visible around it.
 
-Do not convert another takeover until the interactive Help experiment
-is accepted. If every interesting box starts maximized, we have sheets
-again.
+Setup is the remaining takeover. If every interesting box starts
+maximized, we have sheets again.
 
 **Failure view** fits a small bordered box (name, file:line, snippet,
 `e` / left-right / `esc`). Maximize could show more of the hidden log.
 
 ## Terminal resize (SIGWINCH)
 
-First detection (`:io.columns()` / `:io.rows()` at boot) almost always
-works on a real TTY. We fall back to 80×24 if it does not (pipe, no
-pty). The gap is **stale size**: we snapshot once and never look again.
+Tidex re-reads `:io.columns()` / `:io.rows()` before redraw and falls
+back to 80×24 when detection fails. Resize therefore applies on the
+next key, command line, command exit, or Git poll.
 
-Not too much trouble. Not before boxes have real sizes. Relayout (box
-geometry, 70×8 tail, scroll height, 16×12 floor) is the work; the
-signal is small.
+The remaining gap is an idle screen with no event:
 
-- **Cheaper:** re-read width/height at the start of every `View.render`.
-  Already redraw on keys, log lines, git polls. Resize applies on the
-  next event. Idle lobby stays stale until a key or a git tick. Usually
-  enough.
 - **SIGWINCH:** OTP `:os.set_signal(:sigwinch, :handle)` → UI process
   redraws while idle. Polish. Windows has no SIGWINCH; ignore until we
   care.
@@ -217,8 +212,9 @@ means something.
 **Two files, same `key: value` syntax.** Colors are per-project
 *appearance*, not meat. Do not put them in `tidex.conf`.
 
-- **Meat** (`tidex.conf`): `project`, `test`, `server`, `browser`,
-  `editor`, `file1`–`file4`. How to operate the tree. Walk from cwd.
+- **Meat** (`tidex.conf`): `project`, `test`, `test_format`, `server`,
+  `browser`, `editor`, `file1`–`file4`. How to operate the tree. Walk
+  from cwd.
 - **Appearance** (`tidex.theme`, name negotiable): colors, later maybe
   box sizes. `~/.tidex/tidex.theme` (defaults) and a file next to the
   project `tidex.conf` (this lobby). Local wins per key; omit to
@@ -316,10 +312,9 @@ Hung-but-listening is health (GET); later.
 
 **Restart:** stop then start. Stop is a no-op if nothing to kill.
 Restart when already dead is just start. No error. Desired: `s` on the
-lobby is start-if-down, and the same `s` (or a later third key) is
-restart when already up. Today `s` opens a leftover log screen, then
-`s` again stop-then-starts. Restart should wait until the port is free
-(or a short timeout) before spawn.
+lobby is start-if-down, and the same `s` restarts when already up.
+Restart should wait until the port is free (or a short timeout) before
+spawn.
 
 **Continuum to build later** (not before the failure box): (1) our
 job + exit, (2) LISTEN on the browser port, (3) after `x` if still

@@ -12,11 +12,10 @@ defmodule Tidex.App do
     Config,
     Failures,
     Git,
+    GitModal,
     Help,
     Keyboard,
-    Layout,
     Open,
-    Scroll,
     Setup,
     State,
     View
@@ -30,6 +29,8 @@ defmodule Tidex.App do
             git_reader: &Git.snapshot/0,
             keys: :device,
             poll_git: false,
+            resize: false,
+            dimension_reader: &Tidex.App.terminal_dimensions/0,
             notify_ready: nil,
             tty: nil,
             keyboard: nil,
@@ -45,6 +46,8 @@ defmodule Tidex.App do
           git_reader: (-> Git.snapshot()),
           keys: :device | :none,
           poll_git: boolean(),
+          resize: boolean(),
+          dimension_reader: (-> {pos_integer(), pos_integer()}),
           notify_ready: pid() | nil,
           tty: Termex.RawMode.session(),
           keyboard: pid() | nil,
@@ -54,7 +57,8 @@ defmodule Tidex.App do
 
   @spec new(keyword()) :: t()
   def new(opts \\ []) do
-    {width, height} = dimensions(opts)
+    dimension_reader = Keyword.get(opts, :dimension_reader, &terminal_dimensions/0)
+    {width, height} = dimensions(opts, dimension_reader)
     cwd = Path.expand(Keyword.get(opts, :cwd, File.cwd!()))
     injected? = Keyword.has_key?(opts, :config)
     home = Keyword.take(opts, [:home])
@@ -79,6 +83,7 @@ defmodule Tidex.App do
       title: Keyword.get(opts, :title, "Tidex"),
       project_name: Keyword.get(opts, :project_name, config.project),
       test_command: Keyword.get(opts, :test_command, config.test),
+      test_format: Keyword.get(opts, :test_format, config.test_format),
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
@@ -106,6 +111,13 @@ defmodule Tidex.App do
       git_reader: Keyword.get(opts, :git_reader, fn -> Git.snapshot(config_root) end),
       keys: Keyword.get(opts, :keys, :device),
       poll_git: Keyword.get(opts, :poll_git, false),
+      resize:
+        Keyword.get(
+          opts,
+          :resize,
+          not (Keyword.has_key?(opts, :width) or Keyword.has_key?(opts, :height))
+        ),
+      dimension_reader: dimension_reader,
       notify_ready: Keyword.get(opts, :notify_ready),
       home: home
     }
@@ -130,14 +142,26 @@ defmodule Tidex.App do
 
   @spec step(t(), term()) :: {:cont, t()} | {:quit, t()}
   def step(app, event) do
+    app = refresh_dimensions(app)
+
     case handle_event(app, event) do
       {:cont, app} ->
+        app = refresh_dimensions(app)
         View.render(app.device, app.state)
         {:cont, app}
 
       {:quit, app} ->
         {:quit, app}
     end
+  end
+
+  @doc false
+  @spec refresh_dimensions(t()) :: t()
+  def refresh_dimensions(%{resize: false} = app), do: app
+
+  def refresh_dimensions(app) do
+    {width, height} = app.dimension_reader.()
+    %{app | state: %{app.state | width: width, height: height}}
   end
 
   @spec handle_event(t(), term()) :: {:cont, t()} | {:quit, t()}
@@ -183,6 +207,38 @@ defmodule Tidex.App do
   end
 
   def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["g", "G", :esc] do
+    {:cont, close_git_modal(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["a", "A"] do
+    {:cont, git_add(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["c", "C"] do
+    {:cont, git_commit(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["p", "P"] do
+    {:cont, git_push(app)}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git} = modal} = state} = app,
+        {:key, key}
+      )
+      when key in [:up, :down, :page_up, :page_down] do
+    {:cont, put_state(app, %{modal: GitModal.scroll(modal, key, state)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, _key}) do
     {:cont, app}
   end
 
@@ -242,40 +298,15 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, "g"}) do
-    {:cont, toggle_sheet(app, :git)}
-  end
-
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, :esc}) when overlay != nil do
-    {:cont, close_sheet(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["a", "A"] do
-    {:cont, git_add(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["c", "C"] do
-    {:cont, git_commit(app)}
-  end
-
-  def handle_event(%{state: %{overlay: :git}} = app, {:key, key}) when key in ["p", "P"] do
-    {:cont, git_push(app)}
-  end
-
-  def handle_event(%{state: %{overlay: overlay}} = app, {:key, _key})
-      when overlay == :git do
-    {:cont, app}
+    {:cont, open_git_modal(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ["t", "T"] do
     {:cont, start_tests(app)}
   end
 
-  def handle_event(%{state: %{overlay: :server}} = app, {:key, key}) when key in ["s", "S"] do
-    {:cont, start_or_restart_server(app)}
-  end
-
   def handle_event(app, {:key, key}) when key in ["s", "S"] do
-    {:cont, open_sheet(app, :server)}
+    {:cont, start_or_restart_server(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ["x", "X"] do
@@ -299,11 +330,6 @@ defmodule Tidex.App do
     {:cont, open_listed_file(app, String.to_integer(key))}
   end
 
-  def handle_event(%{state: %{overlay: :server}} = app, {:key, key})
-      when key in [:up, :down, :page_up, :page_down] do
-    {:cont, scroll_output(app, key)}
-  end
-
   def handle_event(app, {:key, _key}), do: {:cont, app}
 
   def handle_event(app, {:command, ref, :line, line}) do
@@ -315,7 +341,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:git, snapshot}) when is_map(snapshot) do
-    {:cont, put_state(app, %{git: normalize_git(snapshot)})}
+    {:cont, app |> put_state(%{git: normalize_git(snapshot)}) |> sync_git_modal()}
   end
 
   @spec default_runner(String.t(), pid(), reference()) :: {:ok, pid()}
@@ -393,14 +419,13 @@ defmodule Tidex.App do
     {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
 
     put_state(app, %{
-      overlay: :server,
+      overlay: nil,
       server_state: :up,
       server_ref: ref,
       server_pid: pid,
       server_log: [],
       output_lines: [],
-      output_scroll: :follow,
-      output_source: :server
+      output_source: nil
     })
   end
 
@@ -493,6 +518,7 @@ defmodule Tidex.App do
     app
     |> attach_keyboard()
     |> put_state(%{git: normalize_git(app.git_reader.())})
+    |> sync_git_modal()
   end
 
   defp start_git_cmd(app, command) do
@@ -500,8 +526,9 @@ defmodule Tidex.App do
     ref = make_ref()
     {:ok, pid} = app.runner.(command, self(), ref)
 
-    put_state(app, %{
-      overlay: :git,
+    app
+    |> put_state(%{
+      overlay: nil,
       git_cmd_ref: ref,
       git_cmd_pid: pid,
       git_log: [],
@@ -509,13 +536,15 @@ defmodule Tidex.App do
       output_scroll: :follow,
       output_source: :git
     })
+    |> sync_git_modal()
   end
 
-  defp toggle_sheet(app, sheet) do
+  defp open_git_modal(app) do
     app = persist_visible(app)
-    next = if app.state.overlay == sheet, do: nil, else: sheet
-    put_state(app, %{overlay: next})
+    put_state(app, %{overlay: nil, modal: GitModal.modal(app.state)})
   end
+
+  defp close_git_modal(app), do: app |> persist_visible() |> put_state(%{modal: nil})
 
   defp open_help_modal(app) do
     app
@@ -524,40 +553,6 @@ defmodule Tidex.App do
   end
 
   defp close_help_modal(app), do: put_state(app, %{modal: nil})
-
-  defp close_sheet(app) do
-    app |> persist_visible() |> put_state(%{overlay: nil})
-  end
-
-  defp open_sheet(app, source) do
-    app = persist_visible(app)
-    lines = Map.fetch!(app.state, log_field(source))
-
-    put_state(app, %{
-      overlay: source,
-      output_source: source,
-      output_lines: lines,
-      output_scroll: :follow
-    })
-  end
-
-  defp scroll_output(app, key) do
-    height = output_inner_height(app.state)
-    delta = scroll_delta(key, height)
-
-    put_state(app, %{
-      output_scroll: Scroll.step(app.state.output_lines, height, app.state.output_scroll, delta)
-    })
-  end
-
-  defp scroll_delta(:up, _height), do: -1
-  defp scroll_delta(:down, _height), do: 1
-  defp scroll_delta(:page_up, height), do: -max(height, 1)
-  defp scroll_delta(:page_down, height), do: max(height, 1)
-
-  defp output_inner_height(state) do
-    Layout.inner(Layout.sheet(state).log).height
-  end
 
   defp maybe_append_output(app, ref, line) do
     cond do
@@ -572,7 +567,11 @@ defmodule Tidex.App do
     cond do
       app.state.test_ref == ref ->
         test_state = if status == 0, do: :pass, else: :fail
-        failures = if status == 0, do: [], else: Failures.parse(log_lines(app.state, :test))
+
+        failures =
+          if status == 0,
+            do: [],
+            else: Failures.parse(log_lines(app.state, :test), app.state.test_format)
 
         put_state(app, %{
           test_state: test_state,
@@ -587,11 +586,13 @@ defmodule Tidex.App do
         put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
 
       app.state.git_cmd_ref == ref ->
-        put_state(app, %{
+        app
+        |> put_state(%{
           git_cmd_ref: nil,
           git_cmd_pid: nil,
           git: normalize_git(app.git_reader.())
         })
+        |> sync_git_modal()
 
       true ->
         app
@@ -601,7 +602,6 @@ defmodule Tidex.App do
   defp persist_visible(app) do
     case app.state.output_source do
       :test -> put_state(app, %{test_log: app.state.output_lines})
-      :server -> put_state(app, %{server_log: app.state.output_lines})
       :git -> put_state(app, %{git_log: app.state.output_lines})
       _ -> app
     end
@@ -620,15 +620,15 @@ defmodule Tidex.App do
 
     app = put_state(app, changes)
 
-    if source == :test do
-      refresh_test_failures(app)
-    else
-      app
+    case source do
+      :test -> refresh_test_failures(app)
+      :git -> sync_git_modal(app)
+      _ -> app
     end
   end
 
   defp refresh_test_failures(app) do
-    failures = Failures.parse(log_lines(app.state, :test))
+    failures = Failures.parse(log_lines(app.state, :test), app.state.test_format)
     n = length(failures)
     index = if n == 0, do: 0, else: rem(app.state.failure_index, n)
 
@@ -647,6 +647,12 @@ defmodule Tidex.App do
   defp log_field(:test), do: :test_log
   defp log_field(:server), do: :server_log
   defp log_field(:git), do: :git_log
+
+  defp sync_git_modal(%{state: %{modal: %{kind: :git, scroll: scroll}}} = app) do
+    put_state(app, %{modal: GitModal.modal(app.state, scroll)})
+  end
+
+  defp sync_git_modal(app), do: app
 
   defp stop_tracked(app, :test) do
     Command.stop(app.state.test_pid)
@@ -694,6 +700,7 @@ defmodule Tidex.App do
       setup: nil,
       project_name: config.project,
       test_command: config.test,
+      test_format: config.test_format,
       server_command: config.server,
       browser_url: config.browser,
       editor_command: config.editor,
@@ -721,17 +728,20 @@ defmodule Tidex.App do
     %{app | keyboard: nil}
   end
 
-  defp put_state(app, %State{} = state), do: %{app | state: state}
-
   defp put_state(app, changes) do
     %{app | state: struct(app.state, changes)}
   end
 
-  defp dimensions(opts) do
-    width = Keyword.get(opts, :width) || detect_columns()
-    height = Keyword.get(opts, :height) || detect_rows()
+  defp dimensions(opts, dimension_reader) do
+    {detected_width, detected_height} = dimension_reader.()
+    width = Keyword.get(opts, :width) || detected_width
+    height = Keyword.get(opts, :height) || detected_height
     {width, height}
   end
+
+  @doc false
+  @spec terminal_dimensions() :: {pos_integer(), pos_integer()}
+  def terminal_dimensions, do: {detect_columns(), detect_rows()}
 
   defp detect_columns do
     case :io.columns() do

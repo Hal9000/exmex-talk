@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Modal, Scroll, Setup, State}
+  alias Tidex.{Layout, Modal, Setup, State}
 
   @status_width 7
 
@@ -115,21 +115,6 @@ defmodule Tidex.View do
     ["Files", key("0", "tidex.conf") | rows]
   end
 
-  defp render_log(device, state, pane, name) do
-    inner = Layout.inner(pane)
-    title = log_title(state.output_lines, inner.height, state.output_scroll, name)
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
-    lines = Scroll.visible(state.output_lines, inner.height, state.output_scroll)
-    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
-  end
-
-  defp log_title(lines, height, scroll, name) do
-    case Scroll.title(lines, height, scroll) do
-      "output" -> name
-      "output " <> rest -> "#{name} #{rest}"
-    end
-  end
-
   defp render_menu(device, state) do
     Termex.write_clipped(
       device,
@@ -140,35 +125,12 @@ defmodule Tidex.View do
     )
   end
 
-  defp menu_line(:server) do
-    Enum.join(
-      [hotkey("s", "start"), hotkey("x", "stop"), hotkey("b", "browse"), "esc back"],
-      "  "
-    )
-  end
-
-  defp menu_line(:git) do
-    Enum.join(
-      [hotkey("a", "add") <> " -u", hotkey("c", "commit"), hotkey("p", "push"), "esc back"],
-      "  "
-    )
-  end
-
   defp menu_line(:setup), do: "esc skip"
 
   defp menu_line(_), do: "esc back"
 
-  defp render_sheet(device, %{overlay: :server} = state) do
-    sheet = Layout.sheet(state)
-    render_log(device, state, sheet.log, "server · #{state.server_state}")
-  end
-
   defp render_sheet(device, %{overlay: :setup} = state) do
     draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))
-  end
-
-  defp render_sheet(device, %{overlay: :git} = state) do
-    draw_overlay(device, state, "git", git_sheet_lines(state))
   end
 
   defp draw_overlay(device, state, title, lines) do
@@ -192,43 +154,10 @@ defmodule Tidex.View do
     )
   end
 
-  defp git_sheet_lines(state) do
-    git_status_lines(state.git) ++ git_log_lines(state)
-  end
-
-  defp git_log_lines(state) do
-    lines =
-      if state.output_source == :git do
-        state.output_lines
-      else
-        state.git_log
-      end
-
-    case lines do
-      [] -> []
-      lines -> ["" | lines]
-    end
-  end
-
-  defp hotkey(letter, word) do
-    if String.starts_with?(word, letter) do
-      Termex.bold(letter) <> String.replace_prefix(word, letter, "")
-    else
-      Termex.bold(letter) <> word
-    end
-  end
-
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 
   defp status_key(letter, status, detail \\ nil) do
     line = key(letter, status |> String.pad_trailing(@status_width) |> Termex.reverse())
     if detail, do: line <> "  " <> detail, else: line
   end
-
-  defp git_status_lines(%{status: text}) when is_binary(text) and text != "" do
-    String.split(text, "\n")
-  end
-
-  defp git_status_lines(%{branch: nil}), do: ["(no repository)"]
-  defp git_status_lines(_), do: ["(no status)"]
 end

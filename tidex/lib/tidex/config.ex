@@ -3,7 +3,7 @@ defmodule Tidex.Config do
   Project label and commands from `tidex.conf`, walking from cwd toward `/`.
 
   Lines are `key: value`. `#` comments and blank lines are ignored.
-  Known keys: `project`, `test`, `server`, `browser`, `editor`,
+  Known keys: `project`, `test`, `test_format`, `server`, `browser`, `editor`,
   and optional `file1`–`file4`. Missing file keys are omitted.
 
   User defaults live in `~/.tidex/tidex.conf` and are not on that walk.
@@ -16,13 +16,14 @@ defmodule Tidex.Config do
   """
 
   @filename "tidex.conf"
-  @keys ~w(project test server browser editor file1 file2 file3 file4)
+  @keys ~w(project test test_format server browser editor file1 file2 file3 file4)
   @file_keys %{"file1" => 1, "file2" => 2, "file3" => 3, "file4" => 4}
-  @detect ~w(README.md mix.exs package.json Cargo.toml go.mod)
+  @detect ~w(README.md mix.exs Gemfile Rakefile package.json Cargo.toml go.mod)
   @blocked_exact ~w(/ /tmp /var /private/tmp /private/var)
 
   defstruct project: "tidex",
             test: "mix test",
+            test_format: :exunit,
             server: "python3 -m http.server 4000",
             browser: "http://localhost:4000",
             editor: "vi",
@@ -31,6 +32,7 @@ defmodule Tidex.Config do
   @type t :: %__MODULE__{
           project: String.t(),
           test: String.t(),
+          test_format: :exunit | :minitest | :none,
           server: String.t(),
           browser: String.t(),
           editor: String.t(),
@@ -60,6 +62,7 @@ defmodule Tidex.Config do
     %__MODULE__{
       project: default_project(cwd),
       test: default_test_command(cwd),
+      test_format: default_test_format(cwd),
       server: "python3 -m http.server 4000",
       browser: "http://localhost:4000",
       editor: default_editor()
@@ -74,11 +77,35 @@ defmodule Tidex.Config do
   @spec default_test_command(String.t()) :: String.t()
   def default_test_command(cwd \\ File.cwd!()) do
     cond do
-      File.exists?(Path.join(cwd, "mix.exs")) -> "mix test"
-      File.exists?(Path.join(cwd, "package.json")) -> "npm test"
-      File.exists?(Path.join(cwd, "Cargo.toml")) -> "cargo test"
-      File.exists?(Path.join(cwd, "go.mod")) -> "go test ./..."
-      true -> "echo no test runner found"
+      File.exists?(Path.join(cwd, "mix.exs")) ->
+        "mix test"
+
+      ruby_project?(cwd) ->
+        "ruby -Itest -e 'Dir[\"test/**/*_test.rb\"].sort.each { |f| require File.expand_path(f) }'"
+
+      File.exists?(Path.join(cwd, "package.json")) ->
+        "npm test"
+
+      File.exists?(Path.join(cwd, "Cargo.toml")) ->
+        "cargo test"
+
+      File.exists?(Path.join(cwd, "go.mod")) ->
+        "go test ./..."
+
+      true ->
+        "echo no test runner found"
+    end
+  end
+
+  @spec default_test_format(String.t()) :: :exunit | :minitest | :none
+  def default_test_format(cwd \\ File.cwd!()) do
+    cond do
+      File.exists?(Path.join(cwd, "mix.exs")) -> :exunit
+      ruby_project?(cwd) -> :minitest
+      File.exists?(Path.join(cwd, "package.json")) -> :none
+      File.exists?(Path.join(cwd, "Cargo.toml")) -> :none
+      File.exists?(Path.join(cwd, "go.mod")) -> :none
+      true -> :none
     end
   end
 
@@ -101,9 +128,12 @@ defmodule Tidex.Config do
   def project_markers?(dir) do
     dir = Path.expand(dir)
 
-    Enum.any?(~w(mix.exs package.json Cargo.toml go.mod .git), fn name ->
-      File.exists?(Path.join(dir, name))
-    end)
+    Enum.any?(
+      ~w(mix.exs Gemfile Rakefile .ruby-version package.json Cargo.toml go.mod .git),
+      fn name ->
+        File.exists?(Path.join(dir, name))
+      end
+    )
   end
 
   @spec git_root(String.t()) :: String.t() | nil
@@ -142,6 +172,7 @@ defmodule Tidex.Config do
     # Tidex project config (key: value)
     project: #{config.project}
     test: #{config.test}
+    test_format: #{config.test_format}
     server: #{config.server}
     browser: #{config.browser}
     # editor falls back to ~/.tidex, then $VISUAL / $EDITOR / vi
@@ -241,6 +272,7 @@ defmodule Tidex.Config do
     %__MODULE__{
       project: pick(raw, "project", config.project),
       test: pick(raw, "test", config.test),
+      test_format: test_format(raw, config.test_format),
       server: pick(raw, "server", config.server),
       browser: pick(raw, "browser", config.browser),
       editor: pick(raw, "editor", config.editor),
@@ -262,6 +294,19 @@ defmodule Tidex.Config do
       value when is_binary(value) and value != "" -> value
       _ -> fallback
     end
+  end
+
+  defp test_format(raw, fallback) do
+    case Map.get(raw, "test_format") do
+      "exunit" -> :exunit
+      "minitest" -> :minitest
+      "none" -> :none
+      _ -> fallback
+    end
+  end
+
+  defp ruby_project?(cwd) do
+    Enum.any?(~w(Gemfile Rakefile .ruby-version), &File.exists?(Path.join(cwd, &1)))
   end
 
   defp skip_walk?(dir, opts) do

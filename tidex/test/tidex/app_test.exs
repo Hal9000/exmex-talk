@@ -1,7 +1,7 @@
 defmodule Tidex.AppTest do
   use ExUnit.Case, async: true
 
-  alias Tidex.{App, FakeTerminal, Layout}
+  alias Tidex.{App, FakeTerminal}
 
   defp fake_runner(parent \\ self()) do
     fn command, notify, ref ->
@@ -33,10 +33,6 @@ defmodule Tidex.AppTest do
     {app, out}
   end
 
-  defp output_inner(state) do
-    Layout.inner(Layout.sheet(state).log)
-  end
-
   defp run_tests(app) do
     {:cont, app} = App.handle_event(app, {:key, "t"})
     app
@@ -59,6 +55,29 @@ defmodule Tidex.AppTest do
     runner = fn _cmd, _notify, _ref -> flunk("unknown keys should not run a command") end
 
     assert :ok = App.start(device: device, runner: runner, width: 40, height: 20)
+  end
+
+  test "refreshes terminal dimensions before the next redraw" do
+    dimensions = start_supervised!({Agent, fn -> {80, 24} end})
+    {device, _out} = FakeTerminal.open()
+
+    app =
+      App.new(
+        device: device,
+        config: %Tidex.Config{},
+        dimension_reader: fn -> Agent.get(dimensions, & &1) end,
+        resize: true,
+        keys: :none
+      )
+
+    assert app.state.width == 80
+    assert app.state.height == 24
+
+    Agent.update(dimensions, fn _ -> {120, 40} end)
+    {:cont, app} = App.step(app, {:key, "z"})
+
+    assert app.state.width == 120
+    assert app.state.height == 40
   end
 
   test "cwd of the example app loads that project, not Tidex" do
@@ -140,35 +159,37 @@ defmodule Tidex.AppTest do
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
   end
 
-  test "g toggles the git overlay" do
+  test "g toggles the git modal over the lobby" do
     git = %{branch: "main", dirty: 1, status: "On branch main\nmodified: lib/tidex.ex"}
     {app, out} = app(git: git)
     {:cont, app} = App.step(app, {:key, "g"})
-    assert app.state.overlay == :git
+    assert app.state.overlay == nil
+    assert app.state.modal.kind == :git
     frame = FakeTerminal.last_frame(out)
+    assert frame =~ "Tidex · exmex-talk"
     assert frame =~ "On branch main"
     assert FakeTerminal.visible(out) =~ "add -u"
 
     {:cont, app} = App.step(app, {:key, "g"})
-    assert app.state.overlay == nil
+    assert app.state.modal == nil
     refute FakeTerminal.visible(out) =~ "add -u"
     assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "add -u"
   end
 
-  test "esc closes the git overlay" do
+  test "esc closes the git modal" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "g"})
     {:cont, app} = App.handle_event(app, {:key, :esc})
-    assert app.state.overlay == nil
+    assert app.state.modal == nil
   end
 
-  test "a from the git overlay runs git add -u" do
+  test "a from the git modal runs git add -u" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.step(app, {:key, "a"})
 
     assert_receive {:started, "git add -u", _notify, ref, _pid}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.output_source == :git
     assert app.state.git_cmd_ref == ref
 
@@ -176,15 +197,15 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.last_frame(out) =~ "staged"
   end
 
-  test "p from the git overlay runs git push" do
+  test "p from the git modal runs git push" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "g"})
     {:cont, app} = App.handle_event(app, {:key, "p"})
     assert_receive {:started, "git push", _, _, _}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
   end
 
-  test "c from the git overlay yields git commit" do
+  test "c from the git modal yields git commit" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
     {app, _out} = app(editor_runner: editor, git_reader: fn -> %{branch: "main", dirty: 0} end)
@@ -192,11 +213,11 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.step(app, {:key, "c"})
     assert_receive {:edited, "git commit"}
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.git.status == ""
   end
 
-  test "a does nothing unless the git overlay is open" do
+  test "a does nothing unless the git modal is open" do
     {app, _out} = app([])
     runner = fn _cmd, _notify, _ref -> flunk("add should not run") end
     app = %{app | runner: runner}
@@ -204,7 +225,7 @@ defmodule Tidex.AppTest do
     assert app.state.git_cmd_ref == nil
   end
 
-  test "git add keeps the test log and stays on the git sheet" do
+  test "git add keeps the test log and stays in the git modal" do
     {app, _out} = app([])
 
     app = %{
@@ -218,13 +239,28 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.handle_event(app, {:command, git_ref, :line, "git add ok"})
 
     assert app.state.test_log == ["test line one", "test line two"]
-    assert app.state.overlay == :git
+    assert app.state.modal.kind == :git
     assert app.state.output_source == :git
     assert app.state.output_lines == ["git add ok"]
     assert app.state.git_log == ["git add ok"]
   end
 
-  test "opening the server sheet keeps the test log" do
+  test "the git modal scrolls and seals unrelated command keys" do
+    status = 1..25 |> Enum.map_join("\n", &"status line #{&1}")
+    {app, _out} = app(git: %{branch: "main", dirty: 25, status: status})
+
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    assert app.state.modal.scroll == :follow
+
+    {:cont, app} = App.handle_event(app, {:key, :up})
+    assert is_integer(app.state.modal.scroll)
+
+    {:cont, app} = App.handle_event(app, {:key, "t"})
+    assert app.state.test_state == :idle
+    assert app.state.modal.kind == :git
+  end
+
+  test "starting the server stays on the lobby and keeps the test log" do
     {app, _out} = app([])
 
     app = %{
@@ -233,23 +269,30 @@ defmodule Tidex.AppTest do
     }
 
     {:cont, app} = App.handle_event(app, {:key, "s"})
+    assert_receive {:started, _, _, _, pid}
     assert app.state.test_log == ["still in the test log"]
-    assert app.state.overlay == :server
-    assert app.state.output_source == :server
+    assert app.state.overlay == nil
+    assert app.state.output_source == nil
     assert app.state.output_lines == []
+    Process.exit(pid, :kill)
   end
 
-  test "a running test still appends while the server sheet is showing" do
+  test "test and server output append independently on the lobby" do
     {app, _out} = app([])
     app = run_tests(app)
     test_ref = app.state.test_ref
     {:cont, app} = App.handle_event(app, {:key, "s"})
+    server_ref = app.state.server_ref
     {:cont, app} = App.handle_event(app, {:command, test_ref, :line, "still testing"})
+    {:cont, app} = App.handle_event(app, {:command, server_ref, :line, "server line"})
 
     assert app.state.test_log == ["still testing"]
-    assert app.state.overlay == :server
-    assert app.state.output_source == :server
+    assert app.state.server_log == ["server line"]
+    assert app.state.overlay == nil
+    assert app.state.output_source == nil
     refute "still testing" in app.state.output_lines
+    Process.exit(app.state.test_pid, :kill)
+    Process.exit(app.state.server_pid, :kill)
   end
 
   test "running tests again clears the last run" do
@@ -297,6 +340,13 @@ defmodule Tidex.AppTest do
     "     ** (RuntimeError) timed out"
   ]
 
+  @minitest_fail [
+    "  1) Failure:",
+    "CalculatorTest#test_add [test/calculator_test.rb:8]:",
+    "Expected: 5",
+    "  Actual: 4"
+  ]
+
   test "a failing test run shows the fail count on the lobby" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "t"})
@@ -334,6 +384,28 @@ defmodule Tidex.AppTest do
     assert length(app.state.failures) == 2
     assert FakeTerminal.visible(out) =~ "running  2 fail"
     refute FakeTerminal.visible(out) =~ "test boom"
+  end
+
+  test "a configured Minitest run feeds the same failure modal" do
+    {app, out} = app(test_format: :minitest, width: 80, height: 24)
+    {:cont, app} = App.step(app, {:key, "t"})
+    ref = app.state.test_ref
+
+    app =
+      Enum.reduce(@minitest_fail, app, fn line, app ->
+        {:cont, app} = App.step(app, {:command, ref, :line, line})
+        app
+      end)
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    assert app.state.test_state == :fail
+    assert [%{file: "test/calculator_test.rb", line: 8}] = app.state.failures
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "CalculatorTest#test_add"
+    assert visible =~ "test/calculator_test.rb:8"
   end
 
   test "a passing run clears parsed failures" do
@@ -404,34 +476,25 @@ defmodule Tidex.AppTest do
     refute visible =~ "test · fail"
   end
 
-  test "s from the lobby opens the server sheet without starting" do
+  test "s starts the server directly from the lobby and retains its output" do
     {app, out} = app(server_command: "python3 -m http.server 4000")
     {:cont, app} = App.step(app, {:key, "s"})
 
-    refute_received {:started, _, _, _, _}
-    assert app.state.overlay == :server
-    assert app.state.server_state == :down
-    assert FakeTerminal.last_frame(out) =~ "server · down"
-  end
-
-  test "s on the server sheet starts the server and streams into it" do
-    {app, out} = app(server_command: "python3 -m http.server 4000")
-    {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
-
-    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, _pid}
+    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, pid}
+    assert app.state.overlay == nil
     assert app.state.server_state == :up
-    assert FakeTerminal.last_frame(out) =~ "server · up"
+    assert FakeTerminal.visible(out) =~ "s  up"
 
-    {:cont, _app} = App.step(app, {:command, ref, :line, "listening"})
-    assert FakeTerminal.region_lines(out, output_inner(app.state)) == ["listening"]
+    {:cont, app} = App.step(app, {:command, ref, :line, "listening"})
+    assert app.state.server_log == ["listening"]
+    refute FakeTerminal.visible(out) =~ "listening"
+    Process.exit(pid, :kill)
   end
 
   test "s restarts a running server" do
     parent = self()
     {app, _out} = app(runner: fake_runner(parent), server_command: "server")
 
-    {:cont, app} = App.step(app, {:key, "s"})
     {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, _, pid1}
     assert Process.alive?(pid1)
@@ -448,16 +511,15 @@ defmodule Tidex.AppTest do
   test "x stops the server" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, _, pid}
     assert Process.alive?(pid)
 
     {:cont, app} = App.step(app, {:key, "x"})
     refute Process.alive?(pid)
     assert app.state.server_state == :down
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "server · down"
-    refute frame =~ "server · up"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "s  down"
+    refute visible =~ "s  up"
   end
 
   test "b launches the browser url" do
@@ -686,14 +748,13 @@ defmodule Tidex.AppTest do
   test "server process exit marks the server down" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
-    {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, ref, _pid}
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.server_state == :down
-    frame = FakeTerminal.last_frame(out)
-    assert frame =~ "server · down"
-    refute frame =~ "server · up"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "s  down"
+    refute visible =~ "s  up"
   end
 
   test "editor stops the current keyboard and starts a new one" do
@@ -769,6 +830,24 @@ defmodule Tidex.AppTest do
       assert body =~ ~r/^file1: README.md$/m
       user = Tidex.Home.load(home: home)
       assert Tidex.Home.lookup(user, dir) == Path.basename(dir)
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "setup applies the detected Ruby parser after writing config" do
+    dir = tmp_dir()
+
+    try do
+      File.write!(Path.join(dir, ".ruby-version"), "3.3\n")
+      home = Path.join(dir, "user")
+      {app, _out} = app(cwd: dir, home: home)
+      app = %{app | state: %{app.state | test_format: :exunit}}
+
+      {:cont, app} = App.step(app, {:key, "y"})
+
+      assert app.state.test_format == :minitest
+      assert app.state.test_command =~ "ruby -Itest"
     after
       File.rm_rf!(dir)
     end
