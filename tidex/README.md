@@ -47,14 +47,18 @@ The lobby bolds the key letter next to each command (`t  idle`,
 cd tidex
 mix deps.get
 mix test
-mix tidex
+mix escript.build
+cd ../examples/proj1
+../../tidex/tidex
 ```
 
-`mix test` tests Tidex. `mix tidex` needs a real TTY and opens
-[`examples/proj1`](../examples/proj1) (a fixture app, not this tree).
+`mix test` tests Tidex. The built `tidex` command needs a real TTY and
+uses the current directory by default. Pass a path to operate on another
+project. For in-tree development, `mix tidex` opens
+[`examples/proj1`](../examples/proj1) (a fixture app, not this tree), and
 `mix tidex .` uses the current directory. Tests inject a `Termex.Device`
-backed by `StringIO` and drive the UI with messages, so they do not
-need a TTY.
+backed by `StringIO` and drive the UI with messages, so they do not need
+a TTY.
 
 The runtime is a small OTP tree: `Tidex.Supervisor` starts a git poller
 and `Tidex.Workers` (`DynamicSupervisor`) for the keyboard and command
