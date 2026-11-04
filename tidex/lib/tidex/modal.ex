@@ -66,12 +66,16 @@ defmodule Tidex.Modal do
     end
 
     if inner.height > 0 do
+      commands = Termex.clip(modal.commands, inner.width)
+      command_width = visible_width(commands)
+      command_offset = div(max(inner.width - command_width, 0), 2)
+
       Termex.write_clipped(
         device,
         inner.row + inner.height - 1,
-        inner.col,
-        inner.width,
-        modal.commands
+        inner.col + command_offset,
+        inner.width - command_offset,
+        commands
       )
     end
 

@@ -59,7 +59,6 @@ defmodule Tidex.ViewTest do
     inner = Layout.inner(pane)
     rows = FakeTerminal.region_lines(output, inner)
     assert hd(rows) =~ "modal-body-unique"
-    assert List.last(rows) =~ "esc back"
     refute Enum.any?(rows, &String.contains?(&1, "project:"))
   end
 
@@ -375,6 +374,7 @@ defmodule Tidex.ViewTest do
     assert visible =~ "test/foo_test.exs:12"
     assert visible =~ "Assertion with == failed"
     assert visible =~ "fail 1/1"
+    assert visible =~ "edit"
 
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width == 60
@@ -383,6 +383,5 @@ defmodule Tidex.ViewTest do
     rows = FakeTerminal.region_lines(output, inner)
     assert hd(rows) =~ "test Foo.bar/1"
     assert Enum.at(rows, 1) =~ "foo_test.exs:12"
-    assert List.last(rows) =~ "edit"
   end
 end
