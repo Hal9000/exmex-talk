@@ -5,6 +5,7 @@ defmodule Tidex.View do
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
+    Termex.hide_cursor(device)
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 

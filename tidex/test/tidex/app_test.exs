@@ -50,6 +50,7 @@ defmodule Tidex.AppTest do
     output = FakeTerminal.text(out)
 
     assert output =~ "Tidex · exmex-talk"
+    assert output =~ "\e[?25h"
     assert output =~ "tidex stopped"
   end
 

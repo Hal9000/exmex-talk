@@ -22,6 +22,13 @@ defmodule TermexTest do
       assert Capture.text(out) == "hello"
     end
 
+    test "hide_cursor and show_cursor write visibility sequences" do
+      {device, out} = Capture.open()
+      assert :ok = Termex.hide_cursor(device)
+      assert :ok = Termex.show_cursor(device)
+      assert Capture.text(out) == "\e[?25l\e[?25h"
+    end
+
     test "write_at moves then writes" do
       {device, out} = Capture.open()
       assert :ok = Termex.write_at(device, 2, 4, "Tidex")

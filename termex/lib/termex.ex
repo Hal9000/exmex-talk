@@ -28,6 +28,14 @@ defmodule Termex do
     IO.write(output, text)
   end
 
+  @doc "Hide the terminal cursor on `device`."
+  @spec hide_cursor(Device.t()) :: :ok
+  def hide_cursor(device), do: write(device, ANSI.hide_cursor())
+
+  @doc "Show the terminal cursor on `device`."
+  @spec show_cursor(Device.t()) :: :ok
+  def show_cursor(device), do: write(device, ANSI.show_cursor())
+
   @doc "Move the cursor, then write `text`."
   @spec write_at(Device.t(), pos_integer(), pos_integer(), iodata()) :: :ok
   def write_at(device, row, col, text) do
@@ -163,7 +171,7 @@ defmodule Termex do
   """
   @spec yield(Device.t(), RawMode.session(), (-> result)) :: result when result: var
   def yield(device, session, fun) do
-    write(device, ANSI.show_cursor())
+    show_cursor(device)
     clear_visible(device)
     move(device, 1, 1)
     RawMode.yield(session, fun)

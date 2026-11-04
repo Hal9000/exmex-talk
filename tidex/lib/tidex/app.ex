@@ -300,6 +300,7 @@ defmodule Tidex.App do
     end
 
     Keyboard.stop(app.keyboard)
+    Termex.show_cursor(app.device)
     Termex.clear_visible(app.device)
     Termex.move(app.device, 1, 1)
     Termex.write(app.device, "tidex stopped\n")

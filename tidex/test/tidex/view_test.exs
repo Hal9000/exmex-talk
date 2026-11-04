@@ -50,6 +50,7 @@ defmodule Tidex.ViewTest do
   test "lobby draws grouped status and no output lake" do
     {output, _state} = render([])
 
+    assert output =~ "\e[?25l"
     assert output =~ "\e[2J"
     assert output =~ "┌"
     assert output =~ "└"
