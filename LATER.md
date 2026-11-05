@@ -179,16 +179,9 @@ maximized, we have sheets again.
 ## Terminal resize (SIGWINCH)
 
 Tidex re-reads `:io.columns()` / `:io.rows()` before redraw and falls
-back to 80×24 when detection fails. Resize therefore applies on the
-next key, command line, command exit, or Git poll.
-
-The remaining gap is an idle screen with no event:
-
-- **SIGWINCH:** OTP `:os.set_signal(:sigwinch, :handle)` → UI process
-  redraws while idle. Polish. Windows has no SIGWINCH; ignore until we
-  care.
-
-Not a Termex feature. Do not put it ahead of the failure box.
+back to 80×24 when detection fails. On Unix, the UI subscribes to OTP's
+signal server and redraws immediately on `SIGWINCH`, including while
+idle. Windows has no SIGWINCH and remains event-driven.
 
 ## Colors and `tidex.theme`
 

@@ -69,6 +69,9 @@ The lobby keeps state in reverse-video section headings (`Test pass`,
 cyan as an active-layer accent, and the lobby dims behind an open
 modal. `NO_COLOR` removes these treatments.
 
+On Unix, terminal resizing redraws the lobby immediately, even while
+the UI is idle.
+
 ```bash
 cd tidex
 mix deps.get
