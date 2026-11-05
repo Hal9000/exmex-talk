@@ -14,6 +14,13 @@ defmodule Tidex.AppTest do
   defp app(opts) do
     {device, out} = FakeTerminal.open()
 
+    project_defaults =
+      if Keyword.has_key?(opts, :cwd) or Keyword.has_key?(opts, :config) do
+        []
+      else
+        [server_command: "server", browser_url: "http://localhost:4000"]
+      end
+
     app =
       App.new(
         Keyword.merge(
@@ -25,7 +32,7 @@ defmodule Tidex.AppTest do
             width: 40,
             height: 20,
             keys: :none
-          ],
+          ] ++ project_defaults,
           opts
         )
       )
@@ -477,10 +484,10 @@ defmodule Tidex.AppTest do
   end
 
   test "s starts the server directly from the lobby and retains its output" do
-    {app, out} = app(server_command: "python3 -m http.server 4000")
+    {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
 
-    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, pid}
+    assert_receive {:started, "server", _notify, ref, pid}
     assert app.state.overlay == nil
     assert app.state.server_state == :up
     assert FakeTerminal.visible(out) =~ "s  up"
@@ -526,6 +533,26 @@ defmodule Tidex.AppTest do
     {app, _out} = app(browser_url: "http://localhost:4000")
     {:cont, _app} = App.step(app, {:key, "b"})
     assert_receive {:browser, "http://localhost:4000"}
+  end
+
+  test "server and browser keys are disabled when they are not configured" do
+    runner = fn _command, _notify, _ref -> flunk("server should not start") end
+    browser = fn _url -> flunk("browser should not open") end
+
+    {app, _out} =
+      app(
+        server_command: nil,
+        browser_url: nil,
+        runner: runner,
+        browser_runner: browser
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    {:cont, app} = App.step(app, {:key, "x"})
+    {:cont, app} = App.step(app, {:key, "b"})
+
+    assert app.state.server_state == :down
+    assert app.state.server_pid == nil
   end
 
   test "e does nothing on the lobby" do

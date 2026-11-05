@@ -18,8 +18,10 @@ a one-line footer separated
 from the body by a horizontal rule; they are centered and use the same
 bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
-directory): `project`, `test`, `test_format`, `server`, `browser`, `editor`, and
-optional `file1`–`file4`. Missing `project` defaults to that
+directory): `project`, `test`, `test_format`, optional `server` /
+`browser`, `editor`, and optional `file1`–`file4`. Without `server`,
+the lobby reports `not configured` and disables server controls rather
+than assuming Python or another runtime. Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
 `go.mod` when those names exist in that directory. `~/.tidex/tidex.conf`

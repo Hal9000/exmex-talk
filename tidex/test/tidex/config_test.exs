@@ -14,8 +14,8 @@ defmodule Tidex.ConfigTest do
     home = Path.join(dir, "user")
     config = Config.load(dir, home: home)
     assert config.project == Path.basename(dir)
-    assert config.server == "python3 -m http.server 4000"
-    assert config.browser == "http://localhost:4000"
+    assert config.server == nil
+    assert config.browser == nil
     assert is_binary(config.editor)
   end
 
@@ -102,7 +102,8 @@ defmodule Tidex.ConfigTest do
     assert body =~ "project: #{Path.basename(dir)}"
     assert body =~ "test: mix test"
     assert body =~ "test_format: exunit"
-    assert body =~ "server: python3 -m http.server 4000"
+    refute body =~ ~r/^server:/m
+    refute body =~ ~r/^browser:/m
     refute body =~ ~r/^editor:/m
     assert body =~ ~r/^file1: mix.exs$/m
     refute body =~ ~r/^file2:/m

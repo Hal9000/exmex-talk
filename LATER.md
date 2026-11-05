@@ -262,13 +262,11 @@ anything inside Tidex. Not Phoenix-centric: that command is whatever
 the user configured (`mix phx.server`, `mix run --no-halt`, Puma,
 Webrick, …). Puma is a Ruby HTTP server (Rack; often with Rails).
 
-`python3 -m http.server` is only this repo’s current stub. It is a
-hidden, unnecessary dependency: Tidex also uses it as the generic
-fallback, and `examples/proj1` uses it despite already requiring
-Elixir. Remove that dependency as part of the server repair. A project
-with no `server:` should say `not configured`; Tidex should not invent
-a language runtime. Give language fixtures explicit foreground servers
-only when the fixture needs one.
+`python3 -m http.server` was this repo’s stub and generic fallback. It
+was a hidden, unnecessary dependency and is now removed. A project with
+no `server:` says `not configured`; Tidex does not invent a language
+runtime. Language fixtures get explicit foreground servers only when
+the fixture needs one.
 
 Today we only know **our job**: we spawn `sh -c server:` behind an
 Elixir Task/Port, set `:up` until that port exits or `x`. That is not

@@ -22,8 +22,6 @@ cwd toward `/`):
 project: exmex-talk
 test: mix test
 test_format: exunit
-server: python3 -m http.server 4000
-browser: http://localhost:4000
 file1: README.md
 ```
 
@@ -31,6 +29,8 @@ file1: README.md
 open the ones that are present. `0` always edits `tidex.conf`.
 `test_format` is `exunit`, `minitest`, or `none`; it selects only the
 small failure-output parser, while `test` remains an arbitrary command.
+`server` and `browser` are optional; Tidex does not assume a language
+runtime when they are absent.
 
 `project` is the status-pane label. If omitted, it defaults to a
 `dir: name` entry in `~/.tidex/tidex.conf`, then the directory that

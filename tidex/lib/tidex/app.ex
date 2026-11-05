@@ -313,10 +313,13 @@ defmodule Tidex.App do
     {:cont, stop_server(app)}
   end
 
-  def handle_event(app, {:key, key}) when key in ["b", "B"] do
+  def handle_event(%{state: %{browser_url: url}} = app, {:key, key})
+      when key in ["b", "B"] and is_binary(url) and url != "" do
     app.browser_runner.(app.state.browser_url)
     {:cont, app}
   end
+
+  def handle_event(app, {:key, key}) when key in ["b", "B"], do: {:cont, app}
 
   def handle_event(app, {:key, key}) when key in ["f", "F"] do
     {:cont, open_fail_modal(app)}
@@ -352,7 +355,7 @@ defmodule Tidex.App do
   @spec default_test_command() :: String.t()
   def default_test_command, do: Config.default_test_command()
 
-  @spec default_server_command() :: String.t()
+  @spec default_server_command() :: String.t() | nil
   def default_server_command, do: %Config{}.server
 
   @doc false
@@ -413,6 +416,10 @@ defmodule Tidex.App do
     })
   end
 
+  defp start_or_restart_server(%{state: %{server_command: command}} = app)
+       when not is_binary(command) or command == "",
+       do: app
+
   defp start_or_restart_server(app) do
     app = app |> persist_visible() |> stop_tracked(:server) |> stop_git_cmd()
     ref = make_ref()
@@ -428,6 +435,10 @@ defmodule Tidex.App do
       output_source: nil
     })
   end
+
+  defp stop_server(%{state: %{server_command: command}} = app)
+       when not is_binary(command) or command == "",
+       do: app
 
   defp stop_server(app) do
     app
