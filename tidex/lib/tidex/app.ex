@@ -16,6 +16,7 @@ defmodule Tidex.App do
     Help,
     Keyboard,
     Open,
+    ServerJob,
     Setup,
     State,
     View
@@ -24,6 +25,8 @@ defmodule Tidex.App do
   defstruct device: nil,
             state: %State{},
             runner: &Tidex.App.default_runner/3,
+            server_runner: &Tidex.App.default_server_runner/3,
+            server_stopper: &ServerJob.stop/1,
             editor_runner: &Open.editor/1,
             browser_runner: &Open.browser/1,
             git_reader: &Git.snapshot/0,
@@ -41,6 +44,8 @@ defmodule Tidex.App do
           device: Termex.Device.t(),
           state: State.t(),
           runner: (String.t(), pid(), reference() -> {:ok, pid()}),
+          server_runner: (String.t(), pid(), reference() -> {:ok, pid()}),
+          server_stopper: (pid() | nil -> :ok | {:error, term()}),
           editor_runner: (String.t() -> term()),
           browser_runner: (String.t() -> term()),
           git_reader: (-> Git.snapshot()),
@@ -98,14 +103,32 @@ defmodule Tidex.App do
       height: height
     }
 
+    runner =
+      Keyword.get(opts, :runner) ||
+        fn command, notify, ref ->
+          Command.start(command, notify, ref: ref, cd: config_root)
+        end
+
+    server_runner =
+      Keyword.get(opts, :server_runner) ||
+        if Keyword.has_key?(opts, :runner) do
+          runner
+        else
+          fn command, notify, ref ->
+            ServerJob.start(command, notify, ref: ref, cd: config_root)
+          end
+        end
+
+    server_stopper =
+      Keyword.get(opts, :server_stopper) ||
+        if(Keyword.has_key?(opts, :runner), do: &Command.stop/1, else: &ServerJob.stop/1)
+
     %__MODULE__{
       device: Keyword.get(opts, :device, Termex.Device.stdio()),
       state: state,
-      runner:
-        Keyword.get(opts, :runner) ||
-          fn command, notify, ref ->
-            Command.start(command, notify, ref: ref, cd: config_root)
-          end,
+      runner: runner,
+      server_runner: server_runner,
+      server_stopper: server_stopper,
       editor_runner: Keyword.get(opts, :editor_runner, &Open.editor/1),
       browser_runner: Keyword.get(opts, :browser_runner, &Open.browser/1),
       git_reader: Keyword.get(opts, :git_reader, fn -> Git.snapshot(config_root) end),
@@ -359,6 +382,12 @@ defmodule Tidex.App do
   def default_server_command, do: %Config{}.server
 
   @doc false
+  @spec default_server_runner(String.t(), pid(), reference()) :: {:ok, pid()} | {:error, term()}
+  def default_server_runner(command, notify, ref) do
+    ServerJob.start(command, notify, ref: ref)
+  end
+
+  @doc false
   def attach_keyboard(%{keys: :device} = app) do
     {:ok, pid} = Keyboard.start(app.device, self())
     %{app | keyboard: pid}
@@ -383,7 +412,7 @@ defmodule Tidex.App do
   @doc false
   def shutdown(app) do
     Command.stop(app.state.test_pid)
-    Command.stop(app.state.server_pid)
+    app.server_stopper.(app.state.server_pid)
     Command.stop(app.state.git_cmd_pid)
 
     if app.git_pid == Process.whereis(Tidex.Git) do
@@ -423,7 +452,7 @@ defmodule Tidex.App do
   defp start_or_restart_server(app) do
     app = app |> persist_visible() |> stop_tracked(:server) |> stop_git_cmd()
     ref = make_ref()
-    {:ok, pid} = app.runner.(app.state.server_command, self(), ref)
+    {:ok, pid} = app.server_runner.(app.state.server_command, self(), ref)
 
     put_state(app, %{
       overlay: nil,
@@ -671,7 +700,7 @@ defmodule Tidex.App do
   end
 
   defp stop_tracked(app, :server) do
-    Command.stop(app.state.server_pid)
+    _ = app.server_stopper.(app.state.server_pid)
     put_state(app, %{server_pid: nil, server_ref: nil})
   end
 

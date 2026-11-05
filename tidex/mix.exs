@@ -25,6 +25,7 @@ defmodule Tidex.MixProject do
 
   defp deps do
     [
+      {:erlexec, "~> 2.6"},
       {:termex, path: "../termex"}
     ]
   end
