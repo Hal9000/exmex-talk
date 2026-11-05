@@ -95,7 +95,7 @@ defmodule Tidex.View do
   end
 
   defp server_lines(state) do
-    lines = ["Server", status_key("s", "#{state.server_state}"), key("x", "stop")]
+    lines = ["Server", status_key("s", server_status(state.server_state)), key("x", "stop")]
 
     if is_binary(state.browser_url) and state.browser_url != "" do
       lines ++ [key("b", "browse")]
@@ -103,6 +103,10 @@ defmodule Tidex.View do
       lines
     end
   end
+
+  defp server_status(:start_failed), do: "start failed"
+  defp server_status(:stop_failed), do: "stop failed"
+  defp server_status(status), do: to_string(status)
 
   defp git_lines(%{branch: nil}) do
     ["Git", key("g", "(no repository)")]

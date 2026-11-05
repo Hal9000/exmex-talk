@@ -529,6 +529,67 @@ defmodule Tidex.AppTest do
     refute visible =~ "s  up"
   end
 
+  test "a failed stop remains tracked and blocks restart" do
+    parent = self()
+
+    stopper = fn pid ->
+      send(parent, {:stop_attempt, pid})
+      {:error, :still_running}
+    end
+
+    {app, out} =
+      app(
+        runner: fake_runner(parent),
+        server_stopper: stopper,
+        server_command: "server"
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+
+    {:cont, app} = App.step(app, {:key, "x"})
+    assert_receive {:stop_attempt, ^pid}
+    assert app.state.server_state == :stop_failed
+    assert app.state.server_pid == pid
+    assert app.state.server_ref == ref
+    assert FakeTerminal.visible(out) =~ "stop failed"
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:stop_attempt, ^pid}
+    refute_receive {:started, "server", _, _, _}
+    assert app.state.server_state == :stop_failed
+    Process.exit(pid, :kill)
+  end
+
+  test "a server launch error is visible instead of crashing Tidex" do
+    server_runner = fn _command, _notify, _ref -> {:error, :enoent} end
+    {app, out} = app(server_runner: server_runner, server_command: "server")
+
+    {:cont, app} = App.step(app, {:key, "s"})
+
+    assert app.state.server_state == :start_failed
+    assert app.state.server_pid == nil
+    assert app.state.server_ref == nil
+    assert FakeTerminal.visible(out) =~ "start failed"
+  end
+
+  test "a stale server exit cannot mark a restarted server down" do
+    parent = self()
+    {app, _out} = app(runner: fake_runner(parent), server_command: "server")
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, old_ref, _old_pid}
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, new_ref, new_pid}
+
+    {:cont, app} = App.step(app, {:command, old_ref, :exit, 143})
+
+    assert app.state.server_state == :up
+    assert app.state.server_ref == new_ref
+    assert app.state.server_pid == new_pid
+    Process.exit(new_pid, :kill)
+  end
+
   test "b launches the browser url" do
     {app, _out} = app(browser_url: "http://localhost:4000")
     {:cont, _app} = App.step(app, {:key, "b"})

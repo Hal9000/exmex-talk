@@ -36,7 +36,7 @@ defmodule Tidex.State do
             height: 24
 
   @type test_status :: :idle | :running | :pass | :fail
-  @type server_status :: :up | :down
+  @type server_status :: :starting | :up | :down | :start_failed | :stop_failed
   @type overlay :: nil | :setup
 
   @type t :: %__MODULE__{

@@ -450,19 +450,12 @@ defmodule Tidex.App do
        do: app
 
   defp start_or_restart_server(app) do
-    app = app |> persist_visible() |> stop_tracked(:server) |> stop_git_cmd()
-    ref = make_ref()
-    {:ok, pid} = app.server_runner.(app.state.server_command, self(), ref)
+    app = app |> persist_visible() |> stop_git_cmd()
 
-    put_state(app, %{
-      overlay: nil,
-      server_state: :up,
-      server_ref: ref,
-      server_pid: pid,
-      server_log: [],
-      output_lines: [],
-      output_source: nil
-    })
+    case stop_server_job(app) do
+      {:ok, app} -> start_server_job(app)
+      {:error, app} -> app
+    end
   end
 
   defp stop_server(%{state: %{server_command: command}} = app)
@@ -470,9 +463,48 @@ defmodule Tidex.App do
        do: app
 
   defp stop_server(app) do
-    app
-    |> stop_tracked(:server)
-    |> put_state(%{server_state: :down})
+    case stop_server_job(app) do
+      {:ok, app} -> put_state(app, %{server_state: :down})
+      {:error, app} -> app
+    end
+  end
+
+  defp start_server_job(app) do
+    ref = make_ref()
+
+    case app.server_runner.(app.state.server_command, self(), ref) do
+      {:ok, pid} ->
+        put_state(app, %{
+          overlay: nil,
+          server_state: :up,
+          server_ref: ref,
+          server_pid: pid,
+          server_log: [],
+          output_lines: [],
+          output_source: nil
+        })
+
+      {:error, _reason} ->
+        put_state(app, %{
+          server_state: :start_failed,
+          server_ref: nil,
+          server_pid: nil
+        })
+    end
+  end
+
+  defp stop_server_job(%{state: %{server_pid: nil}} = app) do
+    {:ok, put_state(app, %{server_ref: nil})}
+  end
+
+  defp stop_server_job(app) do
+    case app.server_stopper.(app.state.server_pid) do
+      :ok ->
+        {:ok, put_state(app, %{server_pid: nil, server_ref: nil})}
+
+      {:error, _reason} ->
+        {:error, put_state(app, %{server_state: :stop_failed})}
+    end
   end
 
   defp launch_editor(app, opts \\ []) do
@@ -697,11 +729,6 @@ defmodule Tidex.App do
   defp stop_tracked(app, :test) do
     Command.stop(app.state.test_pid)
     put_state(app, %{test_pid: nil, test_ref: nil})
-  end
-
-  defp stop_tracked(app, :server) do
-    _ = app.server_stopper.(app.state.server_pid)
-    put_state(app, %{server_pid: nil, server_ref: nil})
   end
 
   defp stop_git_cmd(app) do
