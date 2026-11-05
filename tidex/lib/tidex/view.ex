@@ -106,6 +106,7 @@ defmodule Tidex.View do
 
   defp server_status(:start_failed), do: "start failed"
   defp server_status(:stop_failed), do: "stop failed"
+  defp server_status(:port_busy), do: "port busy"
   defp server_status(status), do: to_string(status)
 
   defp git_lines(%{branch: nil}) do

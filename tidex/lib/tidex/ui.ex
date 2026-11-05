@@ -58,6 +58,11 @@ defmodule Tidex.UI do
   def handle_info({:command, ref, :exit, status}, app),
     do: dispatch(app, {:command, ref, :exit, status})
 
+  def handle_info({:server_probe, ref}, app), do: dispatch(app, {:server_probe, ref})
+
+  def handle_info({:server_job, ref, :cleanup_failed, reason}, app),
+    do: dispatch(app, {:server_job, ref, :cleanup_failed, reason})
+
   def handle_info({:git, snapshot}, app), do: dispatch(app, {:git, snapshot})
   def handle_info(_other, app), do: {:noreply, app}
 

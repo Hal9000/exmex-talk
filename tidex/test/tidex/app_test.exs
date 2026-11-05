@@ -29,6 +29,9 @@ defmodule Tidex.AppTest do
             runner: fake_runner(),
             editor_runner: fn _ -> :ok end,
             browser_runner: fn url -> send(self(), {:browser, url}) end,
+            server_probe: fn _url -> :unsupported end,
+            server_waiter: fn _url -> :unsupported end,
+            probe_scheduler: fn _message, _delay -> :ok end,
             width: 40,
             height: 20,
             keys: :none
@@ -55,6 +58,16 @@ defmodule Tidex.AppTest do
     assert output =~ "Tidex · exmex-talk"
     assert output =~ "\e[?25h"
     assert output =~ "tidex stopped"
+  end
+
+  test "shutdown reports a server cleanup failure" do
+    pid = spawn(fn -> Process.sleep(:infinity) end)
+    {app, out} = app(server_stopper: fn ^pid -> {:error, :still_running} end)
+    app = %{app | state: %{app.state | server_pid: pid}}
+
+    assert :ok = App.shutdown(app)
+    assert FakeTerminal.text(out) =~ "tidex stopped; server cleanup failed"
+    Process.exit(pid, :kill)
   end
 
   test "unknown keys are ignored" do
@@ -614,6 +627,73 @@ defmodule Tidex.AppTest do
 
     assert app.state.server_state == :down
     assert app.state.server_pid == nil
+  end
+
+  test "an unmanaged listener blocks start without being killed" do
+    runner = fn _command, _notify, _ref -> flunk("busy port should block start") end
+
+    {app, out} =
+      app(
+        runner: runner,
+        server_command: "server",
+        server_probe: fn _url -> :listening end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+
+    assert app.state.server_state == :port_busy
+    assert app.state.server_pid == nil
+    assert FakeTerminal.visible(out) =~ "port busy"
+
+    {:cont, app} = App.step(app, {:key, "x"})
+    assert app.state.server_state == :port_busy
+  end
+
+  test "a local listener moves the tracked server from starting to up" do
+    {:ok, probe} = Agent.start_link(fn -> [:closed, :closed, :listening] end)
+
+    probe_fun = fn _url ->
+      Agent.get_and_update(probe, fn [status | rest] -> {status, rest} end)
+    end
+
+    {app, _out} =
+      app(
+        server_command: "server",
+        server_probe: probe_fun,
+        probe_scheduler: fn _message, _delay -> :ok end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+    assert app.state.server_state == :starting
+
+    {:cont, app} = App.step(app, {:server_probe, ref})
+    assert app.state.server_state == :up
+    Process.exit(pid, :kill)
+  end
+
+  test "a listener left after confirmed stop is reported as a stop failure" do
+    {:ok, probe} = Agent.start_link(fn -> [:closed, :unsupported] end)
+
+    probe_fun = fn _url ->
+      Agent.get_and_update(probe, fn [status | rest] -> {status, rest} end)
+    end
+
+    {app, _out} =
+      app(
+        server_command: "server",
+        server_probe: probe_fun,
+        server_waiter: fn _url -> :listening end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, _, _pid}
+
+    {:cont, app} = App.step(app, {:key, "x"})
+
+    assert app.state.server_state == :stop_failed
+    assert app.state.server_pid == nil
+    assert app.state.server_ref == nil
   end
 
   test "e does nothing on the lobby" do

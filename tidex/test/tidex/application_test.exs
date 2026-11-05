@@ -3,10 +3,12 @@ defmodule Tidex.ApplicationTest do
 
   alias Tidex.{Command, FakeTerminal, Git, Keyboard}
 
-  test "starts a supervisor, worker supervisor, and git poller" do
+  test "starts exec-port, a supervisor, workers, and the git poller" do
+    assert Process.whereis(:exec)
     assert Process.whereis(Tidex.Supervisor)
     assert Process.whereis(Tidex.Workers)
     assert Process.whereis(Tidex.Git)
+    assert File.exists?(Tidex.ExecPort.executable_path())
   end
 
   test "git poller is restarted if it crashes" do

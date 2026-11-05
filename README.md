@@ -60,6 +60,10 @@ cd termex && mix test
 cd tidex && mix deps.get && mix test
 ```
 
+Tidex uses erlexec for owned server process groups. Building Tidex
+therefore needs `make` and a C++ compiler; the built escript embeds the
+target-platform helper.
+
 Not covered: real `stty` raw mode on an interactive terminal, or a real
 `$EDITOR` session. Those paths are skipped or injected in tests.
 

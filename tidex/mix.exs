@@ -16,6 +16,7 @@ defmodule Tidex.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      included_applications: [:erlexec],
       mod: {Tidex.Application, []}
     ]
   end
@@ -25,7 +26,7 @@ defmodule Tidex.MixProject do
 
   defp deps do
     [
-      {:erlexec, "~> 2.6"},
+      {:erlexec, "~> 2.6", runtime: false},
       {:termex, path: "../termex"}
     ]
   end

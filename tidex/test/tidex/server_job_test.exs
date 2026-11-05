@@ -12,7 +12,7 @@ defmodule Tidex.ServerJobTest do
     assert_receive {:command, ^ref, :line, "one"}, 1_000
     assert_receive {:command, ^ref, :line, "two"}, 1_000
     assert_receive {:command, ^ref, :exit, 7}, 1_000
-    refute Process.alive?(job)
+    assert wait_until(fn -> not Process.alive?(job) end)
   end
 
   test "stopping a TCP server releases its port" do
@@ -57,6 +57,30 @@ defmodule Tidex.ServerJobTest do
 
     assert :ok = ServerJob.stop(job)
     assert wait_until(fn -> not os_process_alive?(os_pid) end)
+  end
+
+  test "stop kills a TERM-ignoring child after its leader exits" do
+    ref = make_ref()
+    command = shell_quote(Path.join(@fixtures, "escaping_child.sh"))
+    {:ok, job} = ServerJob.start(command, self(), ref: ref)
+
+    assert_receive {:command, ^ref, :line, "CHILD " <> child_text}, 1_000
+    child = String.to_integer(child_text)
+    assert os_process_alive?(child)
+
+    assert :ok = ServerJob.stop(job)
+    assert wait_until(fn -> not os_process_alive?(child) end)
+  end
+
+  test "a naturally exiting leader cannot orphan a TERM-ignoring child" do
+    ref = make_ref()
+    command = shell_quote(Path.join(@fixtures, "orphan_on_exit.sh"))
+    {:ok, _job} = ServerJob.start(command, self(), ref: ref)
+
+    assert_receive {:command, ^ref, :line, "CHILD " <> child_text}, 1_000
+    child = String.to_integer(child_text)
+    assert_receive {:command, ^ref, :exit, 0}, 3_000
+    assert wait_until(fn -> not os_process_alive?(child) end)
   end
 
   defp free_port do

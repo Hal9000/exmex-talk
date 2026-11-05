@@ -7,6 +7,8 @@ defmodule Tidex.App do
   never draw; this process owns the screen.
   """
 
+  @server_probe_interval 250
+
   alias Tidex.{
     Command,
     Config,
@@ -17,6 +19,7 @@ defmodule Tidex.App do
     Keyboard,
     Open,
     ServerJob,
+    ServerProbe,
     Setup,
     State,
     View
@@ -27,6 +30,9 @@ defmodule Tidex.App do
             runner: &Tidex.App.default_runner/3,
             server_runner: &Tidex.App.default_server_runner/3,
             server_stopper: &ServerJob.stop/1,
+            server_probe: &ServerProbe.status/1,
+            server_waiter: &ServerProbe.wait_closed/1,
+            probe_scheduler: &Tidex.App.schedule_probe/2,
             editor_runner: &Open.editor/1,
             browser_runner: &Open.browser/1,
             git_reader: &Git.snapshot/0,
@@ -46,6 +52,9 @@ defmodule Tidex.App do
           runner: (String.t(), pid(), reference() -> {:ok, pid()}),
           server_runner: (String.t(), pid(), reference() -> {:ok, pid()}),
           server_stopper: (pid() | nil -> :ok | {:error, term()}),
+          server_probe: (String.t() | nil -> ServerProbe.status()),
+          server_waiter: (String.t() | nil -> ServerProbe.status()),
+          probe_scheduler: (term(), non_neg_integer() -> term()),
           editor_runner: (String.t() -> term()),
           browser_runner: (String.t() -> term()),
           git_reader: (-> Git.snapshot()),
@@ -129,6 +138,9 @@ defmodule Tidex.App do
       runner: runner,
       server_runner: server_runner,
       server_stopper: server_stopper,
+      server_probe: Keyword.get(opts, :server_probe, &ServerProbe.status/1),
+      server_waiter: Keyword.get(opts, :server_waiter, &ServerProbe.wait_closed/1),
+      probe_scheduler: Keyword.get(opts, :probe_scheduler, &schedule_probe/2),
       editor_runner: Keyword.get(opts, :editor_runner, &Open.editor/1),
       browser_runner: Keyword.get(opts, :browser_runner, &Open.browser/1),
       git_reader: Keyword.get(opts, :git_reader, fn -> Git.snapshot(config_root) end),
@@ -366,6 +378,26 @@ defmodule Tidex.App do
     {:cont, finish_command(app, ref, status)}
   end
 
+  def handle_event(app, {:server_probe, ref}) do
+    {:cont, refresh_server_probe(app, ref)}
+  end
+
+  def handle_event(%{state: %{server_ref: ref}} = app, {
+        :server_job,
+        ref,
+        :cleanup_failed,
+        _reason
+      }) do
+    {:cont,
+     put_state(app, %{
+       server_state: :stop_failed,
+       server_ref: nil,
+       server_pid: nil
+     })}
+  end
+
+  def handle_event(app, {:server_job, _ref, :cleanup_failed, _reason}), do: {:cont, app}
+
   def handle_event(app, {:git, snapshot}) when is_map(snapshot) do
     {:cont, app |> put_state(%{git: normalize_git(snapshot)}) |> sync_git_modal()}
   end
@@ -386,6 +418,9 @@ defmodule Tidex.App do
   def default_server_runner(command, notify, ref) do
     ServerJob.start(command, notify, ref: ref)
   end
+
+  @doc false
+  def schedule_probe(message, delay), do: Process.send_after(self(), message, delay)
 
   @doc false
   def attach_keyboard(%{keys: :device} = app) do
@@ -412,7 +447,7 @@ defmodule Tidex.App do
   @doc false
   def shutdown(app) do
     Command.stop(app.state.test_pid)
-    app.server_stopper.(app.state.server_pid)
+    server_stop = app.server_stopper.(app.state.server_pid)
     Command.stop(app.state.git_cmd_pid)
 
     if app.git_pid == Process.whereis(Tidex.Git) do
@@ -425,7 +460,14 @@ defmodule Tidex.App do
     Termex.show_cursor(app.device)
     Termex.clear_visible(app.device)
     Termex.move(app.device, 1, 1)
-    Termex.write(app.device, "tidex stopped\n")
+
+    message =
+      case server_stop do
+        :ok -> "tidex stopped\n"
+        {:error, _reason} -> "tidex stopped; server cleanup failed\n"
+      end
+
+    Termex.write(app.device, message)
     :ok
   end
 
@@ -451,10 +493,18 @@ defmodule Tidex.App do
 
   defp start_or_restart_server(app) do
     app = app |> persist_visible() |> stop_git_cmd()
+    owned? = is_pid(app.state.server_pid)
 
     case stop_server_job(app) do
-      {:ok, app} -> start_server_job(app)
-      {:error, app} -> app
+      {:ok, app} ->
+        case server_status_after_stop(app, owned?) do
+          :listening when owned? -> put_state(app, %{server_state: :stop_failed})
+          :listening -> put_state(app, %{server_state: :port_busy})
+          _other -> start_server_job(app)
+        end
+
+      {:error, app} ->
+        app
     end
   end
 
@@ -463,9 +513,18 @@ defmodule Tidex.App do
        do: app
 
   defp stop_server(app) do
+    owned? = is_pid(app.state.server_pid)
+
     case stop_server_job(app) do
-      {:ok, app} -> put_state(app, %{server_state: :down})
-      {:error, app} -> app
+      {:ok, app} ->
+        case server_status_after_stop(app, owned?) do
+          :listening when owned? -> put_state(app, %{server_state: :stop_failed})
+          :listening -> put_state(app, %{server_state: :port_busy})
+          _other -> put_state(app, %{server_state: :down})
+        end
+
+      {:error, app} ->
+        app
     end
   end
 
@@ -474,15 +533,17 @@ defmodule Tidex.App do
 
     case app.server_runner.(app.state.server_command, self(), ref) do
       {:ok, pid} ->
-        put_state(app, %{
+        app
+        |> put_state(%{
           overlay: nil,
-          server_state: :up,
+          server_state: :starting,
           server_ref: ref,
           server_pid: pid,
           server_log: [],
           output_lines: [],
           output_source: nil
         })
+        |> refresh_server_probe(ref)
 
       {:error, _reason} ->
         put_state(app, %{
@@ -492,6 +553,31 @@ defmodule Tidex.App do
         })
     end
   end
+
+  defp refresh_server_probe(%{state: %{server_ref: ref}} = app, ref) when is_reference(ref) do
+    case app.server_probe.(app.state.browser_url) do
+      :listening ->
+        schedule_server_probe(app, ref)
+        put_state(app, %{server_state: :up})
+
+      :closed ->
+        schedule_server_probe(app, ref)
+        put_state(app, %{server_state: :starting})
+
+      :unsupported ->
+        put_state(app, %{server_state: :up})
+    end
+  end
+
+  defp refresh_server_probe(app, _ref), do: app
+
+  defp schedule_server_probe(app, ref) do
+    app.probe_scheduler.({:server_probe, ref}, @server_probe_interval)
+    app
+  end
+
+  defp server_status_after_stop(app, true), do: app.server_waiter.(app.state.browser_url)
+  defp server_status_after_stop(app, false), do: app.server_probe.(app.state.browser_url)
 
   defp stop_server_job(%{state: %{server_pid: nil}} = app) do
     {:ok, put_state(app, %{server_ref: nil})}
@@ -655,7 +741,12 @@ defmodule Tidex.App do
         |> sync_fail_modal()
 
       app.state.server_ref == ref ->
-        put_state(app, %{server_state: :down, server_ref: nil, server_pid: nil})
+        app = put_state(app, %{server_ref: nil, server_pid: nil})
+
+        case app.server_waiter.(app.state.browser_url) do
+          :listening -> put_state(app, %{server_state: :stop_failed})
+          _other -> put_state(app, %{server_state: :down})
+        end
 
       app.state.git_cmd_ref == ref ->
         app

@@ -268,12 +268,11 @@ no `server:` says `not configured`; Tidex does not invent a language
 runtime. Language fixtures get explicit foreground servers only when
 the fixture needs one.
 
-Today we only know **our job**: we spawn `sh -c server:` behind an
-Elixir Task/Port, set `:up` until that port exits or `x`. That is not
-the listener, not ready, not a server started in another terminal.
-`sh -c` plus killing the Task often kills the shell and **leaves the
-real server** (bad kill). Occupancy after `x` detects that; owning and
-stopping a process group is the repair.
+Tidex now owns **its job** through `Tidex.ServerJob` and erlexec. The
+configured foreground shell command runs in a dedicated OS process
+group. Stop, restart, and quit send TERM to the group, wait, escalate
+to KILL, and reap it. Commands that daemonize or create a new session
+can escape and are explicitly unsupported.
 
 **Do not** grep `ps` for the command line (two projects, rewritten
 argv, BEAM). **Do** keep the OS pid of *our* spawn: gone → we are
@@ -321,38 +320,36 @@ lobby is start-if-down, and the same `s` restarts when already up.
 Restart should wait until the port is free (or a short timeout) before
 spawn.
 
-### Code phases
+### Implemented code phases
 
 Keep these as separate commits/checkpoints; do not land one opaque
 lifecycle rewrite.
 
-1. **Remove the Python default and build deterministic fixtures.**
-   Make `server:` optional in config and state. Show `not configured`
-   and make `s` / `x` no-ops when absent; make `b` conditional on a
-   configured `browser:`. Replace `proj1`’s Python command with a tiny
-   foreground Elixir HTTP/TCP script. Do not give `ruby_calc` a server
-   unless its demonstration needs one. Add test-only Elixir fixtures:
+1. **Python default removed; deterministic fixtures added.**
+   `server:` is optional in config and state. The lobby shows
+   `not configured`; `s` / `x` are no-ops when absent and `b` requires
+   a configured `browser:`. `proj1` uses a tiny foreground Elixir HTTP
+   script and `ruby_calc` has no unrelated server. Test fixtures cover
    a TCP listener that prints `READY`, a parent/child process tree, and
-   a process that ignores TERM. Use unique ephemeral ports.
+   a process that ignores TERM, on unique ephemeral ports.
 
-2. **Own and stop the process tree.** Introduce a supervised
-   `Tidex.ServerJob` separate from generic test/Git commands. Store the
+2. **Process tree owned and stopped.** Supervised `Tidex.ServerJob` is
+   separate from generic test/Git commands. It stores the
    Port, OS pid, process-group id, and generation ref. Launch the
-   foreground command in a new process group. `stop` sends TERM to that
+   foreground command in a new process group. `stop` sends TERM to the
    group, waits, escalates to KILL, reaps the Port, and returns a
-   confirmed result. The cross-platform launcher must explicitly cover
-   Linux and macOS; do not assume Linux `setsid` exists everywhere.
-   Document that daemonizing/double-forking commands are unsupported.
+   confirmed result. Erlexec supplies the Linux/macOS process manager;
+   the target-platform helper is embedded in the escript.
 
-3. **Make lifecycle state truthful.** Add `starting`, `up`, `down`, and
-   `stop failed` transitions. Do not display `down` until stop is
-   confirmed. Make stop idempotent. Restart is confirmed stop followed
-   by start; stale output/exit messages from an older generation cannot
-   alter the new job. Test natural exit, TERM, KILL escalation, quit
-   cleanup, repeated stop, and rapid restart.
+3. **Lifecycle state made truthful.** `starting`, `up`, `down`,
+   `start failed`, and `stop failed` do not claim success before it is
+   known. Stop is idempotent. Restart is confirmed stop followed by
+   start; stale output/exit messages from an older generation cannot
+   alter the new job. Tests cover natural exit, TERM, KILL escalation,
+   quit cleanup, repeated stop, and rapid restart.
 
-4. **Add conservative port awareness.** Parse a local TCP port from
-   `browser:` when possible. Detect free/listening before start and
+4. **Conservative port awareness added.** Tidex parses a local TCP port
+   from `browser:` when possible. It detects free/listening before start and
    after stop. A live owned job with a closed port is `starting`; a
    listener is occupancy, not application health. If the port was
    already occupied, report `busy, unmanaged` and do not start or kill
@@ -360,8 +357,8 @@ lifecycle rewrite.
    orphan/stop failure. Do not use `ps | grep`, and never automatically
    kill an arbitrary listener pid.
 
-5. **Real-platform acceptance.** Run the lifecycle suite plus manual
-   start/restart/stop/quit checks on Linux and macOS. Verify no process
-   remains and the port is immediately reusable. Keep Docker, remote
-   URLs, HTTP health checks, and unmanaged-process kill prompts outside
-   this repair.
+5. **Real-platform acceptance.** Linux lifecycle and real-TTY
+   start/restart/stop/quit checks pass with no remaining process and an
+   immediately reusable port. A macOS run remains required. Docker,
+   remote URLs, HTTP health checks, and unmanaged-process kill prompts
+   stay outside this repair.

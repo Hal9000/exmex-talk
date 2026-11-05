@@ -9,7 +9,9 @@ defmodule Tidex.ServerJob do
 
   use GenServer
 
-  @stop_timeout 3_000
+  @term_timeout 1_000
+  @kill_timeout 1_000
+  @stop_timeout @term_timeout + @kill_timeout + 1_000
 
   @type info :: %{os_pid: pos_integer(), group_id: pos_integer()}
 
@@ -90,9 +92,16 @@ defmodule Tidex.ServerJob do
   end
 
   def handle_call(:stop, _from, state) do
-    case :exec.stop_and_wait(state.exec_pid, @stop_timeout) do
-      {:error, reason} -> {:reply, {:error, reason}, state}
-      _result -> {:stop, :normal, :ok, state}
+    case terminate_group(state.group_id) do
+      :ok ->
+        if Process.alive?(state.exec_pid) do
+          _ = :exec.stop_and_wait(state.exec_pid, @kill_timeout)
+        end
+
+        {:stop, :normal, :ok, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
     end
   end
 
@@ -109,7 +118,15 @@ defmodule Tidex.ServerJob do
         } = state
       ) do
     state = flush_buffer(state)
-    send(state.notify, {:command, state.ref, :exit, exit_status(reason)})
+
+    case terminate_group(state.group_id) do
+      :ok ->
+        send(state.notify, {:command, state.ref, :exit, exit_status(reason)})
+
+      {:error, cleanup_reason} ->
+        send(state.notify, {:server_job, state.ref, :cleanup_failed, cleanup_reason})
+    end
+
     {:stop, :normal, state}
   end
 
@@ -117,11 +134,77 @@ defmodule Tidex.ServerJob do
 
   @impl GenServer
   def terminate(_reason, state) do
-    if Process.alive?(state.exec_pid) do
-      _ = :exec.stop_and_wait(state.exec_pid, @stop_timeout)
-    end
-
+    _ = terminate_group(state.group_id)
     :ok
+  end
+
+  defp terminate_group(group_id) do
+    if group_alive?(group_id) do
+      _ = signal_group(group_id, "TERM")
+
+      if wait_for_group_exit(group_id, @term_timeout) do
+        :ok
+      else
+        _ = signal_group(group_id, "KILL")
+
+        if wait_for_group_exit(group_id, @kill_timeout) do
+          :ok
+        else
+          {:error, :process_group_survived_kill}
+        end
+      end
+    else
+      :ok
+    end
+  end
+
+  defp wait_for_group_exit(group_id, timeout) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+    wait_for_group_exit_until(group_id, deadline)
+  end
+
+  defp wait_for_group_exit_until(group_id, deadline) do
+    cond do
+      not group_alive?(group_id) ->
+        true
+
+      System.monotonic_time(:millisecond) >= deadline ->
+        false
+
+      true ->
+        Process.sleep(20)
+        wait_for_group_exit_until(group_id, deadline)
+    end
+  end
+
+  defp group_alive?(group_id) do
+    case run_kill(["-0", "--", "-#{group_id}"]) do
+      {_output, 0} -> true
+      {output, _status} -> permission_denied?(output)
+    end
+  end
+
+  defp signal_group(group_id, signal) do
+    case run_kill(["-#{signal}", "--", "-#{group_id}"]) do
+      {_output, 0} -> :ok
+      {output, _status} -> {:error, String.trim(output)}
+    end
+  end
+
+  defp run_kill(args) do
+    executable =
+      if File.exists?("/bin/kill"),
+        do: "/bin/kill",
+        else: System.find_executable("kill") || raise("kill executable not found")
+
+    System.cmd(executable, args, stderr_to_stdout: true)
+  end
+
+  defp permission_denied?(output) do
+    output = String.downcase(output)
+
+    String.contains?(output, "operation not permitted") or
+      String.contains?(output, "permission denied")
   end
 
   defp forward_output(state, data) do
