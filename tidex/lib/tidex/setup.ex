@@ -1,7 +1,7 @@
 defmodule Tidex.Setup do
   @moduledoc false
 
-  alias Tidex.Config
+  alias Tidex.{Config, Modal}
 
   defstruct cwd: ".",
             git_root: nil,
@@ -47,7 +47,7 @@ defmodule Tidex.Setup do
       "",
       "cwd is not permitted",
       blocked_label(setup.cwd)
-    ] ++ git_option(setup) ++ ["", key("n", "or esc  skip")]
+    ] ++ git_option(setup)
   end
 
   def lines(%__MODULE__{offer_git: true} = setup) do
@@ -65,10 +65,7 @@ defmodule Tidex.Setup do
       "no tidex.conf",
       "",
       "write in cwd?",
-      setup.cwd,
-      "",
-      key("y", "write here"),
-      key("n", "or esc  skip")
+      setup.cwd
     ]
   end
 
@@ -77,11 +74,7 @@ defmodule Tidex.Setup do
       "no tidex.conf",
       "",
       "write in cwd?",
-      setup.cwd,
-      "",
-      key("y", "write here"),
-      key("g", "git root  #{setup.git_root}"),
-      key("n", "or esc  skip")
+      setup.cwd
     ]
   end
 
@@ -91,21 +84,46 @@ defmodule Tidex.Setup do
       "",
       "cwd doesn't look like a project",
       "git root:",
-      setup.git_root,
-      "",
-      key("g", "write at git root"),
-      key("y", "write in cwd anyway"),
-      key("n", "or esc  skip")
+      setup.git_root
     ]
   end
 
   defp git_option(%{offer_git: true, git_root: root}) when is_binary(root) do
-    ["", key("g", "write at git root"), root]
+    ["", "git root:", root]
   end
 
   defp git_option(_), do: []
 
-  defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
+  @spec modal(t() | nil) :: Modal.t()
+  def modal(setup) do
+    %Modal{
+      kind: :setup,
+      title: "tidex.conf",
+      lines: lines(setup),
+      commands: commands(setup),
+      min_width: 50,
+      max_width: 70,
+      min_height: 7,
+      max_height: 12
+    }
+  end
+
+  defp commands(%__MODULE__{offer_cwd: false, offer_git: true}),
+    do: key("g", "git root") <> " · " <> "n/esc skip"
+
+  defp commands(%__MODULE__{offer_cwd: false}), do: "n/esc skip"
+
+  defp commands(%__MODULE__{offer_git: true}),
+    do:
+      key("y", "write here") <>
+        " · " <> key("g", "git root") <> " · " <> "n/esc skip"
+
+  defp commands(%__MODULE__{}),
+    do: key("y", "write here") <> " · " <> "n/esc skip"
+
+  defp commands(nil), do: "n/esc skip"
+
+  defp key(letter, rest), do: Termex.bold(letter) <> " " <> rest
 
   defp blocked_label(cwd) do
     home = System.user_home()

@@ -1067,7 +1067,7 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == :setup
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "cwd is not permitted"
-    refute FakeTerminal.visible(out) =~ "y  write here"
+    refute FakeTerminal.visible(out) =~ "y write here"
     refute File.exists?("/tidex.conf")
   end
 

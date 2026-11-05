@@ -24,9 +24,8 @@ Home is a lobby: one full-screen unicode status box, **grouped text**
 (not little boxes). Two columns Test|Server, Git|Files, then `? help` /
 `q quit`.
 
-**Modal (a box you pull up and dismiss):** help, git, and failures.
-They are content-sized boxes on the lobby. Setup still takes over the
-screen with a 1-line menu outside the border.
+**Modal (a box you pull up and dismiss):** help, git, failures, and
+setup. They are content-sized boxes on the lobby.
 
 **Not modal:** Test and Server groups. They update in place.
 
@@ -117,8 +116,8 @@ lobby, drawn last; next lobby frame restores. Not a window manager.
 `Tidex.Modal` is that draw: content-sized, centered, capped, with a
 centered bright-cyan command footer separated by its own horizontal
 rule. It blanks the interior so the lobby does not bleed through. The
-failure box uses it (`kind: :fail`, 60×8); Help and Git are converted.
-Setup still takes over the screen.
+failure box uses it (`kind: :fail`, 60×8); Help, Git, and Setup are
+converted.
 
 - **Default:** no full-screen takeover. Git, help, setup, a failure, a
   splash — a box sized to the content. **Not** the Server group: that
@@ -136,8 +135,8 @@ Setup still takes over the screen.
   lobby, which is the menu.
 - **Borders:** we already draw unicode boxes with a title in the top
   edge (`─ status ────`). Keep a border on anything that sits on the
-  lobby so it is not the status groups. Setup’s sheet menu still sits
-  *outside* the border; it should move inside when setup is converted.
+  lobby so it is not the status groups. Setup’s choices use the same
+  footer inside its border.
 
 **Window on large text**
 
@@ -170,8 +169,8 @@ not a full Git client.
 help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
 visible around it.
 
-Setup is the remaining takeover. If every interesting box starts
-maximized, we have sheets again.
+There are no remaining full-screen takeovers. If every interesting box
+starts maximized, we have sheets again.
 
 **Failure view** fits a small bordered box (name, file:line, snippet,
 `e` / left-right / `esc`). Maximize could show more of the hidden log.
