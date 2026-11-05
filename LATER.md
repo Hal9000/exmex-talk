@@ -261,14 +261,21 @@ The **project** server (`server:` / `browser:` in `tidex.conf`), not
 anything inside Tidex. Not Phoenix-centric: that command is whatever
 the user configured (`mix phx.server`, `mix run --no-halt`, Puma,
 Webrick, …). Puma is a Ruby HTTP server (Rack; often with Rails).
-`python3 -m http.server` is only this repo’s stub.
+
+`python3 -m http.server` is only this repo’s current stub. It is a
+hidden, unnecessary dependency: Tidex also uses it as the generic
+fallback, and `examples/proj1` uses it despite already requiring
+Elixir. Remove that dependency as part of the server repair. A project
+with no `server:` should say `not configured`; Tidex should not invent
+a language runtime. Give language fixtures explicit foreground servers
+only when the fixture needs one.
 
 Today we only know **our job**: we spawn `sh -c server:` behind an
 Elixir Task/Port, set `:up` until that port exits or `x`. That is not
 the listener, not ready, not a server started in another terminal.
 `sh -c` plus killing the Task often kills the shell and **leaves the
-real server** (bad kill). Occupancy after `x` detects that;
-process-group / listener-pid kill is the repair.
+real server** (bad kill). Occupancy after `x` detects that; owning and
+stopping a process group is the repair.
 
 **Do not** grep `ps` for the command line (two projects, rewritten
 argv, BEAM). **Do** keep the OS pid of *our* spawn: gone → we are
@@ -316,7 +323,47 @@ lobby is start-if-down, and the same `s` restarts when already up.
 Restart should wait until the port is free (or a short timeout) before
 spawn.
 
-**Continuum to build later** (not before the failure box): (1) our
-job + exit, (2) LISTEN on the browser port, (3) after `x` if still
-LISTEN then kill listener pid/group, (4) optional splash at start if
-busy and unmanaged. Skip command-line `ps` matching. Skip GET `/`.
+### Code phases
+
+Keep these as separate commits/checkpoints; do not land one opaque
+lifecycle rewrite.
+
+1. **Remove the Python default and build deterministic fixtures.**
+   Make `server:` optional in config and state. Show `not configured`
+   and make `s` / `x` no-ops when absent; make `b` conditional on a
+   configured `browser:`. Replace `proj1`’s Python command with a tiny
+   foreground Elixir HTTP/TCP script. Do not give `ruby_calc` a server
+   unless its demonstration needs one. Add test-only Elixir fixtures:
+   a TCP listener that prints `READY`, a parent/child process tree, and
+   a process that ignores TERM. Use unique ephemeral ports.
+
+2. **Own and stop the process tree.** Introduce a supervised
+   `Tidex.ServerJob` separate from generic test/Git commands. Store the
+   Port, OS pid, process-group id, and generation ref. Launch the
+   foreground command in a new process group. `stop` sends TERM to that
+   group, waits, escalates to KILL, reaps the Port, and returns a
+   confirmed result. The cross-platform launcher must explicitly cover
+   Linux and macOS; do not assume Linux `setsid` exists everywhere.
+   Document that daemonizing/double-forking commands are unsupported.
+
+3. **Make lifecycle state truthful.** Add `starting`, `up`, `down`, and
+   `stop failed` transitions. Do not display `down` until stop is
+   confirmed. Make stop idempotent. Restart is confirmed stop followed
+   by start; stale output/exit messages from an older generation cannot
+   alter the new job. Test natural exit, TERM, KILL escalation, quit
+   cleanup, repeated stop, and rapid restart.
+
+4. **Add conservative port awareness.** Parse a local TCP port from
+   `browser:` when possible. Detect free/listening before start and
+   after stop. A live owned job with a closed port is `starting`; a
+   listener is occupancy, not application health. If the port was
+   already occupied, report `busy, unmanaged` and do not start or kill
+   it. If it remains occupied after stopping our group, report an
+   orphan/stop failure. Do not use `ps | grep`, and never automatically
+   kill an arbitrary listener pid.
+
+5. **Real-platform acceptance.** Run the lifecycle suite plus manual
+   start/restart/stop/quit checks on Linux and macOS. Verify no process
+   remains and the port is immediately reusable. Keep Docker, remote
+   URLs, HTTP health checks, and unmanaged-process kill prompts outside
+   this repair.
