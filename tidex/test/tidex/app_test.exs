@@ -378,8 +378,8 @@ defmodule Tidex.AppTest do
     assert length(app.state.failures) == 2
     assert app.state.overlay == nil
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  fail     2 fail"
-    assert visible =~ "f  fail"
+    assert visible =~ "Test fail · 2 fail"
+    assert visible =~ "f  view failures"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute visible =~ "test · fail"
@@ -397,12 +397,12 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :line, "  1) test Foo.bar/1 (FooTest)"})
     assert length(app.state.failures) == 1
     assert app.state.test_state == :running
-    assert FakeTerminal.visible(out) =~ "running  1 fail"
+    assert FakeTerminal.visible(out) =~ "running · 1 fail"
 
     {:cont, app} = App.step(app, {:command, ref, :line, "     test/foo_test.exs:12"})
     {:cont, app} = App.step(app, {:command, ref, :line, "  2) test boom (FooTest)"})
     assert length(app.state.failures) == 2
-    assert FakeTerminal.visible(out) =~ "running  2 fail"
+    assert FakeTerminal.visible(out) =~ "running · 2 fail"
     refute FakeTerminal.visible(out) =~ "test boom"
   end
 
@@ -438,7 +438,7 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :pass
     assert app.state.failures == []
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
+    assert visible =~ "Test pass"
     refute visible =~ "2 fail"
   end
 
@@ -457,7 +457,7 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :running
     assert app.state.test_ref == ref
     visible = FakeTerminal.visible(out)
-    assert visible =~ "running  0 fail"
+    assert visible =~ "Test running"
     refute visible =~ "test · running"
   end
 
@@ -478,7 +478,7 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
+    assert visible =~ "Test pass"
     refute visible =~ "one"
     refute visible =~ "test · pass"
   end
@@ -491,8 +491,8 @@ defmodule Tidex.AppTest do
 
     assert app.state.test_state == :fail
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  fail"
-    refute visible =~ "t  running"
+    assert visible =~ "Test fail"
+    refute visible =~ "Test running"
     refute visible =~ "test · fail"
   end
 
@@ -503,7 +503,9 @@ defmodule Tidex.AppTest do
     assert_receive {:started, "server", _notify, ref, pid}
     assert app.state.overlay == nil
     assert app.state.server_state == :up
-    assert FakeTerminal.visible(out) =~ "s  up"
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "Server up"
+    assert visible =~ "s  restart"
 
     {:cont, app} = App.step(app, {:command, ref, :line, "listening"})
     assert app.state.server_log == ["listening"]
@@ -538,8 +540,9 @@ defmodule Tidex.AppTest do
     refute Process.alive?(pid)
     assert app.state.server_state == :down
     visible = FakeTerminal.visible(out)
-    assert visible =~ "s  down"
-    refute visible =~ "s  up"
+    assert visible =~ "Server down"
+    assert visible =~ "s  start"
+    refute visible =~ "Server up"
   end
 
   test "a failed stop remains tracked and blocks restart" do
@@ -921,8 +924,9 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.server_state == :down
     visible = FakeTerminal.visible(out)
-    assert visible =~ "s  down"
-    refute visible =~ "s  up"
+    assert visible =~ "Server down"
+    assert visible =~ "s  start"
+    refute visible =~ "Server up"
   end
 
   test "editor stops the current keyboard and starts a new one" do

@@ -45,7 +45,7 @@ defmodule Tidex.ViewTest do
     {output, state} = render(modal: modal, width: 40, height: 20)
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
-    assert visible =~ "t  idle"
+    assert visible =~ "Test idle"
     assert visible =~ "modal-body-unique"
     assert visible =~ "esc back"
     assert visible =~ "demo"
@@ -83,19 +83,22 @@ defmodule Tidex.ViewTest do
     refute visible =~ "test start"
     refute visible =~ "xstop"
     refute visible =~ "?help"
-    assert visible =~ "t  idle"
-    assert visible =~ "s  down"
-    assert visible =~ "f  fail"
+    assert visible =~ "Test idle"
+    assert visible =~ "t  run tests"
+    assert visible =~ "Server down"
+    assert visible =~ "s  start"
+    assert visible =~ "f  view failures"
     assert visible =~ "x  stop"
-    assert visible =~ "b  browse"
-    assert visible =~ "g  (no repository)"
+    assert visible =~ "b  open browser"
+    assert visible =~ "Git no repository"
+    assert visible =~ "g  open git"
     assert visible =~ "0  tidex.conf"
     assert visible =~ "?  help"
     assert visible =~ "q  quit"
     refute visible =~ "layout"
     assert output =~ "\e[1mt"
-    assert output =~ "\e[7midle   \e[0m"
-    assert output =~ "\e[7mdown   \e[0m"
+    assert output =~ "\e[7midle\e[0m"
+    assert output =~ "\e[7mdown\e[0m"
   end
 
   test "NO_COLOR keeps status alignment without reverse video" do
@@ -106,8 +109,8 @@ defmodule Tidex.ViewTest do
     refute output =~ "\e[2m"
     refute output =~ "\e[96m"
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  idle"
-    assert visible =~ "s  down"
+    assert visible =~ "Test idle"
+    assert visible =~ "Server down"
     assert visible =~ "help"
   end
 
@@ -124,29 +127,32 @@ defmodule Tidex.ViewTest do
     assert output =~ "Test"
   end
 
-  test "shows aligned reverse-video test and server statuses" do
+  test "separates reverse-video statuses in headings from keyed actions" do
     {output, _} = render(test_state: :running)
     assert output =~ "\e[7mrunning\e[0m"
-    assert Termex.ANSI.strip(output) =~ "t  running  0 fail"
+    assert Termex.ANSI.strip(output) =~ "Test running"
+    assert Termex.ANSI.strip(output) =~ "t  run tests"
 
     {output, _} = render(test_state: :pass)
-    assert output =~ "\e[7mpass   \e[0m"
-    assert Termex.ANSI.strip(output) =~ "t  pass"
+    assert output =~ "\e[7mpass\e[0m"
+    assert Termex.ANSI.strip(output) =~ "Test pass"
 
     {output, _} = render(test_state: :fail)
-    assert output =~ "\e[7mfail   \e[0m"
-    assert Termex.ANSI.strip(output) =~ "t  fail"
+    assert output =~ "\e[7mfail\e[0m"
+    assert Termex.ANSI.strip(output) =~ "Test fail"
 
     {output, _} = render(server_state: :up)
-    assert output =~ "\e[7mup     \e[0m"
-    assert Termex.ANSI.strip(output) =~ "s  up"
+    assert output =~ "\e[7mup\e[0m"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Server up"
+    assert visible =~ "s  restart"
   end
 
   test "shows git branch, dirty, and untracked on their own lines; omits zeros" do
     {output, _} = render(git: %{branch: "main", dirty: 3, untracked: 2})
-    assert output =~ "main"
-    assert output =~ "3 dirty"
-    assert output =~ "2 untracked"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Git main · 3 dirty · 2 untracked"
+    assert visible =~ "g  open git"
 
     {output, _} = render(git: %{branch: "main", dirty: 0, untracked: 2})
     assert output =~ "2 untracked"
@@ -178,7 +184,7 @@ defmodule Tidex.ViewTest do
 
   test "shows (no repository) when git has no branch" do
     {output, _} = render(git: %{branch: nil, dirty: 0, untracked: 0})
-    assert output =~ "(no repository)"
+    assert Termex.ANSI.strip(output) =~ "Git no repository"
     refute output =~ "git:     —"
   end
 
@@ -188,9 +194,9 @@ defmodule Tidex.ViewTest do
 
     assert visible =~ "Server"
     assert visible =~ "not configured"
-    refute visible =~ "s  down"
+    refute visible =~ "s  start"
     refute visible =~ "x  stop"
-    refute visible =~ "b  browse"
+    refute visible =~ "b  open browser"
   end
 
   test "lobby shows a fail count, not the failure body" do
@@ -200,9 +206,9 @@ defmodule Tidex.ViewTest do
 
     {output, _} = render(test_state: :fail, failures: failures)
     visible = Termex.ANSI.strip(output)
-    assert output =~ "\e[7mfail   \e[0m"
-    assert visible =~ "t  fail     1 fail"
-    assert visible =~ "f  fail"
+    assert output =~ "\e[7mfail · 1 fail\e[0m"
+    assert visible =~ "Test fail · 1 fail"
+    assert visible =~ "f  view failures"
     refute visible =~ "test Foo"
     refute visible =~ "foo_test.exs"
     refute visible =~ "left behind"
@@ -290,8 +296,8 @@ defmodule Tidex.ViewTest do
       )
 
     visible = Termex.ANSI.strip(output)
-    assert visible =~ "t  fail     1 fail"
-    assert visible =~ "f  fail"
+    assert visible =~ "Test fail · 1 fail"
+    assert visible =~ "f  view failures"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute output =~ "test · fail"
@@ -319,7 +325,7 @@ defmodule Tidex.ViewTest do
     {output, state} = render(Keyword.put(state_opts, :modal, modal))
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
-    assert visible =~ "t  fail     1 fail"
+    assert visible =~ "Test fail · 1 fail"
     assert visible =~ "test Foo.bar/1 (FooTest)"
     assert visible =~ "test/foo_test.exs:12"
     assert visible =~ "Assertion with == failed"

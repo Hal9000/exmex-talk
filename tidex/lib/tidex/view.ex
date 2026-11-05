@@ -3,8 +3,6 @@ defmodule Tidex.View do
 
   alias Tidex.{Layout, Modal, Setup, State}
 
-  @status_width 7
-
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
     Termex.hide_cursor(device)
@@ -74,35 +72,48 @@ defmodule Tidex.View do
   end
 
   defp test_lines(state) do
-    ["Test", test_status_line(state), key("f", "fail")]
+    [
+      section_heading("Test", test_status(state)),
+      key("t", "run tests"),
+      key("f", "view failures")
+    ]
   end
 
-  defp test_status_line(%{test_state: :idle}), do: status_key("t", "idle")
+  defp test_status(%{test_state: :idle}), do: "idle"
 
-  defp test_status_line(%{test_state: :running, failures: failures}),
-    do: status_key("t", "running", "#{length(failures)} fail")
+  defp test_status(%{test_state: :running, failures: []}), do: "running"
 
-  defp test_status_line(%{test_state: :pass}), do: status_key("t", "pass")
+  defp test_status(%{test_state: :running, failures: failures}),
+    do: "running · #{length(failures)} fail"
 
-  defp test_status_line(%{test_state: :fail, failures: []}), do: status_key("t", "fail")
+  defp test_status(%{test_state: :pass}), do: "pass"
 
-  defp test_status_line(%{test_state: :fail, failures: failures}),
-    do: status_key("t", "fail", "#{length(failures)} fail")
+  defp test_status(%{test_state: :fail, failures: []}), do: "fail"
+
+  defp test_status(%{test_state: :fail, failures: failures}),
+    do: "fail · #{length(failures)} fail"
 
   defp server_lines(%{server_command: command})
        when not is_binary(command) or command == "" do
-    ["Server", "   not configured"]
+    ["Server", Termex.reverse("not configured")]
   end
 
   defp server_lines(state) do
-    lines = ["Server", status_key("s", server_status(state.server_state)), key("x", "stop")]
+    lines = [
+      section_heading("Server", server_status(state.server_state)),
+      key("s", server_action(state.server_state)),
+      key("x", "stop")
+    ]
 
     if is_binary(state.browser_url) and state.browser_url != "" do
-      lines ++ [key("b", "browse")]
+      lines ++ [key("b", "open browser")]
     else
       lines
     end
   end
+
+  defp server_action(status) when status in [:starting, :up, :stop_failed], do: "restart"
+  defp server_action(_status), do: "start"
 
   defp server_status(:start_failed), do: "start failed"
   defp server_status(:stop_failed), do: "stop failed"
@@ -110,17 +121,21 @@ defmodule Tidex.View do
   defp server_status(status), do: to_string(status)
 
   defp git_lines(%{branch: nil}) do
-    ["Git", key("g", "(no repository)")]
+    [section_heading("Git", "no repository"), key("g", "open git")]
   end
 
   defp git_lines(git) do
-    ["Git", key("g", git.branch)]
-    |> append_count(Map.get(git, :dirty, 0), "dirty")
-    |> append_count(Map.get(git, :untracked, 0), "untracked")
+    status =
+      [git.branch]
+      |> append_count(Map.get(git, :dirty, 0), "dirty")
+      |> append_count(Map.get(git, :untracked, 0), "untracked")
+      |> Enum.join(" · ")
+
+    [section_heading("Git", status), key("g", "open git")]
   end
 
   defp append_count(lines, n, _label) when n in [0, nil], do: lines
-  defp append_count(lines, n, label), do: lines ++ ["   #{n} #{label}"]
+  defp append_count(lines, n, label), do: lines ++ ["#{n} #{label}"]
 
   defp file_lines(files) do
     rows =
@@ -172,8 +187,5 @@ defmodule Tidex.View do
 
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 
-  defp status_key(letter, status, detail \\ nil) do
-    line = key(letter, status |> String.pad_trailing(@status_width) |> Termex.reverse())
-    if detail, do: line <> "  " <> detail, else: line
-  end
+  defp section_heading(title, status), do: title <> " " <> Termex.reverse(status)
 end

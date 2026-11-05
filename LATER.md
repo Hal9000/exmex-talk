@@ -30,14 +30,14 @@ screen with a 1-line menu outside the border.
 
 **Not modal:** Test and Server groups. They update in place.
 
-**Hotkey line:** `s  down` means key `s` plus **status** `down`, not a
-command named down. The same helper draws verbs (`x  stop`) and status
-(`t  idle`, `g  main`). Confusing. Change later, not now.
+**Lobby labels:** section headings report state in reverse video
+(`Test idle`, `Server down`, `Git main`). Keyed rows contain actions
+only (`t  run tests`, `s  start`, `g  open git`).
 
 **Test line:** idle → running → pass/fail. `N` updates as configured
 ExUnit or Minitest failure headers stream (`Tidex.Failures` on each log
 line). A failed run with no parsed blocks still reports `fail`.
-`f  fail` opens the box.
+`f  view failures` opens the box.
 
 **Files:** `0  tidex.conf`, then `1`–`4`.
 
@@ -234,8 +234,7 @@ Realtime updates to the **Server portion of the lobby** are the
 feature. Not a second screen. Do not dump `server:` stdout into that
 group (the log can still be accumulated, unseen).
 
-**Standing** (until the situation changes), extra lines like git
-`dirty` / `untracked`:
+**Standing** (until the situation changes), in the section heading:
 
 - Status: `down`, `up`, `starting` (job alive, not listening yet).
 - Error: job exited, `stop failed`, leftover listener after `x`.
@@ -243,7 +242,7 @@ group (the log can still be accumulated, unseen).
 
 **Flash** (~3 seconds, then gone): purely informational. “started”,
 “already down”, “restarted”. Not a substitute for standing status —
-`s  up` stays after “started” fades.
+`Server up` stays after “started” fades.
 
 Three seconds is a guess. Needs a timer (`Process.send_after` →
 redraw). Git polls already wake the UI; this is a one-shot, not a

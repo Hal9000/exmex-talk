@@ -63,11 +63,11 @@ unmanaged listener (`port busy`), and never kills a process it did not
 create. Commands that daemonize or detach into a new session are not
 supported.
 
-The lobby bolds the key letter next to each command (`t  idle`,
-`s  down`, `0  tidex.conf`, …). Test and Server statuses use aligned
-reverse-video fields. Modal frames use bright cyan as an active-layer
-accent, and the lobby dims behind an open modal. `NO_COLOR` removes
-these treatments while preserving alignment.
+The lobby keeps state in reverse-video section headings (`Test pass`,
+`Server down`, `Git main`) and reserves keyed rows for actions
+(`t  run tests`, `s  start`, `g  open git`). Modal frames use bright
+cyan as an active-layer accent, and the lobby dims behind an open
+modal. `NO_COLOR` removes these treatments.
 
 ```bash
 cd tidex
