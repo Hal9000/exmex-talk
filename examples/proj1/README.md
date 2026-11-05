@@ -13,4 +13,5 @@ cd ../examples/proj1
 ```
 
 The command uses its current directory, so that opens this project. `0`
-edits this `tidex.conf`.
+edits this `tidex.conf`. Its configured server is the foreground
+`server.exs` Elixir script; the fixture has no Python dependency.

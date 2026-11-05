@@ -14,6 +14,13 @@ defmodule Tidex.AppTest do
   defp app(opts) do
     {device, out} = FakeTerminal.open()
 
+    project_defaults =
+      if Keyword.has_key?(opts, :cwd) or Keyword.has_key?(opts, :config) do
+        []
+      else
+        [server_command: "server", browser_url: "http://localhost:4000"]
+      end
+
     app =
       App.new(
         Keyword.merge(
@@ -22,10 +29,13 @@ defmodule Tidex.AppTest do
             runner: fake_runner(),
             editor_runner: fn _ -> :ok end,
             browser_runner: fn url -> send(self(), {:browser, url}) end,
+            server_probe: fn _url -> :unsupported end,
+            server_waiter: fn _url -> :unsupported end,
+            probe_scheduler: fn _message, _delay -> :ok end,
             width: 40,
             height: 20,
             keys: :none
-          ],
+          ] ++ project_defaults,
           opts
         )
       )
@@ -48,6 +58,16 @@ defmodule Tidex.AppTest do
     assert output =~ "Tidex · exmex-talk"
     assert output =~ "\e[?25h"
     assert output =~ "tidex stopped"
+  end
+
+  test "shutdown reports a server cleanup failure" do
+    pid = spawn(fn -> Process.sleep(:infinity) end)
+    {app, out} = app(server_stopper: fn ^pid -> {:error, :still_running} end)
+    app = %{app | state: %{app.state | server_pid: pid}}
+
+    assert :ok = App.shutdown(app)
+    assert FakeTerminal.text(out) =~ "tidex stopped; server cleanup failed"
+    Process.exit(pid, :kill)
   end
 
   test "unknown keys are ignored" do
@@ -477,10 +497,10 @@ defmodule Tidex.AppTest do
   end
 
   test "s starts the server directly from the lobby and retains its output" do
-    {app, out} = app(server_command: "python3 -m http.server 4000")
+    {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
 
-    assert_receive {:started, "python3 -m http.server 4000", _notify, ref, pid}
+    assert_receive {:started, "server", _notify, ref, pid}
     assert app.state.overlay == nil
     assert app.state.server_state == :up
     assert FakeTerminal.visible(out) =~ "s  up"
@@ -522,10 +542,158 @@ defmodule Tidex.AppTest do
     refute visible =~ "s  up"
   end
 
+  test "a failed stop remains tracked and blocks restart" do
+    parent = self()
+
+    stopper = fn pid ->
+      send(parent, {:stop_attempt, pid})
+      {:error, :still_running}
+    end
+
+    {app, out} =
+      app(
+        runner: fake_runner(parent),
+        server_stopper: stopper,
+        server_command: "server"
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+
+    {:cont, app} = App.step(app, {:key, "x"})
+    assert_receive {:stop_attempt, ^pid}
+    assert app.state.server_state == :stop_failed
+    assert app.state.server_pid == pid
+    assert app.state.server_ref == ref
+    assert FakeTerminal.visible(out) =~ "stop failed"
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:stop_attempt, ^pid}
+    refute_receive {:started, "server", _, _, _}
+    assert app.state.server_state == :stop_failed
+    Process.exit(pid, :kill)
+  end
+
+  test "a server launch error is visible instead of crashing Tidex" do
+    server_runner = fn _command, _notify, _ref -> {:error, :enoent} end
+    {app, out} = app(server_runner: server_runner, server_command: "server")
+
+    {:cont, app} = App.step(app, {:key, "s"})
+
+    assert app.state.server_state == :start_failed
+    assert app.state.server_pid == nil
+    assert app.state.server_ref == nil
+    assert FakeTerminal.visible(out) =~ "start failed"
+  end
+
+  test "a stale server exit cannot mark a restarted server down" do
+    parent = self()
+    {app, _out} = app(runner: fake_runner(parent), server_command: "server")
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, old_ref, _old_pid}
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, new_ref, new_pid}
+
+    {:cont, app} = App.step(app, {:command, old_ref, :exit, 143})
+
+    assert app.state.server_state == :up
+    assert app.state.server_ref == new_ref
+    assert app.state.server_pid == new_pid
+    Process.exit(new_pid, :kill)
+  end
+
   test "b launches the browser url" do
     {app, _out} = app(browser_url: "http://localhost:4000")
     {:cont, _app} = App.step(app, {:key, "b"})
     assert_receive {:browser, "http://localhost:4000"}
+  end
+
+  test "server and browser keys are disabled when they are not configured" do
+    runner = fn _command, _notify, _ref -> flunk("server should not start") end
+    browser = fn _url -> flunk("browser should not open") end
+
+    {app, _out} =
+      app(
+        server_command: nil,
+        browser_url: nil,
+        runner: runner,
+        browser_runner: browser
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    {:cont, app} = App.step(app, {:key, "x"})
+    {:cont, app} = App.step(app, {:key, "b"})
+
+    assert app.state.server_state == :down
+    assert app.state.server_pid == nil
+  end
+
+  test "an unmanaged listener blocks start without being killed" do
+    runner = fn _command, _notify, _ref -> flunk("busy port should block start") end
+
+    {app, out} =
+      app(
+        runner: runner,
+        server_command: "server",
+        server_probe: fn _url -> :listening end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+
+    assert app.state.server_state == :port_busy
+    assert app.state.server_pid == nil
+    assert FakeTerminal.visible(out) =~ "port busy"
+
+    {:cont, app} = App.step(app, {:key, "x"})
+    assert app.state.server_state == :port_busy
+  end
+
+  test "a local listener moves the tracked server from starting to up" do
+    {:ok, probe} = Agent.start_link(fn -> [:closed, :closed, :listening] end)
+
+    probe_fun = fn _url ->
+      Agent.get_and_update(probe, fn [status | rest] -> {status, rest} end)
+    end
+
+    {app, _out} =
+      app(
+        server_command: "server",
+        server_probe: probe_fun,
+        probe_scheduler: fn _message, _delay -> :ok end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+    assert app.state.server_state == :starting
+
+    {:cont, app} = App.step(app, {:server_probe, ref})
+    assert app.state.server_state == :up
+    Process.exit(pid, :kill)
+  end
+
+  test "a listener left after confirmed stop is reported as a stop failure" do
+    {:ok, probe} = Agent.start_link(fn -> [:closed, :unsupported] end)
+
+    probe_fun = fn _url ->
+      Agent.get_and_update(probe, fn [status | rest] -> {status, rest} end)
+    end
+
+    {app, _out} =
+      app(
+        server_command: "server",
+        server_probe: probe_fun,
+        server_waiter: fn _url -> :listening end
+      )
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, _, _pid}
+
+    {:cont, app} = App.step(app, {:key, "x"})
+
+    assert app.state.server_state == :stop_failed
+    assert app.state.server_pid == nil
+    assert app.state.server_ref == nil
   end
 
   test "e does nothing on the lobby" do

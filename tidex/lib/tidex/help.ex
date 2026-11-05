@@ -33,8 +33,9 @@ defmodule Tidex.Help do
       summary: "start, stop, browse",
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
+        "If server is omitted, the lobby says not configured and server keys do nothing. Tidex does not assume that Python or another language runtime is installed.",
         "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop and b to open the configured URL.",
-        "Server output is retained but does not replace the lobby. The up status currently means the tracked job is alive; listener readiness is not yet probed."
+        "For a local browser URL, starting means the owned job is alive but the port is closed; up means it is listening. A pre-existing listener is reported as port busy and is never killed."
       ]
     },
     %{

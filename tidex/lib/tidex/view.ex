@@ -89,9 +89,25 @@ defmodule Tidex.View do
   defp test_status_line(%{test_state: :fail, failures: failures}),
     do: status_key("t", "fail", "#{length(failures)} fail")
 
-  defp server_lines(state) do
-    ["Server", status_key("s", "#{state.server_state}"), key("x", "stop"), key("b", "browse")]
+  defp server_lines(%{server_command: command})
+       when not is_binary(command) or command == "" do
+    ["Server", "   not configured"]
   end
+
+  defp server_lines(state) do
+    lines = ["Server", status_key("s", server_status(state.server_state)), key("x", "stop")]
+
+    if is_binary(state.browser_url) and state.browser_url != "" do
+      lines ++ [key("b", "browse")]
+    else
+      lines
+    end
+  end
+
+  defp server_status(:start_failed), do: "start failed"
+  defp server_status(:stop_failed), do: "stop failed"
+  defp server_status(:port_busy), do: "port busy"
+  defp server_status(status), do: to_string(status)
 
   defp git_lines(%{branch: nil}) do
     ["Git", key("g", "(no repository)")]

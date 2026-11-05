@@ -5,6 +5,7 @@ defmodule Tidex.Application do
   @impl Application
   def start(_type, _args) do
     children = [
+      {Tidex.ExecPort, []},
       {DynamicSupervisor, name: Tidex.Workers, strategy: :one_for_one},
       {Tidex.Git, []}
     ]

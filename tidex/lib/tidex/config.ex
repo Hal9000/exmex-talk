@@ -24,8 +24,8 @@ defmodule Tidex.Config do
   defstruct project: "tidex",
             test: "mix test",
             test_format: :exunit,
-            server: "python3 -m http.server 4000",
-            browser: "http://localhost:4000",
+            server: nil,
+            browser: nil,
             editor: "vi",
             files: %{}
 
@@ -33,8 +33,8 @@ defmodule Tidex.Config do
           project: String.t(),
           test: String.t(),
           test_format: :exunit | :minitest | :none,
-          server: String.t(),
-          browser: String.t(),
+          server: String.t() | nil,
+          browser: String.t() | nil,
           editor: String.t(),
           files: %{optional(1..4) => String.t()}
         }
@@ -63,8 +63,6 @@ defmodule Tidex.Config do
       project: default_project(cwd),
       test: default_test_command(cwd),
       test_format: default_test_format(cwd),
-      server: "python3 -m http.server 4000",
-      browser: "http://localhost:4000",
       editor: default_editor()
     }
   end
@@ -173,10 +171,11 @@ defmodule Tidex.Config do
     project: #{config.project}
     test: #{config.test}
     test_format: #{config.test_format}
-    server: #{config.server}
-    browser: #{config.browser}
-    # editor falls back to ~/.tidex, then $VISUAL / $EDITOR / vi
-    """ <> dump_files(config.files)
+    """ <>
+      dump_optional("server", config.server) <>
+      dump_optional("browser", config.browser) <>
+      "# editor falls back to ~/.tidex, then $VISUAL / $EDITOR / vi\n" <>
+      dump_files(config.files)
   end
 
   defp dump_files(files) when files == %{}, do: ""
@@ -186,6 +185,9 @@ defmodule Tidex.Config do
     |> Enum.filter(&Map.has_key?(files, &1))
     |> Enum.map_join("", fn n -> "file#{n}: #{files[n]}\n" end)
   end
+
+  defp dump_optional(_key, nil), do: ""
+  defp dump_optional(key, value), do: "#{key}: #{value}\n"
 
   defp with_detected_files(config, dir) do
     %{config | files: detect_files(dir)}

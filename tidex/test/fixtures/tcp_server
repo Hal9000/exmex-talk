@@ -1,0 +1,18 @@
+port =
+  case System.argv() do
+    [value] -> String.to_integer(value)
+    _ -> raise "usage: elixir tcp_server PORT"
+  end
+
+{:ok, listener} =
+  :gen_tcp.listen(port, [:binary, packet: :raw, active: false, reuseaddr: true])
+
+IO.puts("READY #{port}")
+
+accept = fn accept ->
+  {:ok, socket} = :gen_tcp.accept(listener)
+  :gen_tcp.close(socket)
+  accept.(accept)
+end
+
+accept.(accept)

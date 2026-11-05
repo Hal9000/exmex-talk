@@ -18,8 +18,10 @@ a one-line footer separated
 from the body by a horizontal rule; they are centered and use the same
 bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
-directory): `project`, `test`, `test_format`, `server`, `browser`, `editor`, and
-optional `file1`–`file4`. Missing `project` defaults to that
+directory): `project`, `test`, `test_format`, optional `server` /
+`browser`, `editor`, and optional `file1`–`file4`. Without `server`,
+the lobby reports `not configured` and disables server controls rather
+than assuming Python or another runtime. Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
 `go.mod` when those names exist in that directory. `~/.tidex/tidex.conf`
@@ -53,6 +55,14 @@ Tidex should not parse. The configured `test:` command remains the
 source of truth; this is deliberately not a language/plugin framework.
 [`examples/ruby_calc`](../examples/ruby_calc) is the small Ruby fixture.
 
+Tidex launches a configured server as a foreground command in its own
+OS process group. Stop, restart, and quit send TERM to the owned group
+and escalate to KILL when necessary. For local `browser:` URLs the
+lobby shows `starting` until the port listens, refuses to start over an
+unmanaged listener (`port busy`), and never kills a process it did not
+create. Commands that daemonize or detach into a new session are not
+supported.
+
 The lobby bolds the key letter next to each command (`t  idle`,
 `s  down`, `0  tidex.conf`, …). Test and Server statuses use aligned
 reverse-video fields. Modal frames use bright cyan as an active-layer
@@ -67,6 +77,11 @@ mix escript.build
 cd ../examples/proj1
 ../../tidex/tidex
 ```
+
+Building Tidex compiles erlexec's small native process manager and
+therefore requires `make` and a C++ compiler. The resulting escript
+embeds and materializes the helper for the platform on which it was
+built.
 
 `mix test` tests Tidex. The built `tidex` command needs a real TTY and
 uses the current directory by default. Pass a path to operate on another

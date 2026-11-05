@@ -19,7 +19,13 @@ defmodule Tidex.ViewTest do
 
     state =
       struct(
-        %State{width: 40, height: 20, project_name: "exmex-talk"},
+        %State{
+          width: 40,
+          height: 20,
+          project_name: "exmex-talk",
+          server_command: "server",
+          browser_url: "http://localhost:4000"
+        },
         state_overrides
       )
 
@@ -174,6 +180,17 @@ defmodule Tidex.ViewTest do
     {output, _} = render(git: %{branch: nil, dirty: 0, untracked: 0})
     assert output =~ "(no repository)"
     refute output =~ "git:     —"
+  end
+
+  test "shows an unconfigured server without advertising disabled keys" do
+    {output, _state} = render(server_command: nil, browser_url: nil)
+    visible = Termex.ANSI.strip(output)
+
+    assert visible =~ "Server"
+    assert visible =~ "not configured"
+    refute visible =~ "s  down"
+    refute visible =~ "x  stop"
+    refute visible =~ "b  browse"
   end
 
   test "lobby shows a fail count, not the failure body" do

@@ -7,8 +7,8 @@ defmodule Tidex.State do
             server_state: :down,
             test_command: "mix test",
             test_format: :exunit,
-            server_command: "python3 -m http.server 4000",
-            browser_url: "http://localhost:4000",
+            server_command: nil,
+            browser_url: nil,
             editor_command: "vi",
             output_lines: [],
             output_scroll: :follow,
@@ -36,7 +36,8 @@ defmodule Tidex.State do
             height: 24
 
   @type test_status :: :idle | :running | :pass | :fail
-  @type server_status :: :up | :down
+  @type server_status ::
+          :starting | :up | :down | :start_failed | :stop_failed | :port_busy
   @type overlay :: nil | :setup
 
   @type t :: %__MODULE__{
@@ -46,8 +47,8 @@ defmodule Tidex.State do
           server_state: server_status(),
           test_command: String.t(),
           test_format: :exunit | :minitest | :none,
-          server_command: String.t(),
-          browser_url: String.t(),
+          server_command: String.t() | nil,
+          browser_url: String.t() | nil,
           editor_command: String.t(),
           output_lines: [String.t()],
           output_scroll: Tidex.Scroll.t(),
