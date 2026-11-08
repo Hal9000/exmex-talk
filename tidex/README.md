@@ -46,7 +46,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `?` | show/hide help |
 | `i` | show a compact Git branch and change-count summary |
 | `g` | show/hide the full Git status box |
-| `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
+| `a` / `l` / `c` / `p` | add (`-u`) / pull (`--ff-only`) / one-line commit / push (while Git is open) |
 | `esc` | close the current box |
 | `q` | quit |
 
