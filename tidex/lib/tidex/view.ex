@@ -44,7 +44,7 @@ defmodule Tidex.View do
     draw_test_quadrant(device, q.test, state)
     draw_server_quadrant(device, q.server, state)
     draw_files_quadrant(device, q.files, state)
-    draw_git_quadrant(device, q.git, state.git)
+    draw_git_quadrant(device, q.git, state)
     draw_help(device, q.help_row, q.help_col)
   end
 
@@ -55,7 +55,14 @@ defmodule Tidex.View do
     body = LobbyLayout.content(pane)
 
     Termex.write_clipped(device, body.row, body.col, body.width, key("t", "Run tests"))
-    Termex.write_clipped(device, body.row + 1, body.col, body.width, key("f", "Step through failures"))
+
+    Termex.write_clipped(
+      device,
+      body.row + 1,
+      body.col,
+      body.width,
+      key("f", "Step through failures")
+    )
 
     write_status_line(
       device,
@@ -100,7 +107,25 @@ defmodule Tidex.View do
     Termex.write_region(device, body.row, body.col, body.width, length(lines), lines)
   end
 
-  defp draw_git_quadrant(device, pane, git) do
+  defp draw_git_quadrant(device, pane, %{git_mode: :off}) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "git")
+    body = LobbyLayout.content(pane)
+
+    Termex.write_clipped(device, body.row, body.col, body.width, "[Git disabled]")
+  end
+
+  defp draw_git_quadrant(
+         device,
+         pane,
+         %{git_mode: :auto, git: %{root: nil, branch: nil}}
+       ) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "git")
+    body = LobbyLayout.content(pane)
+
+    Termex.write_clipped(device, body.row, body.col, body.width, "[No Git repository]")
+  end
+
+  defp draw_git_quadrant(device, pane, %{git: git}) do
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: git_box_title(git))
     body = LobbyLayout.content(pane)
 

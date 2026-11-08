@@ -4,7 +4,7 @@ defmodule Tidex.Config do
 
   Lines are `key: value`. `#` comments and blank lines are ignored.
   Known keys: `project`, `test`, `test_format`, `server`, `browser`, `editor`,
-  and optional `file1`–`file4`. Missing file keys are omitted.
+  `git`, and optional `file1`–`file4`. Missing file keys are omitted.
 
   User defaults live in `~/.tidex/tidex.conf` and are not on that walk.
   A project file wins per key. `editor` falls back to the user file,
@@ -16,7 +16,7 @@ defmodule Tidex.Config do
   """
 
   @filename "tidex.conf"
-  @keys ~w(project test test_format server browser editor file1 file2 file3 file4)
+  @keys ~w(project test test_format server browser editor git file1 file2 file3 file4)
   @file_keys %{"file1" => 1, "file2" => 2, "file3" => 3, "file4" => 4}
   @detect ~w(README.md mix.exs Gemfile Rakefile package.json Cargo.toml go.mod)
   @blocked_exact ~w(/ /tmp /var /private/tmp /private/var)
@@ -27,6 +27,7 @@ defmodule Tidex.Config do
             server: nil,
             browser: nil,
             editor: "vi",
+            git: :auto,
             files: %{}
 
   @type t :: %__MODULE__{
@@ -36,6 +37,7 @@ defmodule Tidex.Config do
           server: String.t() | nil,
           browser: String.t() | nil,
           editor: String.t(),
+          git: :auto | :off,
           files: %{optional(1..4) => String.t()}
         }
 
@@ -174,6 +176,7 @@ defmodule Tidex.Config do
     """ <>
       dump_optional("server", config.server) <>
       dump_optional("browser", config.browser) <>
+      dump_git(config.git) <>
       "# editor falls back to ~/.tidex, then $VISUAL / $EDITOR / vi\n" <>
       dump_files(config.files)
   end
@@ -188,6 +191,9 @@ defmodule Tidex.Config do
 
   defp dump_optional(_key, nil), do: ""
   defp dump_optional(key, value), do: "#{key}: #{value}\n"
+
+  defp dump_git(:off), do: "git: off\n"
+  defp dump_git(:auto), do: ""
 
   defp with_detected_files(config, dir) do
     %{config | files: detect_files(dir)}
@@ -278,6 +284,7 @@ defmodule Tidex.Config do
       server: pick(raw, "server", config.server),
       browser: pick(raw, "browser", config.browser),
       editor: pick(raw, "editor", config.editor),
+      git: git_mode(raw, config.git),
       files: parse_files(raw)
     }
   end
@@ -303,6 +310,14 @@ defmodule Tidex.Config do
       "exunit" -> :exunit
       "minitest" -> :minitest
       "none" -> :none
+      _ -> fallback
+    end
+  end
+
+  defp git_mode(raw, fallback) do
+    case Map.get(raw, "git") do
+      "auto" -> :auto
+      "off" -> :off
       _ -> fallback
     end
   end

@@ -104,6 +104,7 @@ defmodule Tidex.App do
       server_command: Keyword.get(opts, :server_command, config.server),
       browser_url: Keyword.get(opts, :browser_url, config.browser),
       editor_command: Keyword.get(opts, :editor_command, config.editor),
+      git_mode: Keyword.get(opts, :git_mode, config.git),
       git: Keyword.get(opts, :git, Git.empty()),
       overlay: if(setup, do: :setup, else: nil),
       setup: setup,
@@ -402,11 +403,15 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, key}) when key in ["i", "I"] do
-    {:cont, put_state(app, %{overlay: nil, modal: GitInfo.modal(app.state.git)})}
+    if git_available?(app.state) do
+      {:cont, put_state(app, %{overlay: nil, modal: GitInfo.modal(app.state.git)})}
+    else
+      {:cont, app}
+    end
   end
 
   def handle_event(app, {:key, "g"}) do
-    {:cont, open_git_modal(app)}
+    if git_available?(app.state), do: {:cont, open_git_modal(app)}, else: {:cont, app}
   end
 
   def handle_event(app, {:key, key}) when key in ["t", "T"] do
@@ -471,6 +476,8 @@ defmodule Tidex.App do
 
   def handle_event(app, {:server_job, _ref, :cleanup_failed, _reason}), do: {:cont, app}
 
+  def handle_event(%{state: %{git_mode: :off}} = app, {:git, _snapshot}), do: {:cont, app}
+
   def handle_event(app, {:git, snapshot}) when is_map(snapshot) do
     {:cont, app |> put_state(%{git: normalize_git(snapshot)}) |> sync_git_modal()}
   end
@@ -504,7 +511,7 @@ defmodule Tidex.App do
   def attach_keyboard(app), do: app
 
   @doc false
-  def attach_git(%{poll_git: true} = app) do
+  def attach_git(%{poll_git: true, state: %{git_mode: :auto}} = app) do
     git = Process.whereis(Tidex.Git)
 
     if git do
@@ -967,6 +974,7 @@ defmodule Tidex.App do
       server_command: config.server,
       browser_url: config.browser,
       editor_command: config.editor,
+      git_mode: config.git,
       files: config.files,
       config_path: path,
       config_root: root
@@ -979,11 +987,18 @@ defmodule Tidex.App do
 
   defp normalize_git(snapshot) when is_map(snapshot) do
     %{
+      root: Map.get(snapshot, :root),
       branch: Map.get(snapshot, :branch),
       dirty: Map.get(snapshot, :dirty, 0),
       untracked: Map.get(snapshot, :untracked, 0),
       status: Map.get(snapshot, :status, "")
     }
+  end
+
+  defp git_available?(%{git_mode: :off}), do: false
+
+  defp git_available?(%{git_mode: :auto, git: git}) do
+    is_binary(Map.get(git, :root)) or is_binary(Map.get(git, :branch))
   end
 
   defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"

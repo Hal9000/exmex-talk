@@ -7,6 +7,7 @@ defmodule Tidex.Git do
   use GenServer
 
   @type snapshot :: %{
+          root: String.t() | nil,
           branch: String.t() | nil,
           dirty: non_neg_integer(),
           untracked: non_neg_integer(),
@@ -15,8 +16,14 @@ defmodule Tidex.Git do
 
   @spec snapshot(String.t()) :: snapshot()
   def snapshot(cwd \\ File.cwd!()) do
-    case git(["rev-parse", "--abbrev-ref", "HEAD"], cwd) do
-      {:ok, branch} ->
+    case git(["rev-parse", "--show-toplevel"], cwd) do
+      {:ok, root} ->
+        branch =
+          case git(["rev-parse", "--abbrev-ref", "HEAD"], cwd) do
+            {:ok, branch} -> String.trim(branch)
+            :error -> nil
+          end
+
         {dirty, untracked} =
           case git(["status", "--porcelain"], cwd) do
             {:ok, out} -> counts(out)
@@ -30,7 +37,8 @@ defmodule Tidex.Git do
           end
 
         %{
-          branch: String.trim(branch),
+          root: root |> String.trim() |> Path.expand(),
+          branch: branch,
           dirty: dirty,
           untracked: untracked,
           status: status
@@ -43,7 +51,7 @@ defmodule Tidex.Git do
 
   @doc false
   @spec empty() :: snapshot()
-  def empty, do: %{branch: nil, dirty: 0, untracked: 0, status: ""}
+  def empty, do: %{root: nil, branch: nil, dirty: 0, untracked: 0, status: ""}
 
   @doc false
   @spec counts(String.t()) :: {non_neg_integer(), non_neg_integer()}

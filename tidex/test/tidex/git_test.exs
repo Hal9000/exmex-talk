@@ -5,6 +5,7 @@ defmodule Tidex.GitTest do
 
   test "snapshot reads branch, dirty count, and status from this repo" do
     snapshot = Git.snapshot()
+    assert is_binary(snapshot.root)
     assert is_binary(snapshot.branch)
     assert snapshot.branch != ""
     assert is_integer(snapshot.dirty)
@@ -52,12 +53,27 @@ defmodule Tidex.GitTest do
   test "snapshot in a throwaway repo reports a dirty file and status text" do
     in_repo(fn dir ->
       snapshot = Git.snapshot(dir)
+      assert snapshot.root == Path.expand(dir)
       assert snapshot.branch in ["main", "master"]
       assert snapshot.dirty >= 1
       assert snapshot.untracked == 0
       assert snapshot.status =~ "On branch"
       assert snapshot.status =~ "modified" or snapshot.status =~ "Changes not staged"
     end)
+  end
+
+  test "snapshot recognizes a repository before its first commit" do
+    dir = Path.join(System.tmp_dir!(), "tidex-unborn-#{System.unique_integer([:positive])}")
+    File.mkdir_p!(dir)
+
+    try do
+      git!(dir, ["init", "-b", "main"])
+      snapshot = Git.snapshot(dir)
+      assert snapshot.root == Path.expand(dir)
+      assert snapshot.status =~ "No commits yet"
+    after
+      File.rm_rf!(dir)
+    end
   end
 
   test "snapshot splits untracked porcelain from dirty" do

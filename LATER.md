@@ -212,7 +212,7 @@ means something.
 *appearance*, not meat. Do not put them in `tidex.conf`.
 
 - **Meat** (`tidex.conf`): `project`, `test`, `test_format`, `server`,
-  `browser`, `editor`, `file1`–`file4`. How to operate the tree. Walk
+  `browser`, `editor`, `git`, `file1`–`file4`. How to operate the tree. Walk
   from cwd.
 - **Appearance** (`tidex.theme`, name negotiable): colors, later maybe
   box sizes. `~/.tidex/tidex.theme` (defaults) and a file next to the
