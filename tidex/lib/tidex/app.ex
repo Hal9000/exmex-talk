@@ -14,6 +14,7 @@ defmodule Tidex.App do
     Config,
     Failures,
     Git,
+    GitInfo,
     GitModal,
     Help,
     Keyboard,
@@ -328,8 +329,20 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
+  def handle_event(%{state: %{modal: %{kind: :stub}}} = app, {:key, :esc}) do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :stub}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(app, {:key, "?"}) do
     {:cont, open_help_modal(app)}
+  end
+
+  def handle_event(app, {:key, key}) when key in ["i", "I"] do
+    {:cont, put_state(app, %{overlay: nil, modal: GitInfo.modal()})}
   end
 
   def handle_event(app, {:key, "g"}) do

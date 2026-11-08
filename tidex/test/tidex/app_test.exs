@@ -32,8 +32,8 @@ defmodule Tidex.AppTest do
             server_probe: fn _url -> :unsupported end,
             server_waiter: fn _url -> :unsupported end,
             probe_scheduler: fn _message, _delay -> :ok end,
-            width: 40,
-            height: 20,
+            width: 80,
+            height: 24,
             keys: :none
           ] ++ project_defaults,
           opts
@@ -378,8 +378,8 @@ defmodule Tidex.AppTest do
     assert length(app.state.failures) == 2
     assert app.state.overlay == nil
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  fail     2 fail"
-    assert visible =~ "f  fail"
+    assert visible =~ "2 fail"
+    assert visible =~ "Step through failures"
     refute visible =~ "test Foo.bar/1"
     refute visible =~ "Assertion with == failed"
     refute visible =~ "test · fail"
@@ -397,12 +397,13 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :line, "  1) test Foo.bar/1 (FooTest)"})
     assert length(app.state.failures) == 1
     assert app.state.test_state == :running
-    assert FakeTerminal.visible(out) =~ "running  1 fail"
+    assert FakeTerminal.visible(out) =~ "Running"
+    assert FakeTerminal.visible(out) =~ "1 fail"
 
     {:cont, app} = App.step(app, {:command, ref, :line, "     test/foo_test.exs:12"})
     {:cont, app} = App.step(app, {:command, ref, :line, "  2) test boom (FooTest)"})
     assert length(app.state.failures) == 2
-    assert FakeTerminal.visible(out) =~ "running  2 fail"
+    assert FakeTerminal.visible(out) =~ "2 fail"
     refute FakeTerminal.visible(out) =~ "test boom"
   end
 
@@ -438,7 +439,7 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :pass
     assert app.state.failures == []
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
+    assert visible =~ "pass"
     refute visible =~ "2 fail"
   end
 
@@ -457,7 +458,8 @@ defmodule Tidex.AppTest do
     assert app.state.test_state == :running
     assert app.state.test_ref == ref
     visible = FakeTerminal.visible(out)
-    assert visible =~ "running  0 fail"
+    assert visible =~ "Running"
+    refute visible =~ "1 fail"
     refute visible =~ "test · running"
   end
 
@@ -478,7 +480,7 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.test_state == :pass
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  pass"
+    assert visible =~ "pass"
     refute visible =~ "one"
     refute visible =~ "test · pass"
   end
@@ -491,8 +493,8 @@ defmodule Tidex.AppTest do
 
     assert app.state.test_state == :fail
     visible = FakeTerminal.visible(out)
-    assert visible =~ "t  fail"
-    refute visible =~ "t  running"
+    assert visible =~ "Fail"
+    refute visible =~ "Running"
     refute visible =~ "test · fail"
   end
 
@@ -503,7 +505,8 @@ defmodule Tidex.AppTest do
     assert_receive {:started, "server", _notify, ref, pid}
     assert app.state.overlay == nil
     assert app.state.server_state == :up
-    assert FakeTerminal.visible(out) =~ "s  up"
+    assert FakeTerminal.visible(out) =~ "up"
+    refute FakeTerminal.visible(out) =~ "s  up"
 
     {:cont, app} = App.step(app, {:command, ref, :line, "listening"})
     assert app.state.server_log == ["listening"]
@@ -538,7 +541,8 @@ defmodule Tidex.AppTest do
     refute Process.alive?(pid)
     assert app.state.server_state == :down
     visible = FakeTerminal.visible(out)
-    assert visible =~ "s  down"
+    assert visible =~ "down"
+    refute visible =~ "s  down"
     refute visible =~ "s  up"
   end
 
@@ -892,9 +896,18 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4, untracked: 1}})
     assert app.state.git == %{branch: "main", dirty: 4, untracked: 1, status: ""}
     frame = FakeTerminal.last_frame(out)
-    assert frame =~ "main"
     assert frame =~ "4 dirty"
     assert frame =~ "1 untracked"
+    refute frame =~ "main"
+  end
+
+  test "i opens a not-implemented git info modal" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "i"})
+    assert app.state.modal.kind == :stub
+    assert FakeTerminal.visible(out) =~ "Not implemented"
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal == nil
   end
 
   test "stale command lines from a previous run are ignored" do
@@ -921,7 +934,8 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
     assert app.state.server_state == :down
     visible = FakeTerminal.visible(out)
-    assert visible =~ "s  down"
+    assert visible =~ "down"
+    refute visible =~ "s  down"
     refute visible =~ "s  up"
   end
 

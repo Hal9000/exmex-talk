@@ -1,9 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, Modal, Setup, State}
-
-  @status_width 7
+  alias Tidex.{Layout, LobbyLayout, Modal, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -35,100 +33,174 @@ defmodule Tidex.View do
   end
 
   defp render_status(device, state) do
-    rows = status_line_count(state)
-    pane = Layout.lobby(state.width, state.height, rows)
-    inner = Layout.inner(pane)
-    lines = status_lines(state, inner)
+    rows = LobbyLayout.content_rows(state)
+    pane = LobbyLayout.lobby(state.width, state.height, rows)
+    q = LobbyLayout.quadrants(pane)
     title = "#{state.title} · #{state.project_name}"
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
-    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
+
+    draw_test_quadrant(device, q.test, state)
+    draw_server_quadrant(device, q.server, state)
+    draw_files_quadrant(device, q.files, state)
+    draw_git_quadrant(device, q.git, state.git)
+    draw_footer(device, q.footer_row, pane, state)
   end
 
-  defp status_lines(state, inner) do
-    col = max(div(inner.width, 2), 8)
+  defp draw_test_quadrant(device, pane, state) do
+    box_title = titled("Test", test_title_status(state))
 
-    zip_pad(test_lines(state), server_lines(state), col) ++
-      [""] ++
-      zip_pad(git_lines(state.git), file_lines(state.files), col) ++
-      ["", pad(key("?", "help"), col) <> key("q", "quit")]
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: box_title)
+    inner = Layout.inner(pane)
+
+    Termex.write_clipped(device, inner.row, inner.col, inner.width, key("t", "Run tests"))
+    Termex.write_clipped(
+      device,
+      inner.row + 1,
+      inner.col,
+      inner.width,
+      key("f", "Step through failures")
+    )
+
+    write_status_line(
+      device,
+      inner.row + 2,
+      inner.col,
+      inner.width,
+      test_long_status(state)
+    )
   end
 
-  defp status_line_count(state) do
-    max(length(test_lines(state)), length(server_lines(state))) +
-      1 +
-      max(length(git_lines(state.git)), length(file_lines(state.files))) +
-      2
+  defp draw_server_quadrant(device, pane, state) do
+    status = server_title_status(state)
+    box_title = titled("Server", status)
+
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: box_title)
+    inner = Layout.inner(pane)
+
+    lines =
+      if server_configured?(state) do
+        [
+          key("s", "Start/restart"),
+          key("x", "Stop")
+          | if(browser?(state), do: [key("b", "Browse to server")], else: [])
+        ]
+      else
+        [key("s", "Start/restart"), key("x", "Stop")]
+      end
+
+    Termex.write_region(device, inner.row, inner.col, inner.width, length(lines), lines)
   end
 
-  defp zip_pad(left, right, col) do
-    0..(max(length(left), length(right)) - 1)
-    |> Enum.map(fn i ->
-      pad(Enum.at(left, i) || "", col) <> (Enum.at(right, i) || "")
-    end)
+  defp draw_files_quadrant(device, pane, state) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "Edit files")
+    inner = Layout.inner(pane)
+
+    lines =
+      [key("0", "tidex.conf")] ++
+        (1..4
+         |> Enum.filter(&Map.has_key?(state.files, &1))
+         |> Enum.map(fn n -> key("#{n}", state.files[n]) end))
+
+    Termex.write_region(device, inner.row, inner.col, inner.width, length(lines), lines)
   end
 
-  defp pad(text, width) do
-    visible = String.length(Termex.ANSI.strip(text))
-    text <> String.duplicate(" ", max(width - visible, 0))
+  defp draw_git_quadrant(device, pane, git) do
+    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: git_box_title(git))
+    inner = Layout.inner(pane)
+
+    Termex.write_clipped(device, inner.row, inner.col, inner.width, key("i", "More information"))
+    Termex.write_clipped(device, inner.row + 1, inner.col, inner.width, key("g", "Open full pane"))
   end
 
-  defp test_lines(state) do
-    ["Test", test_status_line(state), key("f", "fail")]
+  defp draw_footer(device, row, pane, _state) do
+    inner = Layout.inner(pane)
+    half = max(div(inner.width, 2), 1)
+    line = pad_visible(key("?", "help"), half) <> key("q", "quit")
+    Termex.write_clipped(device, row, inner.col, inner.width, line)
   end
 
-  defp test_status_line(%{test_state: :idle}), do: status_key("t", "idle")
-
-  defp test_status_line(%{test_state: :running, failures: failures}),
-    do: status_key("t", "running", "#{length(failures)} fail")
-
-  defp test_status_line(%{test_state: :pass}), do: status_key("t", "pass")
-
-  defp test_status_line(%{test_state: :fail, failures: []}), do: status_key("t", "fail")
-
-  defp test_status_line(%{test_state: :fail, failures: failures}),
-    do: status_key("t", "fail", "#{length(failures)} fail")
-
-  defp server_lines(%{server_command: command})
-       when not is_binary(command) or command == "" do
-    ["Server", "   not configured"]
+  defp titled(label, status) when status in [nil, ""] do
+    label
   end
 
-  defp server_lines(state) do
-    lines = ["Server", status_key("s", server_status(state.server_state)), key("x", "stop")]
+  defp titled(label, status) do
+    label <> " ─ " <> Termex.reverse(Termex.clip(status, 24))
+  end
 
-    if is_binary(state.browser_url) and state.browser_url != "" do
-      lines ++ [key("b", "browse")]
-    else
-      lines
+  defp test_title_status(%{test_state: :running}), do: "Running"
+  defp test_title_status(%{test_state: :fail}), do: "Fail"
+  defp test_title_status(_), do: ""
+
+  defp test_long_status(%{test_state: :idle}), do: ""
+
+  defp test_long_status(%{test_state: :running, failures: failures}) do
+    case length(failures) do
+      0 -> ""
+      n -> "#{n} fail"
     end
   end
 
-  defp server_status(:start_failed), do: "start failed"
-  defp server_status(:stop_failed), do: "stop failed"
-  defp server_status(:port_busy), do: "port busy"
-  defp server_status(status), do: to_string(status)
+  defp test_long_status(%{test_state: :pass}), do: "pass"
 
-  defp git_lines(%{branch: nil}) do
-    ["Git", key("g", "(no repository)")]
+  defp test_long_status(%{test_state: :fail, failures: []}), do: "fail"
+
+  defp test_long_status(%{test_state: :fail, failures: failures}) do
+    "#{length(failures)} fail"
   end
 
-  defp git_lines(git) do
-    ["Git", key("g", git.branch)]
-    |> append_count(Map.get(git, :dirty, 0), "dirty")
-    |> append_count(Map.get(git, :untracked, 0), "untracked")
+  defp server_title_status(%{server_command: command})
+       when not is_binary(command) or command == "" do
+    "not configured"
   end
 
-  defp append_count(lines, n, _label) when n in [0, nil], do: lines
-  defp append_count(lines, n, label), do: lines ++ ["   #{n} #{label}"]
+  defp server_title_status(%{server_state: status}), do: server_status_label(status)
 
-  defp file_lines(files) do
-    rows =
-      1..4
-      |> Enum.filter(&Map.has_key?(files, &1))
-      |> Enum.map(fn n -> key("#{n}", files[n]) end)
+  defp server_status_label(:start_failed), do: "start failed"
+  defp server_status_label(:stop_failed), do: "stop failed"
+  defp server_status_label(:port_busy), do: "port busy"
+  defp server_status_label(status), do: to_string(status)
 
-    ["Files", key("0", "tidex.conf") | rows]
+  defp git_box_title(%{branch: nil}), do: "git"
+
+  defp git_box_title(git) do
+    dirty = Map.get(git, :dirty, 0)
+    untracked = Map.get(git, :untracked, 0)
+
+    cond do
+      dirty > 0 and untracked > 0 ->
+        titled("git", "#{dirty} dirty, #{untracked} untracked")
+
+      dirty > 0 ->
+        titled("git", "#{dirty} dirty")
+
+      untracked > 0 ->
+        titled("git", "#{untracked} untracked")
+
+      true ->
+        "git"
+    end
+  end
+
+  defp write_status_line(device, row, col, width, "") do
+    Termex.write_clipped(device, row, col, width, String.duplicate(" ", width))
+  end
+
+  defp write_status_line(device, row, col, width, text) do
+    visible = String.length(text)
+    pad = max(width - visible, 0)
+    line = Termex.reverse(text <> String.duplicate(" ", pad))
+    Termex.write_clipped(device, row, col, width, line)
+  end
+
+  defp server_configured?(state),
+    do: is_binary(state.server_command) and state.server_command != ""
+
+  defp browser?(state), do: is_binary(state.browser_url) and state.browser_url != ""
+
+  defp pad_visible(text, width) do
+    visible = String.length(Termex.ANSI.strip(text))
+    text <> String.duplicate(" ", max(width - visible, 0))
   end
 
   defp render_menu(device, state) do
@@ -171,9 +243,4 @@ defmodule Tidex.View do
   end
 
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
-
-  defp status_key(letter, status, detail \\ nil) do
-    line = key(letter, status |> String.pad_trailing(@status_width) |> Termex.reverse())
-    if detail, do: line <> "  " <> detail, else: line
-  end
 end
