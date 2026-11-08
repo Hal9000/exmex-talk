@@ -44,7 +44,7 @@ defmodule Tidex.Help do
       summary: "status and commands",
       paragraphs: [
         "The lobby marks Git as dirty without showing branch details. Press i for a compact branch and change-count summary, or g for the full Git status box.",
-        "Inside Git, a stages tracked changes with git add -u, l pulls only a fast-forward, c prompts for a one-line commit message, and p pushes.",
+        "Inside Git, a stages tracked changes with git add -u, l pulls only a fast-forward, c prompts for a one-line commit message, and p pushes. The u ship command stages tracked changes, commits, rebases on the remote, then pushes; it stops at the first failure.",
         "Arrows and Page Up or Page Down scroll long status and command output. Esc returns to the lobby."
       ]
     },

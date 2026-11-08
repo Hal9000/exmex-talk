@@ -189,6 +189,7 @@ defmodule Tidex.AppTest do
     assert frame =~ "Tidex · exmex-talk"
     assert frame =~ "On branch main"
     assert FakeTerminal.visible(out) =~ "add -u"
+    assert FakeTerminal.visible(out) =~ "ship"
 
     {:cont, app} = App.step(app, {:key, "g"})
     assert app.state.modal == nil
@@ -273,6 +274,30 @@ defmodule Tidex.AppTest do
     assert {:commit, "", :follow} = app.state.modal.page
 
     {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.modal.page == :status
+  end
+
+  test "u prompts for a message and runs the ship pipeline" do
+    {app, out} = app([])
+    {:cont, app} = App.step(app, {:key, "g"})
+    {:cont, app} = App.step(app, {:key, "u"})
+    assert {:ship, "", :follow} = app.state.modal.page
+    assert FakeTerminal.visible(out) =~ "enter ship"
+
+    app =
+      "Release 1"
+      |> String.graphemes()
+      |> Enum.reduce(app, fn key, app ->
+        {:cont, app} = App.handle_event(app, {:key, key})
+        app
+      end)
+
+    {:cont, app} = App.handle_event(app, {:key, "\r"})
+
+    assert_receive {:started,
+                    "git add -u && git commit -m 'Release 1' && git pull --rebase && git push", _,
+                    _, _}
+
     assert app.state.modal.page == :status
   end
 
