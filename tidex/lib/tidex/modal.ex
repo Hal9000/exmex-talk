@@ -5,6 +5,7 @@ defmodule Tidex.Modal do
   alias Tidex.Layout.Pane
 
   defstruct title: nil,
+            top_lines: [],
             lines: [],
             commands: "",
             kind: nil,
@@ -18,6 +19,7 @@ defmodule Tidex.Modal do
 
   @type t :: %__MODULE__{
           title: String.t() | nil,
+          top_lines: [iodata()],
           lines: [iodata()],
           commands: iodata(),
           kind: atom() | nil,
@@ -47,7 +49,7 @@ defmodule Tidex.Modal do
   def draw(device, screen, %__MODULE__{} = modal) do
     pane = pane(screen, modal)
     inner = Layout.inner(pane)
-    body_height = body_height(screen, modal)
+    regions = regions(inner, modal)
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height,
       title: modal.title,
@@ -56,10 +58,37 @@ defmodule Tidex.Modal do
 
     fill(device, inner)
 
-    lines = Scroll.visible(modal.lines, body_height, modal.scroll)
-    Termex.write_region(device, inner.row, inner.col, inner.width, body_height, lines)
+    if regions.top_height > 0 do
+      top_lines = Enum.take(modal.top_lines, regions.top_height)
 
-    if inner.height >= 2 do
+      Termex.write_region(
+        device,
+        inner.row,
+        inner.col,
+        inner.width,
+        regions.top_height,
+        top_lines
+      )
+    end
+
+    if regions.top_divider == 1 do
+      Termex.box_divider(device, regions.body_row - 1, pane.col, pane.width,
+        frame_color: :bright_cyan
+      )
+    end
+
+    lines = Scroll.visible(modal.lines, regions.body_height, modal.scroll)
+
+    Termex.write_region(
+      device,
+      regions.body_row,
+      inner.col,
+      inner.width,
+      regions.body_height,
+      lines
+    )
+
+    if regions.footer_height == 2 do
       Termex.box_divider(device, inner.row + inner.height - 2, pane.col, pane.width,
         frame_color: :bright_cyan
       )
@@ -88,9 +117,8 @@ defmodule Tidex.Modal do
     screen
     |> pane(modal)
     |> Layout.inner()
-    |> Map.fetch!(:height)
-    |> Kernel.-(2)
-    |> max(0)
+    |> regions(modal)
+    |> Map.fetch!(:body_height)
   end
 
   defp fill(_device, %{width: w, height: h}) when w <= 0 or h <= 0, do: :ok
@@ -110,7 +138,7 @@ defmodule Tidex.Modal do
 
   defp outer_width(screen, modal) do
     inner =
-      [modal.commands | modal.lines]
+      [modal.commands | modal.top_lines ++ modal.lines]
       |> Enum.map(&visible_width/1)
       |> Enum.max(fn -> 1 end)
       |> max(title_inner_width(modal.title))
@@ -124,7 +152,9 @@ defmodule Tidex.Modal do
   end
 
   defp outer_height(screen, modal) do
-    (length(modal.lines) + 1 + 1 + 2)
+    top_divider = if modal.top_lines == [], do: 0, else: 1
+
+    (length(modal.top_lines) + top_divider + length(modal.lines) + 1 + 1 + 2)
     |> max(modal.min_height)
     |> min(modal.max_height)
     |> min(screen.height)
@@ -139,6 +169,22 @@ defmodule Tidex.Modal do
     |> IO.iodata_to_binary()
     |> Termex.ANSI.strip()
     |> String.length()
+  end
+
+  defp regions(inner, modal) do
+    footer_height = min(inner.height, 2)
+    available = max(inner.height - footer_height, 0)
+    requested_top = length(modal.top_lines)
+    top_height = min(requested_top, max(available - 2, 0))
+    top_divider = if top_height > 0, do: 1, else: 0
+
+    %{
+      top_height: top_height,
+      top_divider: top_divider,
+      body_row: inner.row + top_height + top_divider,
+      body_height: max(available - top_height - top_divider, 0),
+      footer_height: footer_height
+    }
   end
 
   defp origin(_screen, box) when box <= 1, do: 1

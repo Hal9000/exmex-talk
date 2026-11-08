@@ -13,10 +13,11 @@ test log is kept but not shown.
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` starts or restarts the
 server directly from the lobby. `g` opens a scrollable Git box over the
-lobby; initial setup uses the same modal treatment. Modal key hints occupy
-a one-line footer separated
-from the body by a horizontal rule; they are centered and use the same
-bright-cyan accent as the modal frame.
+lobby; its command menu stays fixed above the scrolling status and output,
+with contextual controls in the footer. Initial setup uses the same modal
+treatment. Other modal key hints occupy a one-line footer separated from
+the body by a horizontal rule; they use the same bright-cyan accent as the
+modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `test_format`, optional `server` /
 `browser`, `editor`, and optional `file1`–`file4`. Without `server`,

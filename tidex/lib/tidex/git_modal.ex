@@ -10,25 +10,15 @@ defmodule Tidex.GitModal do
     %Modal{
       kind: :git,
       title: title(state.git),
+      top_lines: menu_lines(""),
       lines: lines(state),
       page: :status,
-      commands:
-        Enum.join(
-          [
-            Termex.bold("a") <> "  add -u",
-            Termex.bold("c") <> "  commit",
-            Termex.bold("l") <> "  pull",
-            Termex.bold("p") <> "  push",
-            Termex.bold("u") <> "  ship",
-            "esc close"
-          ],
-          "  "
-        ),
+      commands: "↑/↓ pgup/pgdn scroll   esc close",
       scroll: scroll,
       min_width: 60,
       max_width: 64,
-      min_height: 10,
-      max_height: 12
+      min_height: 15,
+      max_height: 18
     }
   end
 
@@ -46,14 +36,15 @@ defmodule Tidex.GitModal do
     %Modal{
       kind: :git,
       title: title(state.git),
-      lines: lines(state) ++ ["", commit_prompt(message)],
+      top_lines: menu_lines(commit_prompt(message)),
+      lines: lines(state),
       page: {action, message, return_scroll},
       commands: "enter #{action}   esc cancel",
       scroll: :follow,
       min_width: 60,
       max_width: 64,
-      min_height: 10,
-      max_height: 12
+      min_height: 15,
+      max_height: 18
     }
   end
 
@@ -90,6 +81,17 @@ defmodule Tidex.GitModal do
   defp command_lines([]), do: []
   defp command_lines(lines), do: ["", "command output" | lines]
 
+  defp menu_lines(prompt) do
+    [
+      key("a", "Add tracked changes"),
+      key("l", "Pull (fast-forward only)"),
+      key("c", "Commit"),
+      key("p", "Push"),
+      key("u", "Ship (add, commit, rebase, push)"),
+      prompt
+    ]
+  end
+
   defp commit_prompt(message) do
     graphemes = String.graphemes(message)
 
@@ -102,4 +104,6 @@ defmodule Tidex.GitModal do
 
     "Message: #{visible}▏"
   end
+
+  defp key(letter, text), do: Termex.bold(letter) <> "  " <> text
 end

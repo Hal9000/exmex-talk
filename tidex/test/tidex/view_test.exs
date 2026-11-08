@@ -131,7 +131,9 @@ defmodule Tidex.ViewTest do
     assert output =~ "\e[7mpass"
     refute output =~ "\e[7mRunning\e[0m"
 
-    {output, _} = render(test_state: :fail, failures: [%{name: "x", file: nil, line: nil, snippet: ""}])
+    {output, _} =
+      render(test_state: :fail, failures: [%{name: "x", file: nil, line: nil, snippet: ""}])
+
     assert output =~ "\e[7mFail\e[0m"
     assert output =~ "\e[7m1 fail"
   end
@@ -211,7 +213,7 @@ defmodule Tidex.ViewTest do
     assert pane.height < state.height
   end
 
-  test "git modal draws status and its keymap over the dimmed lobby" do
+  test "git modal fixes its command menu above scrollable status and a footer" do
     git = %{
       branch: "main",
       dirty: 1,
@@ -225,11 +227,16 @@ defmodule Tidex.ViewTest do
 
     assert Termex.ANSI.strip(output) =~ "Tidex · exmex-talk"
     assert output =~ "git"
-    assert Termex.ANSI.strip(output) =~ "add -u"
+    visible = Termex.ANSI.strip(output)
+    assert visible =~ "Add tracked changes"
+    assert visible =~ "Pull (fast-forward only)"
+    assert visible =~ "Ship (add, commit, rebase, push)"
     assert output =~ "On branch main"
     assert output =~ "modified: lib/tidex.ex"
-    assert Termex.ANSI.strip(output) =~ "esc close"
+    assert visible =~ "pgup/pgdn scroll"
+    assert visible =~ "esc close"
     assert pane.width == 60
+    assert pane.height >= 15
     assert pane.width < state.width
     assert pane.height < state.height
   end
@@ -279,7 +286,7 @@ defmodule Tidex.ViewTest do
       render(
         test_state: :fail,
         failures: failures,
-        output_lines: ["1) test Foo.bar/1 (FooTest)", "Assertion with == failed"],
+        output_lines: ["1) test Foo.bar/1 (FooTest)", "Assertion with == failed"]
       )
 
     visible = Termex.ANSI.strip(output)
