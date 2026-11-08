@@ -6,12 +6,13 @@ the next slice until a real TTY look (`mix tidex`).
 ## Failure box
 
 `f` opens a 60×8 modal on the lobby (`fail N/M`, name, file:line, two
-snippet lines, `e  edit  left/right  esc`). No-op if none. `esc` or `f`
-closes. Left/right and `e` work only inside. `0` edits `tidex.conf`.
-Lobby `e` does nothing.
+snippet lines, `e  edit  left/right  esc`). A failed run with no parsed
+failure opens its scrollable raw output instead. No-op before a failed run.
+`esc` or `f` closes. Left/right and `e` work only inside a parsed failure.
+`0` edits `tidex.conf` and reloads it when the editor returns. Lobby `e`
+does nothing.
 
-Maximize (more of the hidden test log) later. Do not dump the ExUnit
-`1)` block into the box.
+Maximize later. Do not dump the ExUnit `1)` block into the parsed box.
 
 ## Overlay keys (seal)
 
@@ -41,7 +42,7 @@ line). A failed run with no parsed blocks still reports `fail`.
 **Files:** `0  tidex.conf`, then `1`–`4`.
 
 **Server:** stays on the lobby. `s` starts or restarts, `x` stops, and
-`b` browses. Output is retained without replacing the lobby.
+`b` browses. Output is retained without replacing the lobby; `v` opens it.
 Occupancy/readiness is later; see **Server group: standing vs flash**.
 
 **Termex (current, for the talk):** clip plus Help-specific prose wrap;
@@ -144,8 +145,7 @@ converted.
 **Window on large text**
 
 - `write_region` still **clips** each line (CSI-safe). Help wraps its
-  plain prose before drawing and scrolls the modal body. If an optional
-  Server log box exists later, it should scroll its clipped log.
+  plain prose before drawing. Output modals scroll their clipped logs.
 - Goal: a box on a long buffer scrolls. Wrap is **not** global.
 - **Clip** (default): logs, stacktraces, compiler columns.
 - **Wrap:** prose (help, splash) when clipped lines read badly.
@@ -154,10 +154,9 @@ converted.
 Internally, wrap vs clip can be options on one function (`write_region`
 or a sibling), not two pipelines.
 
-**Server log box:** optional later, not how you run the server. Status,
-errors, and warnings belong in the Server **group**. If a tail box
-exists someday: fairly wide, several lines, stuck on the tail
-(`:follow`), clip, sit **low**. Not a modal to start/stop.
+**Server log box:** `v` opens retained server output in a clipped,
+tail-following modal. It is diagnostic; server start/stop remains in the
+lobby.
 
 **Help:** a six-topic menu in one modal. Tab/arrows select, Enter
 replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn

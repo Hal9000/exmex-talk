@@ -19,6 +19,7 @@ defmodule Tidex.App do
     Help,
     Keyboard,
     Open,
+    OutputModal,
     ServerJob,
     ServerProbe,
     Setup,
@@ -254,6 +255,38 @@ defmodule Tidex.App do
 
   def handle_event(app, {:key, key}) when key in ["q", "Q"], do: {:quit, app}
 
+  def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, :esc}) do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output, page: :test}}} = app,
+        {:key, key}
+      )
+      when key in ["f", "F"] do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output, page: :server}}} = app,
+        {:key, key}
+      )
+      when key in ["v", "V"] do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output} = modal} = state} = app,
+        {:key, key}
+      )
+      when key in [:up, :down, :page_up, :page_down] do
+    {:cont, put_state(app, %{modal: OutputModal.scroll(modal, key, state)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(%{state: %{overlay: :setup}} = app, {:key, key}) when key in ["y", "Y"] do
     {:cont, setup_write(app, :cwd)}
   end
@@ -426,6 +459,10 @@ defmodule Tidex.App do
     {:cont, stop_server(app)}
   end
 
+  def handle_event(app, {:key, key}) when key in ["v", "V"] do
+    {:cont, open_server_output(app)}
+  end
+
   def handle_event(%{state: %{browser_url: url}} = app, {:key, key})
       when key in ["b", "B"] and is_binary(url) and url != "" do
     app.browser_runner.(app.state.browser_url)
@@ -439,7 +476,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, "0"}) do
-    {:cont, launch_editor(app, file: config_file(app.state))}
+    {:cont, edit_config(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ~w(1 2 3 4) do
@@ -625,11 +662,12 @@ defmodule Tidex.App do
         })
         |> refresh_server_probe(ref)
 
-      {:error, _reason} ->
+      {:error, reason} ->
         put_state(app, %{
           server_state: :start_failed,
           server_ref: nil,
-          server_pid: nil
+          server_pid: nil,
+          server_log: ["Unable to start server: #{inspect(reason)}"]
         })
     end
   end
@@ -683,12 +721,37 @@ defmodule Tidex.App do
     attach_keyboard(app)
   end
 
+  defp edit_config(app) do
+    app
+    |> launch_editor(file: config_file(app.state))
+    |> apply_config()
+  end
+
   defp open_fail_modal(app) do
     case Failures.modal(app.state) do
-      nil -> app
+      nil -> open_raw_test_output(app)
       modal -> put_state(app, %{overlay: nil, modal: modal})
     end
   end
+
+  defp open_raw_test_output(%{state: %{test_state: :fail}} = app) do
+    put_state(app, %{
+      overlay: nil,
+      modal: OutputModal.modal(:test, app.state.test_log)
+    })
+  end
+
+  defp open_raw_test_output(app), do: app
+
+  defp open_server_output(%{state: %{server_command: command}} = app)
+       when is_binary(command) and command != "" do
+    put_state(app, %{
+      overlay: nil,
+      modal: OutputModal.modal(:server, app.state.server_log)
+    })
+  end
+
+  defp open_server_output(app), do: app
 
   defp close_fail_modal(app), do: put_state(app, %{modal: nil})
 
@@ -846,7 +909,8 @@ defmodule Tidex.App do
 
         case app.server_waiter.(app.state.browser_url) do
           :listening -> put_state(app, %{server_state: :stop_failed})
-          _other -> put_state(app, %{server_state: :down})
+          _other when status == 0 -> put_state(app, %{server_state: :down})
+          _other -> put_state(app, %{server_state: :start_failed})
         end
 
       app.state.git_cmd_ref == ref ->
@@ -886,10 +950,21 @@ defmodule Tidex.App do
 
     case source do
       :test -> refresh_test_failures(app)
+      :server -> sync_output_modal(app, :server)
       :git -> sync_git_modal(app)
       _ -> app
     end
   end
+
+  defp sync_output_modal(
+         %{state: %{modal: %{kind: :output, page: source, scroll: scroll}}} = app,
+         source
+       ) do
+    lines = Map.fetch!(app.state, log_field(source))
+    put_state(app, %{modal: OutputModal.modal(source, lines, scroll)})
+  end
+
+  defp sync_output_modal(app, _source), do: app
 
   defp refresh_test_failures(app) do
     failures = Failures.parse(log_lines(app.state, :test), app.state.test_format)
@@ -965,7 +1040,8 @@ defmodule Tidex.App do
     path = Config.find_file(app.state.cwd, app.home)
     root = if is_binary(path), do: Path.dirname(path), else: app.state.cwd
 
-    put_state(app, %{
+    app
+    |> put_state(%{
       overlay: nil,
       setup: nil,
       project_name: config.project,
@@ -979,6 +1055,29 @@ defmodule Tidex.App do
       config_path: path,
       config_root: root
     })
+    |> apply_git_mode()
+  end
+
+  defp apply_git_mode(%{state: %{git_mode: :off}} = app) do
+    if app.git_pid == Process.whereis(Tidex.Git), do: Git.unsubscribe(self())
+
+    modal =
+      case app.state.modal do
+        %{kind: kind} when kind in [:git, :git_info] -> nil
+        modal -> modal
+      end
+
+    app
+    |> Map.put(:git_pid, nil)
+    |> put_state(%{git: Git.empty(), modal: modal})
+  end
+
+  defp apply_git_mode(%{state: %{git_mode: :auto}} = app) do
+    if app.poll_git do
+      attach_git(app)
+    else
+      put_state(app, %{git: normalize_git(app.git_reader.())})
+    end
   end
 
   defp setup_skip(app) do
