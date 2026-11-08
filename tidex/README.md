@@ -70,6 +70,9 @@ reverse-video fields. Modal frames use bright cyan as an active-layer
 accent, and the lobby dims behind an open modal. `NO_COLOR` removes
 these treatments while preserving alignment.
 
+When OTP supports `SIGWINCH`, resizing redraws the lobby immediately
+even while the UI is idle.
+
 ```bash
 cd tidex
 mix deps.get

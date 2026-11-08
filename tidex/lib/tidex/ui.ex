@@ -6,7 +6,7 @@ defmodule Tidex.UI do
 
   use GenServer
 
-  alias Tidex.{App, View}
+  alias Tidex.{App, Resize, View}
 
   @spec run(keyword() | App.t()) :: :ok
   def run(opts_or_app) do
@@ -38,6 +38,7 @@ defmodule Tidex.UI do
       app
       |> App.attach_keyboard()
       |> App.attach_git()
+      |> attach_resize()
       |> App.refresh_dimensions()
 
     View.render(app.device, app.state)
@@ -64,10 +65,18 @@ defmodule Tidex.UI do
     do: dispatch(app, {:server_job, ref, :cleanup_failed, reason})
 
   def handle_info({:git, snapshot}, app), do: dispatch(app, {:git, snapshot})
+
+  def handle_info(:sigwinch, app) do
+    app = App.refresh_dimensions(app)
+    View.render(app.device, app.state)
+    {:noreply, app}
+  end
+
   def handle_info(_other, app), do: {:noreply, app}
 
   @impl GenServer
   def terminate(_reason, app) do
+    Resize.unsubscribe(app.resize_handler)
     App.shutdown(app)
     Termex.leave(app.tty)
     :ok
@@ -82,4 +91,13 @@ defmodule Tidex.UI do
 
   defp name_opts(nil), do: []
   defp name_opts(name), do: [name: name]
+
+  defp attach_resize(%{resize: false} = app), do: app
+
+  defp attach_resize(app) do
+    case Resize.subscribe(self()) do
+      {:ok, handler} -> %{app | resize_handler: handler}
+      {:error, _reason} -> app
+    end
+  end
 end
