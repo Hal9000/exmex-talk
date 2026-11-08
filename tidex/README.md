@@ -13,7 +13,7 @@ test log is kept but not shown.
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` starts or restarts the
 server directly from the lobby. `g` opens a scrollable Git box over the
-lobby; setup is the remaining replacement sheet. Modal key hints occupy
+lobby; initial setup uses the same modal treatment. Modal key hints occupy
 a one-line footer separated
 from the body by a horizontal rule; they are centered and use the same
 bright-cyan accent as the modal frame.
@@ -46,7 +46,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `?` | show/hide help |
 | `g` | show/hide the Git box |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
-| `esc` | close the current box or sheet |
+| `esc` | close the current box |
 | `q` | quit |
 
 Failure navigation supports `test_format: exunit` (the default for Mix

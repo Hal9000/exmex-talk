@@ -40,7 +40,7 @@ defmodule Tidex.SetupTest do
     lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
     assert Enum.any?(lines, &String.contains?(&1, "$HOME"))
-    refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
+    refute Setup.modal(setup).commands |> Termex.ANSI.strip() |> String.contains?("y ")
   end
 
   test "blocked cwd with a git root offers g but not y" do
@@ -54,8 +54,9 @@ defmodule Tidex.SetupTest do
 
     lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.any?(lines, &(&1 == "cwd is not permitted"))
-    assert Enum.any?(lines, &(&1 == "g  write at git root"))
-    refute Enum.any?(lines, &String.starts_with?(&1, "y  "))
+    commands = Setup.modal(setup).commands |> Termex.ANSI.strip()
+    assert commands =~ "g git root"
+    refute commands =~ "y "
   end
 
   test "lines lead with git root when cwd has no project markers" do
@@ -68,7 +69,10 @@ defmodule Tidex.SetupTest do
 
     lines = Setup.lines(setup) |> Enum.map(&Termex.ANSI.strip/1)
     assert Enum.at(lines, 2) =~ "doesn't look like a project"
-    assert Enum.any?(lines, &(&1 == "g  write at git root"))
+    commands = Setup.modal(setup).commands |> Termex.ANSI.strip()
+    assert commands =~ "y write here"
+    assert commands =~ "g git root"
+    assert String.length(commands) <= 38
   end
 
   defp tmp_dir do
