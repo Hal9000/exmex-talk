@@ -188,18 +188,18 @@ defmodule Tidex.AppTest do
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "Tidex · exmex-talk"
     assert frame =~ "On branch main"
-    assert FakeTerminal.visible(out) =~ "add -u"
-    assert FakeTerminal.visible(out) =~ "ship"
+    assert FakeTerminal.visible(out) =~ "Add tracked changes"
+    assert FakeTerminal.visible(out) =~ "Ship (add, commit, rebase, push)"
 
     {:cont, app} = App.step(app, {:key, "g"})
     assert app.state.modal == nil
-    refute FakeTerminal.visible(out) =~ "add -u"
-    assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "add -u"
+    refute FakeTerminal.visible(out) =~ "Add tracked changes"
+    assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "Add tracked changes"
   end
 
   test "esc closes the git modal" do
     {app, _out} = app([])
-    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.handle_event(app, {:key, :esc})
     assert app.state.modal == nil
   end
@@ -331,13 +331,15 @@ defmodule Tidex.AppTest do
 
   test "the git modal scrolls and seals unrelated command keys" do
     status = 1..25 |> Enum.map_join("\n", &"status line #{&1}")
-    {app, _out} = app(git: %{branch: "main", dirty: 25, status: status})
+    {app, out} = app(git: %{branch: "main", dirty: 25, status: status})
 
-    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.step(app, {:key, "g"})
     assert app.state.modal.scroll == :follow
+    assert FakeTerminal.visible(out) =~ "Add tracked changes"
 
-    {:cont, app} = App.handle_event(app, {:key, :up})
+    {:cont, app} = App.step(app, {:key, :up})
     assert is_integer(app.state.modal.scroll)
+    assert FakeTerminal.visible(out) =~ "Add tracked changes"
 
     {:cont, app} = App.handle_event(app, {:key, "t"})
     assert app.state.test_state == :idle

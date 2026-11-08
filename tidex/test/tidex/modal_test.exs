@@ -83,6 +83,30 @@ defmodule Tidex.ModalTest do
     refute Enum.any?(rows, &String.contains?(&1, "line 1"))
   end
 
+  test "keeps top lines fixed above a separately scrolling body" do
+    modal = %Modal{
+      top_lines: ["a  command", ""],
+      lines: Enum.map(1..6, &"status #{&1}"),
+      commands: "esc close",
+      scroll: 2,
+      min_width: 20,
+      max_width: 20,
+      min_height: 8,
+      max_height: 8
+    }
+
+    {out, pane} = draw(modal, 80, 24)
+    inner = Layout.inner(pane)
+    rows = FakeTerminal.region_lines(out, inner)
+    top_divider_row = inner.row + 2
+
+    assert Enum.at(rows, 0) =~ "a  command"
+    assert Enum.at(rows, 3) =~ "status 3"
+    assert FakeTerminal.visible(out) =~ "esc close"
+    assert Modal.body_height(screen(80, 24), modal) == 1
+    assert FakeTerminal.text(out) =~ "\e[#{top_divider_row};#{pane.col}H\e[96m├"
+  end
+
   test "draws the command hints in a separated one-line footer" do
     modal = %Modal{title: "demo", lines: ["body"], commands: "esc close"}
     {out, pane} = draw(modal)

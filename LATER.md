@@ -115,8 +115,9 @@ Tentative. No radical decision. Replaces “sheet” with one box on the
 lobby, drawn last; next lobby frame restores. Not a window manager.
 
 `Tidex.Modal` is that draw: content-sized, centered, capped, with a
-centered bright-cyan command footer separated by its own horizontal
-rule. It blanks the interior so the lobby does not bleed through. The
+bright-cyan command footer separated by its own horizontal rule. It
+can also keep fixed content above a separately scrolling body. It blanks
+the interior so the lobby does not bleed through. The
 failure box uses it (`kind: :fail`, 60×8); Help, Git, and Setup are
 converted.
 
@@ -131,9 +132,10 @@ converted.
   server log if we ever want one). Same widget, bigger pane. Not on
   every box. Same key to shrink (toggle), not a third verb. `esc`
   dismisses (lobby). Operating the server does not require this.
-- **Commands:** bottom interior line of **that box**. When maximized,
+- **Commands:** normally the bottom interior line of **that box**. When maximized,
   that is the last screen row. Exceptions: splash with keys in the body;
-  lobby, which is the menu.
+  lobby, which is the menu; and Git, whose command menu is fixed above
+  the scrolling status/output.
 - **Borders:** we already draw unicode boxes with a title in the top
   edge (`─ status ────`). Keep a border on anything that sits on the
   lobby so it is not the status groups. Setup’s choices use the same
@@ -161,11 +163,12 @@ exists someday: fairly wide, several lines, stuck on the tail
 replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn
 scroll, and Esc returns to the menu. Search and maximize are later.
 
-**Git:** a 60–64 column, 10–12 row modal. It clips status and command
-output, follows the tail, and scrolls with arrows/PgUp/PgDn. Add, pull,
-one-line commit, and push stay in the centered footer. Commit temporarily
-adds a message prompt to the same modal body. It remains a status view,
-not a full Git client. `u` reuses that prompt for the conservative
+**Git:** a 60–64 column, 15–18 row modal. A fixed top section shows the
+Add, pull, one-line commit, push, and ship menu, with one reserved row for
+the commit/ship message prompt. A separately scrolling middle clips status
+and command output, follows the tail, and scrolls with arrows/PgUp/PgDn.
+The footer shows contextual navigation or text-entry controls. It remains
+a status view, not a full Git client. `u` runs the conservative
 add/commit/pull-with-rebase/push sequence and stops at the first failure.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
