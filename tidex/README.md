@@ -20,8 +20,9 @@ bright-cyan accent as the modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `test_format`, optional `server` /
 `browser`, `editor`, and optional `file1`–`file4`. Without `server`,
-the lobby reports `not configured` and disables server controls rather
-than assuming Python or another runtime. Missing `project` defaults to that
+the Server box keeps its size but shows `[No server configured]`
+instead of controls; Tidex does not assume Python or another runtime.
+Missing `project` defaults to that
 directory's name. Missing file keys add no row and no digit. Writing a
 new file lists `README.md` / `mix.exs` / `package.json` / `Cargo.toml` /
 `go.mod` when those names exist in that directory. `~/.tidex/tidex.conf`

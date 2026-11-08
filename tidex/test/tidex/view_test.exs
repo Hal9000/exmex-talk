@@ -169,14 +169,14 @@ defmodule Tidex.ViewTest do
     refute visible =~ "1  "
   end
 
-  test "shows server status when unconfigured and still lists server keys" do
+  test "keeps the server box but replaces disabled controls when unconfigured" do
     {output, _state} = render(server_command: nil, browser_url: nil)
     visible = Termex.ANSI.strip(output)
 
     assert visible =~ "Server"
-    assert visible =~ "not conf"
-    assert visible =~ "Start/restart"
-    assert visible =~ "Stop"
+    assert visible =~ "[No server configured]"
+    refute visible =~ "Start/restart"
+    refute visible =~ "Stop"
     refute visible =~ "Browse"
   end
 
