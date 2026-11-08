@@ -162,8 +162,9 @@ replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn
 scroll, and Esc returns to the menu. Search and maximize are later.
 
 **Git:** a 60–64 column, 10–12 row modal. It clips status and command
-output, follows the tail, and scrolls with arrows/PgUp/PgDn. Add,
-commit, and push stay in the centered footer. It remains a status view,
+output, follows the tail, and scrolls with arrows/PgUp/PgDn. Add, pull,
+one-line commit, and push stay in the centered footer. Commit temporarily
+adds a message prompt to the same modal body. It remains a status view,
 not a full Git client.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):

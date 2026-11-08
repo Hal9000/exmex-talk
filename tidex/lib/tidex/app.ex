@@ -203,7 +203,49 @@ defmodule Tidex.App do
   end
 
   @spec handle_event(t(), term()) :: {:cont, t()} | {:quit, t()}
-  def handle_event(app, {:key, key}) when key in ["q", "Q", <<3>>, :eof], do: {:quit, app}
+  def handle_event(app, {:key, key}) when key in [<<3>>, :eof], do: {:quit, app}
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git, page: {:commit, _message, return_scroll}}}} = app,
+        {:key, :esc}
+      ) do
+    {:cont, put_state(app, %{modal: GitModal.modal(app.state, return_scroll)})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git, page: {:commit, message, _return_scroll}}}} = app,
+        {:key, key}
+      )
+      when key in ["\r", "\n"] do
+    {:cont, commit_git_message(app, message)}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app,
+        {:key, key}
+      )
+      when key in [<<8>>, <<127>>] do
+    message = message |> String.graphemes() |> Enum.drop(-1) |> Enum.join()
+    {:cont, put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app,
+        {:key, <<character>>}
+      )
+      when character in 32..126 do
+    message = message <> <<character>>
+    {:cont, put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :git, page: {:commit, _message, _return_scroll}}}} = app,
+        {:key, _key}
+      ) do
+    {:cont, app}
+  end
+
+  def handle_event(app, {:key, key}) when key in ["q", "Q"], do: {:quit, app}
 
   def handle_event(%{state: %{overlay: :setup}} = app, {:key, key}) when key in ["y", "Y"] do
     {:cont, setup_write(app, :cwd)}
@@ -260,7 +302,12 @@ defmodule Tidex.App do
 
   def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
       when key in ["c", "C"] do
-    {:cont, git_commit(app)}
+    {:cont, put_state(app, %{modal: GitModal.commit(app.state, "", app.state.modal.scroll)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["l", "L"] do
+    {:cont, git_pull(app)}
   end
 
   def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
@@ -681,19 +728,20 @@ defmodule Tidex.App do
 
   defp git_add(app), do: start_git_cmd(app, "git add -u")
 
+  defp git_pull(app), do: start_git_cmd(app, "git pull --ff-only")
+
   defp git_push(app), do: start_git_cmd(app, "git push")
 
-  defp git_commit(app) do
-    app = detach_keyboard(app)
+  defp commit_git_message(app, message) do
+    message = String.trim(message)
 
-    Termex.yield(app.device, app.tty, fn ->
-      app.editor_runner.("git commit")
-    end)
-
-    app
-    |> attach_keyboard()
-    |> put_state(%{git: normalize_git(app.git_reader.())})
-    |> sync_git_modal()
+    if message == "" do
+      app
+    else
+      app
+      |> put_state(%{modal: GitModal.modal(app.state)})
+      |> start_git_cmd("git commit -m " <> shell_quote(message))
+    end
   end
 
   defp start_git_cmd(app, command) do
@@ -828,6 +876,12 @@ defmodule Tidex.App do
   defp log_field(:server), do: :server_log
   defp log_field(:git), do: :git_log
 
+  defp sync_git_modal(
+         %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app
+       ) do
+    put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})
+  end
+
   defp sync_git_modal(%{state: %{modal: %{kind: :git, scroll: scroll}}} = app) do
     put_state(app, %{modal: GitModal.modal(app.state, scroll)})
   end
@@ -901,6 +955,8 @@ defmodule Tidex.App do
       status: Map.get(snapshot, :status, "")
     }
   end
+
+  defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
 
   defp detach_keyboard(app) do
     Keyboard.stop(app.keyboard)

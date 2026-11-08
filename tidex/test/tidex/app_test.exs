@@ -225,16 +225,55 @@ defmodule Tidex.AppTest do
     assert app.state.modal.kind == :git
   end
 
-  test "c from the git modal yields git commit" do
-    parent = self()
-    editor = fn command -> send(parent, {:edited, command}) end
-    {app, _out} = app(editor_runner: editor, git_reader: fn -> %{branch: "main", dirty: 0} end)
+  test "l from the git modal runs a fast-forward-only pull" do
+    {app, _out} = app([])
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.handle_event(app, {:key, "l"})
+    assert_receive {:started, "git pull --ff-only", _, _, _}
+    assert app.state.modal.kind == :git
+  end
 
+  test "c accepts a one-line message and safely starts git commit" do
+    {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "g"})
     {:cont, app} = App.step(app, {:key, "c"})
-    assert_receive {:edited, "git commit"}
+    assert {:commit, "", :follow} = app.state.modal.page
+    assert FakeTerminal.visible(out) =~ "Message: "
+    assert FakeTerminal.visible(out) =~ "enter commit"
+
+    app =
+      "Fix q gap's pullx"
+      |> String.graphemes()
+      |> Enum.reduce(app, fn key, app ->
+        {:cont, app} = App.handle_event(app, {:key, key})
+        app
+      end)
+
+    {:cont, app} =
+      App.handle_event(app, {:git, %{branch: "main", dirty: 1, untracked: 0}})
+
+    assert {:commit, "Fix q gap's pullx", :follow} = app.state.modal.page
+
+    {:cont, app} = App.handle_event(app, {:key, <<127>>})
+    assert {:commit, "Fix q gap's pull", :follow} = app.state.modal.page
+
+    {:cont, app} = App.handle_event(app, {:key, "\r"})
+    assert_receive {:started, "git commit -m 'Fix q gap'\"'\"'s pull'", _, _, _}
     assert app.state.modal.kind == :git
-    assert app.state.git.status == ""
+    assert app.state.modal.page == :status
+  end
+
+  test "empty commit does nothing and esc cancels input" do
+    runner = fn _command, _notify, _ref -> flunk("empty commit should not run") end
+    {app, _out} = app(runner: runner)
+
+    {:cont, app} = App.handle_event(app, {:key, "g"})
+    {:cont, app} = App.handle_event(app, {:key, "c"})
+    {:cont, app} = App.handle_event(app, {:key, "\r"})
+    assert {:commit, "", :follow} = app.state.modal.page
+
+    {:cont, app} = App.handle_event(app, {:key, :esc})
+    assert app.state.modal.page == :status
   end
 
   test "a does nothing unless the git modal is open" do
