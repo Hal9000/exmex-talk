@@ -28,7 +28,7 @@ defmodule Tidex.HelpTest do
     assert modal.title == "help · Failures"
     assert length(modal.lines) > 7
     assert Enum.all?(modal.lines, &(String.length(&1) <= 46))
-    assert Enum.join(modal.lines, " ") =~ "configured editor"
+    assert Enum.join(modal.lines, " ") =~ "reported location"
 
     scrolled = Help.scroll(modal, :down, %{width: 80, height: 24})
     assert scrolled.scroll == 1

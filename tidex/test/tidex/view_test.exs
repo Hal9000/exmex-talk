@@ -318,7 +318,7 @@ defmodule Tidex.ViewTest do
     refute visible =~ "Assertion with == failed"
   end
 
-  test "the failure box sits on the lobby at 60x8 with a command footer" do
+  test "the failure box sits on the lobby at 60x9 with a command footer" do
     failures = [
       %{
         name: "test Foo.bar/1 (FooTest)",
@@ -346,15 +346,16 @@ defmodule Tidex.ViewTest do
     assert visible =~ "FooTest test/foo_test.exs:12"
     assert visible =~ "Assertion with == failed"
     assert visible =~ "fail 1/1"
-    assert visible =~ "edit"
+    assert visible =~ "reported"
+    assert visible =~ "output"
 
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width == 60
-    assert pane.height == 8
+    assert pane.height == 9
     inner = Layout.inner(pane)
     rows = FakeTerminal.region_lines(output, inner)
     assert hd(rows) =~ "test Foo.bar/1"
-    assert Enum.at(rows, 1) =~ "FooTest test/foo_test.exs:12"
+    assert Enum.at(rows, 1) =~ "reported: FooTest test/foo_test.exs:12"
   end
 
   defp visible_command_status(output, letter, status) do

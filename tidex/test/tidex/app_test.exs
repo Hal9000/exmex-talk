@@ -985,6 +985,52 @@ defmodule Tidex.AppTest do
     assert_receive {:edited, "nvim +9 '" <> ^path <> "'"}
   end
 
+  test "a parsed failure can open a source candidate or its full output" do
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+    {app, out} = app(editor_command: "nvim", editor_runner: editor)
+
+    failure = %{
+      name: "test boom (DemoTest)",
+      file: "test/demo_test.exs",
+      line: 9,
+      source_file: "lib/demo.ex",
+      source_line: 42,
+      snippet: "exploded"
+    }
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | test_state: :fail,
+            failures: [failure],
+            test_log: ["complete stacktrace", "lib/demo.ex:42"]
+        }
+    }
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert FakeTerminal.visible(out) =~ "source:   lib/demo.ex:42"
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    source = Path.expand("lib/demo.ex", app.state.config_root)
+    assert_receive {:edited, "nvim +42 '" <> ^source <> "'"}
+
+    {:cont, app} = App.step(app, {:key, "o"})
+    assert app.state.modal.kind == :output
+    assert app.state.modal.page == {:test, :failure}
+    assert FakeTerminal.visible(out) =~ "complete stacktrace"
+
+    {:cont, app} = App.step(app, {:key, "o"})
+    assert app.state.modal.kind == :output
+
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal.kind == :fail
+
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal == nil
+  end
+
   test "f opens the failure box and is swallowed there" do
     {app, out} = app(width: 80, height: 24)
 
