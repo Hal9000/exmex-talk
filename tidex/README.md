@@ -44,7 +44,8 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
 | left / right | cycle parsed test failures (while the box is open) |
 | `?` | show/hide help |
-| `g` | show/hide the Git box |
+| `i` | show a compact Git branch and change-count summary |
+| `g` | show/hide the full Git status box |
 | `a` / `c` / `p` | add (`-u`) / commit / push (while git is open) |
 | `esc` | close the current box |
 | `q` | quit |

@@ -331,11 +331,11 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
-  def handle_event(%{state: %{modal: %{kind: :stub}}} = app, {:key, :esc}) do
+  def handle_event(%{state: %{modal: %{kind: :git_info}}} = app, {:key, :esc}) do
     {:cont, put_state(app, %{modal: nil})}
   end
 
-  def handle_event(%{state: %{modal: %{kind: :stub}}} = app, {:key, _key}) do
+  def handle_event(%{state: %{modal: %{kind: :git_info}}} = app, {:key, _key}) do
     {:cont, app}
   end
 
@@ -344,7 +344,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, key}) when key in ["i", "I"] do
-    {:cont, put_state(app, %{overlay: nil, modal: GitInfo.modal()})}
+    {:cont, put_state(app, %{overlay: nil, modal: GitInfo.modal(app.state.git)})}
   end
 
   def handle_event(app, {:key, "g"}) do
@@ -830,6 +830,10 @@ defmodule Tidex.App do
 
   defp sync_git_modal(%{state: %{modal: %{kind: :git, scroll: scroll}}} = app) do
     put_state(app, %{modal: GitModal.modal(app.state, scroll)})
+  end
+
+  defp sync_git_modal(%{state: %{modal: %{kind: :git_info}}} = app) do
+    put_state(app, %{modal: GitInfo.modal(app.state.git)})
   end
 
   defp sync_git_modal(app), do: app

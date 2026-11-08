@@ -43,7 +43,7 @@ defmodule Tidex.Help do
       title: "Git",
       summary: "status and commands",
       paragraphs: [
-        "The lobby shows the current branch plus nonzero dirty and untracked counts. Press g to open a Git status box over the lobby.",
+        "The lobby marks Git as dirty without showing branch details. Press i for a compact branch and change-count summary, or g for the full Git status box.",
         "Inside Git, a stages tracked changes with git add -u, c yields the terminal for git commit, and p pushes.",
         "Arrows and Page Up or Page Down scroll long status and command output. Esc returns to the lobby."
       ]
