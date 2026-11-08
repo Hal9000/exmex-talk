@@ -234,7 +234,7 @@ defmodule Tidex.ViewTest do
     assert pane.height < state.height
   end
 
-  test "setup overlay asks where to write tidex.conf" do
+  test "setup draws a modal over the dimmed lobby with commands inside" do
     setup = %Tidex.Setup{
       cwd: "/tmp/demo-project",
       git_root: nil,
@@ -242,19 +242,27 @@ defmodule Tidex.ViewTest do
       offer_git: false
     }
 
-    {output, _} = render(overlay: :setup, setup: setup, width: 80)
+    modal = Tidex.Setup.modal(setup)
+    {output, state} = render(overlay: :setup, setup: setup, width: 80)
+    pane = Tidex.Modal.pane(state, modal)
+
+    assert output =~ "Tidex · exmex-talk"
     assert output =~ "tidex.conf"
     assert output =~ "no tidex.conf"
     assert output =~ "write in cwd"
-    assert Termex.ANSI.strip(output) =~ "y  write here"
+    assert Termex.ANSI.strip(output) =~ "y write here"
+    assert output =~ "\e[2m"
+    assert output =~ "\e[96m"
+    assert pane.width < state.width
+    assert pane.height < state.height
   end
 
-  test "setup overlay states that a blocked cwd is not permitted" do
+  test "setup modal states that a blocked cwd is not permitted" do
     setup = %Tidex.Setup{cwd: "/tmp", blocked: true, offer_cwd: false}
     {output, _} = render(overlay: :setup, setup: setup, width: 80)
     assert output =~ "cwd is not permitted"
     assert output =~ "/tmp"
-    refute Termex.ANSI.strip(output) =~ "y  write here"
+    refute Termex.ANSI.strip(output) =~ "y write here"
   end
 
   test "a failed run does not draw the test log on the lobby" do

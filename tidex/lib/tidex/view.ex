@@ -1,7 +1,7 @@
 defmodule Tidex.View do
   @moduledoc false
 
-  alias Tidex.{Layout, LobbyLayout, Modal, Setup, State}
+  alias Tidex.{LobbyLayout, Modal, Setup, State}
 
   @spec render(Termex.Device.t(), State.t()) :: :ok
   def render(device, %State{} = state) do
@@ -9,16 +9,17 @@ defmodule Tidex.View do
     Termex.clear_visible(device)
     Termex.move(device, 1, 1)
 
-    if state.overlay == nil do
-      if state.modal do
+    cond do
+      state.overlay == :setup ->
+        render_dimmed_status(device, state)
+        Modal.draw(device, state, Setup.modal(state.setup))
+
+      state.modal ->
         render_dimmed_status(device, state)
         Modal.draw(device, state, state.modal)
-      else
+
+      true ->
         render_status(device, state)
-      end
-    else
-      render_sheet(device, state)
-      render_menu(device, state)
     end
 
     :ok
@@ -172,45 +173,6 @@ defmodule Tidex.View do
     do: is_binary(state.server_command) and state.server_command != ""
 
   defp browser?(state), do: is_binary(state.browser_url) and state.browser_url != ""
-
-  defp render_menu(device, state) do
-    Termex.write_clipped(
-      device,
-      Layout.menu_row(state),
-      1,
-      state.width,
-      menu_line(state.overlay)
-    )
-  end
-
-  defp menu_line(:setup), do: "esc skip"
-
-  defp menu_line(_), do: "esc back"
-
-  defp render_sheet(device, %{overlay: :setup} = state) do
-    draw_overlay(device, state, "tidex.conf", Setup.lines(state.setup))
-  end
-
-  defp draw_overlay(device, state, title, lines) do
-    pane = Layout.overlay_pane(state.width, state.height)
-    Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
-    inner = Layout.inner(pane)
-    fill_inner(device, inner)
-    Termex.write_region(device, inner.row, inner.col, inner.width, inner.height, lines)
-  end
-
-  defp fill_inner(device, inner) do
-    blank = String.duplicate(" ", max(inner.width, 0))
-
-    Termex.write_region(
-      device,
-      inner.row,
-      inner.col,
-      inner.width,
-      inner.height,
-      List.duplicate(blank, max(inner.height, 0))
-    )
-  end
 
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 end
