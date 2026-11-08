@@ -19,6 +19,7 @@ defmodule Tidex.App do
     Help,
     Keyboard,
     Open,
+    OutputModal,
     ServerJob,
     ServerProbe,
     Setup,
@@ -254,6 +255,38 @@ defmodule Tidex.App do
 
   def handle_event(app, {:key, key}) when key in ["q", "Q"], do: {:quit, app}
 
+  def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, :esc}) do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output, page: :test}}} = app,
+        {:key, key}
+      )
+      when key in ["f", "F"] do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output, page: :server}}} = app,
+        {:key, key}
+      )
+      when key in ["v", "V"] do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(
+        %{state: %{modal: %{kind: :output} = modal} = state} = app,
+        {:key, key}
+      )
+      when key in [:up, :down, :page_up, :page_down] do
+    {:cont, put_state(app, %{modal: OutputModal.scroll(modal, key, state)})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
   def handle_event(%{state: %{overlay: :setup}} = app, {:key, key}) when key in ["y", "Y"] do
     {:cont, setup_write(app, :cwd)}
   end
@@ -424,6 +457,10 @@ defmodule Tidex.App do
 
   def handle_event(app, {:key, key}) when key in ["x", "X"] do
     {:cont, stop_server(app)}
+  end
+
+  def handle_event(app, {:key, key}) when key in ["v", "V"] do
+    {:cont, open_server_output(app)}
   end
 
   def handle_event(%{state: %{browser_url: url}} = app, {:key, key})
@@ -685,10 +722,29 @@ defmodule Tidex.App do
 
   defp open_fail_modal(app) do
     case Failures.modal(app.state) do
-      nil -> app
+      nil -> open_raw_test_output(app)
       modal -> put_state(app, %{overlay: nil, modal: modal})
     end
   end
+
+  defp open_raw_test_output(%{state: %{test_state: :fail}} = app) do
+    put_state(app, %{
+      overlay: nil,
+      modal: OutputModal.modal(:test, app.state.test_log)
+    })
+  end
+
+  defp open_raw_test_output(app), do: app
+
+  defp open_server_output(%{state: %{server_command: command}} = app)
+       when is_binary(command) and command != "" do
+    put_state(app, %{
+      overlay: nil,
+      modal: OutputModal.modal(:server, app.state.server_log)
+    })
+  end
+
+  defp open_server_output(app), do: app
 
   defp close_fail_modal(app), do: put_state(app, %{modal: nil})
 

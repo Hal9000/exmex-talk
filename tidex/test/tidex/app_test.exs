@@ -928,6 +928,37 @@ defmodule Tidex.AppTest do
     assert app.state.modal == nil
   end
 
+  test "f shows raw output when a failed test run has no parsed failure" do
+    {app, out} = app([])
+
+    app = %{
+      app
+      | state: %{
+          app.state
+          | test_state: :fail,
+            test_log: ["== Compilation error in file lib/demo.ex ==", "** (SyntaxError) bad"]
+        }
+    }
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :output
+    assert app.state.modal.page == :test
+    assert FakeTerminal.visible(out) =~ "Compilation error"
+    assert FakeTerminal.visible(out) =~ "SyntaxError"
+    refute FakeTerminal.visible(out) =~ "edit"
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal == nil
+  end
+
+  test "raw failure output reports when the command emitted nothing" do
+    {app, out} = app([])
+    app = %{app | state: %{app.state | test_state: :fail, test_log: []}}
+
+    {:cont, _app} = App.step(app, {:key, "f"})
+    assert FakeTerminal.visible(out) =~ "(no output)"
+  end
+
   test "left and right cycle only inside the failure box" do
     {app, out} = app(width: 80, height: 24)
 
