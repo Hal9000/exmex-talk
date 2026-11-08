@@ -19,9 +19,10 @@ defmodule Tidex.GitModal do
             Termex.bold("c") <> "  commit",
             Termex.bold("l") <> "  pull",
             Termex.bold("p") <> "  push",
+            Termex.bold("u") <> "  ship",
             "esc close"
           ],
-          "   "
+          "  "
         ),
       scroll: scroll,
       min_width: 60,
@@ -33,12 +34,21 @@ defmodule Tidex.GitModal do
 
   @spec commit(map(), String.t(), Scroll.t()) :: Modal.t()
   def commit(state, message \\ "", return_scroll \\ :follow) do
+    prompt(state, :commit, message, return_scroll)
+  end
+
+  @spec ship(map(), String.t(), Scroll.t()) :: Modal.t()
+  def ship(state, message \\ "", return_scroll \\ :follow) do
+    prompt(state, :ship, message, return_scroll)
+  end
+
+  defp prompt(state, action, message, return_scroll) do
     %Modal{
       kind: :git,
       title: title(state.git),
       lines: lines(state) ++ ["", commit_prompt(message)],
-      page: {:commit, message, return_scroll},
-      commands: "enter commit   esc cancel",
+      page: {action, message, return_scroll},
+      commands: "enter #{action}   esc cancel",
       scroll: :follow,
       min_width: 60,
       max_width: 64,

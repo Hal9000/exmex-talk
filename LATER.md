@@ -165,7 +165,8 @@ scroll, and Esc returns to the menu. Search and maximize are later.
 output, follows the tail, and scrolls with arrows/PgUp/PgDn. Add, pull,
 one-line commit, and push stay in the centered footer. Commit temporarily
 adds a message prompt to the same modal body. It remains a status view,
-not a full Git client.
+not a full Git client. `u` reuses that prompt for the conservative
+add/commit/pull-with-rebase/push sequence and stops at the first failure.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
 help ~50×10, centered. On 80×24 a content-sized box still leaves lobby

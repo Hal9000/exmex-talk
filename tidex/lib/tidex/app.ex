@@ -206,42 +206,48 @@ defmodule Tidex.App do
   def handle_event(app, {:key, key}) when key in [<<3>>, :eof], do: {:quit, app}
 
   def handle_event(
-        %{state: %{modal: %{kind: :git, page: {:commit, _message, return_scroll}}}} = app,
+        %{state: %{modal: %{kind: :git, page: {action, _message, return_scroll}}}} = app,
         {:key, :esc}
-      ) do
+      )
+      when action in [:commit, :ship] do
     {:cont, put_state(app, %{modal: GitModal.modal(app.state, return_scroll)})}
   end
 
   def handle_event(
-        %{state: %{modal: %{kind: :git, page: {:commit, message, _return_scroll}}}} = app,
+        %{state: %{modal: %{kind: :git, page: {action, message, _return_scroll}}}} = app,
         {:key, key}
       )
-      when key in ["\r", "\n"] do
-    {:cont, commit_git_message(app, message)}
+      when action in [:commit, :ship] and key in ["\r", "\n"] do
+    {:cont, submit_git_message(app, action, message)}
   end
 
   def handle_event(
-        %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app,
+        %{state: %{modal: %{kind: :git, page: {action, message, return_scroll}}}} = app,
         {:key, key}
       )
-      when key in [<<8>>, <<127>>] do
+      when action in [:commit, :ship] and key in [<<8>>, <<127>>] do
     message = message |> String.graphemes() |> Enum.drop(-1) |> Enum.join()
-    {:cont, put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})}
+
+    {:cont,
+     put_state(app, %{modal: git_message_modal(app.state, action, message, return_scroll)})}
   end
 
   def handle_event(
-        %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app,
+        %{state: %{modal: %{kind: :git, page: {action, message, return_scroll}}}} = app,
         {:key, <<character>>}
       )
-      when character in 32..126 do
+      when action in [:commit, :ship] and character in 32..126 do
     message = message <> <<character>>
-    {:cont, put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})}
+
+    {:cont,
+     put_state(app, %{modal: git_message_modal(app.state, action, message, return_scroll)})}
   end
 
   def handle_event(
-        %{state: %{modal: %{kind: :git, page: {:commit, _message, _return_scroll}}}} = app,
+        %{state: %{modal: %{kind: :git, page: {action, _message, _return_scroll}}}} = app,
         {:key, _key}
-      ) do
+      )
+      when action in [:commit, :ship] do
     {:cont, app}
   end
 
@@ -313,6 +319,11 @@ defmodule Tidex.App do
   def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
       when key in ["p", "P"] do
     {:cont, git_push(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
+      when key in ["u", "U"] do
+    {:cont, put_state(app, %{modal: GitModal.ship(app.state, "", app.state.modal.scroll)})}
   end
 
   def handle_event(
@@ -732,17 +743,35 @@ defmodule Tidex.App do
 
   defp git_push(app), do: start_git_cmd(app, "git push")
 
-  defp commit_git_message(app, message) do
+  defp submit_git_message(app, action, message) do
     message = String.trim(message)
 
     if message == "" do
       app
     else
+      quoted_message = shell_quote(message)
+
+      command =
+        case action do
+          :commit ->
+            "git commit -m " <> quoted_message
+
+          :ship ->
+            "git add -u && git commit -m " <>
+              quoted_message <> " && git pull --rebase && git push"
+        end
+
       app
       |> put_state(%{modal: GitModal.modal(app.state)})
-      |> start_git_cmd("git commit -m " <> shell_quote(message))
+      |> start_git_cmd(command)
     end
   end
+
+  defp git_message_modal(state, :commit, message, return_scroll),
+    do: GitModal.commit(state, message, return_scroll)
+
+  defp git_message_modal(state, :ship, message, return_scroll),
+    do: GitModal.ship(state, message, return_scroll)
 
   defp start_git_cmd(app, command) do
     app = app |> persist_visible() |> stop_git_cmd()
@@ -877,9 +906,10 @@ defmodule Tidex.App do
   defp log_field(:git), do: :git_log
 
   defp sync_git_modal(
-         %{state: %{modal: %{kind: :git, page: {:commit, message, return_scroll}}}} = app
-       ) do
-    put_state(app, %{modal: GitModal.commit(app.state, message, return_scroll)})
+         %{state: %{modal: %{kind: :git, page: {action, message, return_scroll}}}} = app
+       )
+       when action in [:commit, :ship] do
+    put_state(app, %{modal: git_message_modal(app.state, action, message, return_scroll)})
   end
 
   defp sync_git_modal(%{state: %{modal: %{kind: :git, scroll: scroll}}} = app) do
