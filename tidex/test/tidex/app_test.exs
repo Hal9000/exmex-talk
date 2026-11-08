@@ -903,11 +903,24 @@ defmodule Tidex.AppTest do
     refute frame =~ "main"
   end
 
-  test "i opens a not-implemented git info modal" do
-    {app, out} = app([])
+  test "i opens a compact, live git info modal" do
+    git = %{branch: "feature/short-summary", dirty: 4, untracked: 1, status: ""}
+    {app, out} = app(git: git)
     {:cont, app} = App.step(app, {:key, "i"})
-    assert app.state.modal.kind == :stub
-    assert FakeTerminal.visible(out) =~ "Not implemented"
+    assert app.state.modal.kind == :git_info
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "branch: feature/short-summary"
+    assert visible =~ "4 tracked changes"
+    assert visible =~ "1 untracked file"
+
+    {:cont, app} =
+      App.step(app, {:git, %{branch: "main", dirty: 0, untracked: 2, status: ""}})
+
+    visible = FakeTerminal.visible(out)
+    assert visible =~ "branch: main"
+    assert visible =~ "0 tracked changes"
+    assert visible =~ "2 untracked files"
+
     {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
   end
