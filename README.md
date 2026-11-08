@@ -30,7 +30,8 @@ open the ones that are present. `0` always edits `tidex.conf`.
 `test_format` is `exunit`, `minitest`, or `none`; it selects only the
 small failure-output parser, while `test` remains an arbitrary command.
 `server` and `browser` are optional; Tidex does not assume a language
-runtime when they are absent.
+runtime when they are absent. Git support defaults to the nearest enclosing
+repository; set `git: off` when that repository is irrelevant to the project.
 
 `project` is the status-pane label. If omitted, it defaults to a
 `dir: name` entry in `~/.tidex/tidex.conf`, then the directory that

@@ -14,4 +14,6 @@ cd ../examples/ruby_calc
 ```
 
 The fixture uses Minitest's standard output format. Its `tidex.conf`
-selects that parser explicitly with `test_format: minitest`.
+selects that parser explicitly with `test_format: minitest`. Git controls
+are disabled because this fixture is only a subdirectory of the enclosing
+demo repository.

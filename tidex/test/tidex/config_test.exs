@@ -16,6 +16,7 @@ defmodule Tidex.ConfigTest do
     assert config.project == Path.basename(dir)
     assert config.server == nil
     assert config.browser == nil
+    assert config.git == :auto
     assert is_binary(config.editor)
   end
 
@@ -27,6 +28,7 @@ defmodule Tidex.ConfigTest do
     server: echo serve
     browser: http://example.test
     editor: true
+    git: off
     """)
 
     nested = Path.join(dir, "nested")
@@ -39,7 +41,19 @@ defmodule Tidex.ConfigTest do
     assert config.server == "echo serve"
     assert config.browser == "http://example.test"
     assert config.editor == "true"
+    assert config.git == :off
     assert config.files == %{}
+  end
+
+  test "accepts auto and ignores unknown Git modes", %{dir: dir} do
+    path = Path.join(dir, "tidex.conf")
+    home = Path.join(dir, "user")
+
+    File.write!(path, "git: auto\n")
+    assert Config.load(dir, home: home).git == :auto
+
+    File.write!(path, "git: sometimes\n")
+    assert Config.load(dir, home: home).git == :auto
   end
 
   test "loads file1-file4 and skips missing slots", %{dir: dir} do
@@ -105,8 +119,13 @@ defmodule Tidex.ConfigTest do
     refute body =~ ~r/^server:/m
     refute body =~ ~r/^browser:/m
     refute body =~ ~r/^editor:/m
+    refute body =~ ~r/^git:/m
     assert body =~ ~r/^file1: mix.exs$/m
     refute body =~ ~r/^file2:/m
+  end
+
+  test "dump records an explicit Git opt-out" do
+    assert Config.dump(%Config{git: :off}) =~ ~r/^git: off$/m
   end
 
   test "write! lists README.md before mix.exs when both exist", %{dir: dir} do

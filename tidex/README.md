@@ -20,7 +20,12 @@ the body by a horizontal rule; they use the same bright-cyan accent as the
 modal frame.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `test_format`, optional `server` /
-`browser`, `editor`, and optional `file1`–`file4`. Without `server`,
+`browser`, `editor`, `git`, and optional `file1`–`file4`. `git` defaults
+to `auto`, using the nearest enclosing repository; `git: off` suppresses
+Git polling and controls for projects where that repository is irrelevant.
+When auto-detection finds no repository, the Git box remains in place and
+shows `[No Git repository]`.
+Without `server`,
 the Server box keeps its size but shows `[No server configured]`
 instead of controls; Tidex does not assume Python or another runtime.
 Missing `project` defaults to that

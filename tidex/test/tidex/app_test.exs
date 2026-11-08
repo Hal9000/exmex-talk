@@ -18,7 +18,11 @@ defmodule Tidex.AppTest do
       if Keyword.has_key?(opts, :cwd) or Keyword.has_key?(opts, :config) do
         []
       else
-        [server_command: "server", browser_url: "http://localhost:4000"]
+        [
+          server_command: "server",
+          browser_url: "http://localhost:4000",
+          git: %{root: "/repo", branch: "main", dirty: 0, untracked: 0, status: ""}
+        ]
       end
 
     app =
@@ -195,6 +199,42 @@ defmodule Tidex.AppTest do
     assert app.state.modal == nil
     refute FakeTerminal.visible(out) =~ "Add tracked changes"
     assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "Add tracked changes"
+  end
+
+  test "git off suppresses polling, updates, and Git modal keys" do
+    {app, out} =
+      app(
+        git_mode: :off,
+        poll_git: true,
+        git_reader: fn -> flunk("disabled Git should not be read") end
+      )
+
+    app = App.attach_git(app)
+    assert app.git_pid == nil
+
+    {:cont, app} = App.step(app, {:key, "g"})
+    assert app.state.modal == nil
+    assert FakeTerminal.visible(out) =~ "[Git disabled]"
+
+    {:cont, app} = App.handle_event(app, {:key, "i"})
+    assert app.state.modal == nil
+
+    {:cont, app} =
+      App.handle_event(app, {:git, %{branch: "unexpected", dirty: 1, untracked: 0}})
+
+    assert app.state.git.branch == "main"
+  end
+
+  test "Git modal keys do nothing when auto-detection finds no repository" do
+    no_repo = %{root: nil, branch: nil, dirty: 0, untracked: 0, status: ""}
+    {app, out} = app(git: no_repo)
+
+    {:cont, app} = App.step(app, {:key, "g"})
+    assert app.state.modal == nil
+    assert FakeTerminal.visible(out) =~ "[No Git repository]"
+
+    {:cont, app} = App.handle_event(app, {:key, "i"})
+    assert app.state.modal == nil
   end
 
   test "esc closes the git modal" do
@@ -962,7 +1002,7 @@ defmodule Tidex.AppTest do
   test "git snapshots update the status pane" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4, untracked: 1}})
-    assert app.state.git == %{branch: "main", dirty: 4, untracked: 1, status: ""}
+    assert app.state.git == %{root: nil, branch: "main", dirty: 4, untracked: 1, status: ""}
     frame = FakeTerminal.last_frame(out)
     assert frame =~ "dirty"
     refute frame =~ "untracked"

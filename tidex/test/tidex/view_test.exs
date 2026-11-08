@@ -24,7 +24,8 @@ defmodule Tidex.ViewTest do
           height: 24,
           project_name: "exmex-talk",
           server_command: "server",
-          browser_url: "http://localhost:4000"
+          browser_url: "http://localhost:4000",
+          git: %{root: "/repo", branch: "main", dirty: 0, untracked: 0, status: ""}
         },
         state_overrides
       )
@@ -180,6 +181,25 @@ defmodule Tidex.ViewTest do
     refute visible =~ "Start/restart"
     refute visible =~ "Stop"
     refute visible =~ "Browse"
+  end
+
+  test "keeps the Git box but replaces controls when Git is off" do
+    {output, _state} = render(git_mode: :off)
+    visible = Termex.ANSI.strip(output)
+
+    assert visible =~ "git"
+    assert visible =~ "[Git disabled]"
+    refute visible =~ "More information"
+    refute visible =~ "Open full pane"
+  end
+
+  test "keeps the Git box but replaces controls outside a repository" do
+    {output, _state} = render(git: Tidex.Git.empty())
+    visible = Termex.ANSI.strip(output)
+
+    assert visible =~ "[No Git repository]"
+    refute visible =~ "More information"
+    refute visible =~ "Open full pane"
   end
 
   test "lobby shows fail count on the long status line, not the failure body" do
