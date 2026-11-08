@@ -260,22 +260,6 @@ defmodule Tidex.App do
   end
 
   def handle_event(
-        %{state: %{modal: %{kind: :output, page: :test}}} = app,
-        {:key, key}
-      )
-      when key in ["f", "F"] do
-    {:cont, put_state(app, %{modal: nil})}
-  end
-
-  def handle_event(
-        %{state: %{modal: %{kind: :output, page: :server}}} = app,
-        {:key, key}
-      )
-      when key in ["v", "V"] do
-    {:cont, put_state(app, %{modal: nil})}
-  end
-
-  def handle_event(
         %{state: %{modal: %{kind: :output} = modal} = state} = app,
         {:key, key}
       )
@@ -309,11 +293,6 @@ defmodule Tidex.App do
   end
 
   def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
-      when key in ["f", "F"] do
-    {:cont, close_fail_modal(app)}
-  end
-
-  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
       when key in ["e", "E"] do
     {:cont, launch_editor(app)}
   end
@@ -330,8 +309,7 @@ defmodule Tidex.App do
     {:cont, app}
   end
 
-  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, key})
-      when key in ["g", "G", :esc] do
+  def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, :esc}) do
     {:cont, close_git_modal(app)}
   end
 
@@ -370,10 +348,6 @@ defmodule Tidex.App do
 
   def handle_event(%{state: %{modal: %{kind: :git}}} = app, {:key, _key}) do
     {:cont, app}
-  end
-
-  def handle_event(%{state: %{modal: %{kind: :help}}} = app, {:key, "?"}) do
-    {:cont, close_help_modal(app)}
   end
 
   def handle_event(%{state: %{modal: %{kind: :help, page: :menu}}} = app, {:key, :esc}) do

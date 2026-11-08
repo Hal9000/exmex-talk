@@ -8,7 +8,7 @@ the next slice until a real TTY look (`mix tidex`).
 `f` opens a 60×8 modal on the lobby (`fail N/M`, name, file:line, two
 snippet lines, `e  edit  left/right  esc`). A failed run with no parsed
 failure opens its scrollable raw output instead. No-op before a failed run.
-`esc` or `f` closes. Left/right and `e` work only inside a parsed failure.
+`esc` closes. Left/right and `e` work only inside a parsed failure.
 `0` edits `tidex.conf` and reloads it when the editor returns. Lobby `e`
 does nothing.
 
