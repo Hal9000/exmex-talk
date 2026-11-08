@@ -39,12 +39,18 @@ defmodule Termex.Box do
   def titled_edge(width, title) do
     clipped = Termex.clip(title, max(width - 3, 0))
     label = "─ " <> clipped <> " "
-    pad = width - String.length(label)
+    pad = width - visible_width(label)
 
     if pad < 0 do
       Termex.clip(label, width)
     else
       label <> horizontal(pad)
     end
+  end
+
+  defp visible_width(text) do
+    text
+    |> Termex.ANSI.strip()
+    |> String.length()
   end
 end

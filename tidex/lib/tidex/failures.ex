@@ -71,17 +71,36 @@ defmodule Tidex.Failures do
     }
   end
 
+  @exunit_module ~r/^(?<name>.*)\s+\((?<module>[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*)\)\s*$/
+
   defp body(fail) do
-    [fail.name || "", location(fail) | snippet_lines(fail.snippet)]
+    {name, module} = split_module(fail.name || "")
+
+    [name, location(fail, module) | snippet_lines(fail.snippet)]
     |> Enum.concat(["", "", "", ""])
     |> Enum.take(4)
   end
 
-  defp location(%{file: file, line: line}) when is_binary(file) and is_integer(line),
+  defp split_module(name) do
+    case Regex.run(@exunit_module, name, capture: :all_but_first) do
+      [name, module] when name != "" -> {name, module}
+      _ -> {name, ""}
+    end
+  end
+
+  defp location(fail, module) do
+    case {module, place(fail)} do
+      {"", place} -> place
+      {module, ""} -> module
+      {module, place} -> module <> " " <> place
+    end
+  end
+
+  defp place(%{file: file, line: line}) when is_binary(file) and is_integer(line),
     do: "#{file}:#{line}"
 
-  defp location(%{file: file}) when is_binary(file), do: file
-  defp location(_), do: ""
+  defp place(%{file: file}) when is_binary(file), do: file
+  defp place(_), do: ""
 
   defp snippet_lines(text) when is_binary(text) do
     text

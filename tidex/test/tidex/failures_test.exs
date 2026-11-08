@@ -132,12 +132,48 @@ defmodule Tidex.FailuresTest do
     assert modal.max_width == 60
     assert modal.min_height == 8
     assert modal.max_height == 8
-    assert hd(modal.lines) == "test boom (FooTest)"
-    assert Enum.at(modal.lines, 1) == "test/foo_test.exs:20"
+    assert hd(modal.lines) == "test boom"
+    assert Enum.at(modal.lines, 1) == "FooTest test/foo_test.exs:20"
     assert Enum.at(modal.lines, 2) =~ "RuntimeError"
     pane = Tidex.Modal.pane(state, modal)
     assert pane.width == 60
     assert pane.height == 8
+  end
+
+  test "moves a trailing ExUnit module onto the file line" do
+    state = %{
+      failures: [
+        %{
+          name: "test this fails on purpose (for the Tidex failure box) (Proj1Test)",
+          file: "test/proj1_test.exs",
+          line: 12,
+          snippet: "left: 4"
+        }
+      ],
+      failure_index: 0
+    }
+
+    modal = Failures.modal(state)
+    assert hd(modal.lines) == "test this fails on purpose (for the Tidex failure box)"
+    assert Enum.at(modal.lines, 1) == "Proj1Test test/proj1_test.exs:12"
+  end
+
+  test "leaves a heading alone when it has no trailing module" do
+    state = %{
+      failures: [
+        %{
+          name: "MathTest: failure on setup_all callback, all tests have been invalidated",
+          file: "test/math_test.exs",
+          line: 5,
+          snippet: "setup failed"
+        }
+      ],
+      failure_index: 0
+    }
+
+    modal = Failures.modal(state)
+    assert hd(modal.lines) =~ "setup_all callback"
+    assert Enum.at(modal.lines, 1) == "test/math_test.exs:5"
   end
 
   test "showing? is true only on a failed run with parsed failures" do

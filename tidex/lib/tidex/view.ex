@@ -35,7 +35,7 @@ defmodule Tidex.View do
   defp render_status(device, state) do
     rows = LobbyLayout.content_rows(state)
     pane = LobbyLayout.lobby(state.width, state.height, rows)
-    q = LobbyLayout.quadrants(pane)
+    q = LobbyLayout.quadrants(pane, state)
     title = "#{state.title} · #{state.project_name}"
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: title)
@@ -44,29 +44,23 @@ defmodule Tidex.View do
     draw_server_quadrant(device, q.server, state)
     draw_files_quadrant(device, q.files, state)
     draw_git_quadrant(device, q.git, state.git)
-    draw_footer(device, q.footer_row, pane, state)
+    draw_help(device, q.help_row, q.help_col)
   end
 
   defp draw_test_quadrant(device, pane, state) do
     box_title = titled("Test", test_title_status(state))
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: box_title)
-    inner = Layout.inner(pane)
+    body = LobbyLayout.content(pane)
 
-    Termex.write_clipped(device, inner.row, inner.col, inner.width, key("t", "Run tests"))
-    Termex.write_clipped(
-      device,
-      inner.row + 1,
-      inner.col,
-      inner.width,
-      key("f", "Step through failures")
-    )
+    Termex.write_clipped(device, body.row, body.col, body.width, key("t", "Run tests"))
+    Termex.write_clipped(device, body.row + 1, body.col, body.width, key("f", "Step through failures"))
 
     write_status_line(
       device,
-      inner.row + 2,
-      inner.col,
-      inner.width,
+      pane.row + pane.height - 2,
+      body.col,
+      body.width,
       test_long_status(state)
     )
   end
@@ -76,7 +70,7 @@ defmodule Tidex.View do
     box_title = titled("Server", status)
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: box_title)
-    inner = Layout.inner(pane)
+    body = LobbyLayout.content(pane)
 
     lines =
       if server_configured?(state) do
@@ -89,12 +83,12 @@ defmodule Tidex.View do
         [key("s", "Start/restart"), key("x", "Stop")]
       end
 
-    Termex.write_region(device, inner.row, inner.col, inner.width, length(lines), lines)
+    Termex.write_region(device, body.row, body.col, body.width, length(lines), lines)
   end
 
   defp draw_files_quadrant(device, pane, state) do
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: "Edit files")
-    inner = Layout.inner(pane)
+    body = LobbyLayout.content(pane)
 
     lines =
       [key("0", "tidex.conf")] ++
@@ -102,22 +96,20 @@ defmodule Tidex.View do
          |> Enum.filter(&Map.has_key?(state.files, &1))
          |> Enum.map(fn n -> key("#{n}", state.files[n]) end))
 
-    Termex.write_region(device, inner.row, inner.col, inner.width, length(lines), lines)
+    Termex.write_region(device, body.row, body.col, body.width, length(lines), lines)
   end
 
   defp draw_git_quadrant(device, pane, git) do
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: git_box_title(git))
-    inner = Layout.inner(pane)
+    body = LobbyLayout.content(pane)
 
-    Termex.write_clipped(device, inner.row, inner.col, inner.width, key("i", "More information"))
-    Termex.write_clipped(device, inner.row + 1, inner.col, inner.width, key("g", "Open full pane"))
+    Termex.write_clipped(device, body.row, body.col, body.width, key("i", "More information"))
+    Termex.write_clipped(device, body.row + 1, body.col, body.width, key("g", "Open full pane"))
   end
 
-  defp draw_footer(device, row, pane, _state) do
-    inner = Layout.inner(pane)
-    half = max(div(inner.width, 2), 1)
-    line = pad_visible(key("?", "help"), half) <> key("q", "quit")
-    Termex.write_clipped(device, row, inner.col, inner.width, line)
+  defp draw_help(device, row, col) do
+    Termex.write_clipped(device, row, col, 16, key("?", "help"))
+    Termex.write_clipped(device, row + 1, col, 16, key("q", "quit"))
   end
 
   defp titled(label, status) when status in [nil, ""] do
@@ -167,19 +159,7 @@ defmodule Tidex.View do
     dirty = Map.get(git, :dirty, 0)
     untracked = Map.get(git, :untracked, 0)
 
-    cond do
-      dirty > 0 and untracked > 0 ->
-        titled("git", "#{dirty} dirty, #{untracked} untracked")
-
-      dirty > 0 ->
-        titled("git", "#{dirty} dirty")
-
-      untracked > 0 ->
-        titled("git", "#{untracked} untracked")
-
-      true ->
-        "git"
-    end
+    if dirty > 0 or untracked > 0, do: titled("git", "dirty"), else: "git"
   end
 
   defp write_status_line(device, row, col, width, "") do
@@ -197,11 +177,6 @@ defmodule Tidex.View do
     do: is_binary(state.server_command) and state.server_command != ""
 
   defp browser?(state), do: is_binary(state.browser_url) and state.browser_url != ""
-
-  defp pad_visible(text, width) do
-    visible = String.length(Termex.ANSI.strip(text))
-    text <> String.duplicate(" ", max(width - visible, 0))
-  end
 
   defp render_menu(device, state) do
     Termex.write_clipped(

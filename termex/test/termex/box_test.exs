@@ -41,6 +41,14 @@ defmodule Termex.BoxTest do
     refute short =~ "status"
   end
 
+  test "titled_edge keeps a styled title the full visible width" do
+    edge = Box.titled_edge(20, "git ─ " <> Termex.reverse("dirty"))
+    visible = Termex.ANSI.strip(edge)
+    assert String.length(visible) == 20
+    assert String.ends_with?(visible, "─")
+    assert visible =~ "dirty"
+  end
+
   test "hline writes a horizontal run at the cursor" do
     {device, out} = Capture.open()
     assert :ok = Termex.hline(device, 2, 3, 4)

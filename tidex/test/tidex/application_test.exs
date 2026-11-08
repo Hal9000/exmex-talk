@@ -57,10 +57,16 @@ defmodule Tidex.ApplicationTest do
 
     on_exit(fn -> FakeTerminal.stop_ui(ui) end)
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "wired" end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "dirty" end)
     send(Process.whereis(Tidex.Git), :poll)
-    %{branch: branch} = Git.snapshot()
-    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ branch end)
+    snap = Git.snapshot()
+
+    marker =
+      if Map.get(snap, :dirty, 0) + Map.get(snap, :untracked, 0) > 0,
+        do: "dirty",
+        else: "Open full pane"
+
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ marker end)
     FakeTerminal.stop_ui(ui)
   end
 
@@ -95,7 +101,7 @@ defmodule Tidex.ApplicationTest do
 
     on_exit(fn -> FakeTerminal.stop_ui(ui) end)
 
-    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "pre-crash" end)
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ "Open full pane" end)
 
     pid = Process.whereis(Tidex.Git)
     ref = Process.monitor(pid)
@@ -107,8 +113,14 @@ defmodule Tidex.ApplicationTest do
       is_pid(git) and git != pid
     end)
 
-    %{branch: branch} = Git.snapshot()
-    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ branch end)
+    snap = Git.snapshot()
+
+    marker =
+      if Map.get(snap, :dirty, 0) + Map.get(snap, :untracked, 0) > 0,
+        do: "dirty",
+        else: "Open full pane"
+
+    FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ marker end)
     FakeTerminal.stop_ui(ui)
   end
 end

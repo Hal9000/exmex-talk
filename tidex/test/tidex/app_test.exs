@@ -879,8 +879,9 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "f"})
     assert app.state.modal.kind == :fail
     visible = FakeTerminal.visible(out)
-    assert visible =~ "test Foo.bar/1 (FooTest)"
-    assert visible =~ "test/foo_test.exs:12"
+    assert visible =~ "test Foo.bar/1"
+    assert visible =~ "FooTest test/foo_test.exs:12"
+    refute visible =~ "(FooTest)"
     refute visible =~ "  1) "
   end
 
@@ -896,8 +897,8 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:git, %{branch: "main", dirty: 4, untracked: 1}})
     assert app.state.git == %{branch: "main", dirty: 4, untracked: 1, status: ""}
     frame = FakeTerminal.last_frame(out)
-    assert frame =~ "4 dirty"
-    assert frame =~ "1 untracked"
+    assert frame =~ "dirty"
+    refute frame =~ "untracked"
     refute frame =~ "main"
   end
 

@@ -119,7 +119,7 @@ defmodule Tidex.ViewTest do
     assert pane.height == rows + 2
     assert output =~ "Tidex · exmex-talk"
     assert output =~ "Edit files"
-    assert output =~ "3 dirty"
+    assert output =~ "dirty"
   end
 
   test "puts short test status in the title and long status on the bottom line" do
@@ -148,7 +148,7 @@ defmodule Tidex.ViewTest do
     assert Termex.ANSI.strip(output) =~ "Open full pane"
 
     {output, _} = render(git: %{branch: "main", dirty: 3, untracked: 2})
-    assert output =~ "3 dirty"
+    assert output =~ "dirty"
     refute Termex.ANSI.strip(output) =~ "main"
   end
 
@@ -304,8 +304,9 @@ defmodule Tidex.ViewTest do
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
     assert visible =~ "1 fail"
-    assert visible =~ "test Foo.bar/1 (FooTest)"
-    assert visible =~ "test/foo_test.exs:12"
+    assert visible =~ "test Foo.bar/1"
+    refute visible =~ "(FooTest)"
+    assert visible =~ "FooTest test/foo_test.exs:12"
     assert visible =~ "Assertion with == failed"
     assert visible =~ "fail 1/1"
     assert visible =~ "edit"
@@ -316,7 +317,7 @@ defmodule Tidex.ViewTest do
     inner = Layout.inner(pane)
     rows = FakeTerminal.region_lines(output, inner)
     assert hd(rows) =~ "test Foo.bar/1"
-    assert Enum.at(rows, 1) =~ "foo_test.exs:12"
+    assert Enum.at(rows, 1) =~ "FooTest test/foo_test.exs:12"
   end
 
   defp visible_command_status(output, letter, status) do

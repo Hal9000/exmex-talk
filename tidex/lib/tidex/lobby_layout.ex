@@ -4,11 +4,13 @@ defmodule Tidex.LobbyLayout do
   alias Tidex.Layout.Pane
 
   @lobby_max_width 80
-  @column_gap 0
-  @top_height 5
-  @files_height 7
-  @git_height 4
-  @footer_lines 1
+  @inset 1
+  @gap 1
+  @pad 1
+  @test_height 6
+  @server_height 6
+  @git_height 5
+  @help_lines 2
 
   @spec lobby(pos_integer(), pos_integer(), pos_integer()) :: Pane.t()
   def lobby(screen_width, screen_height, content_rows) do
@@ -26,51 +28,70 @@ defmodule Tidex.LobbyLayout do
   end
 
   @spec content_rows(Tidex.State.t()) :: pos_integer()
-  def content_rows(_state) do
-    @top_height + max(@files_height, @git_height) + @footer_lines
+  def content_rows(state) do
+    @inset + max(left_span(state), right_span()) + @inset
   end
 
-  @spec columns(non_neg_integer()) :: {pos_integer(), pos_integer()}
-  def columns(inner_width) do
-    usable = max(inner_width - @column_gap, 2)
-    left = div(usable, 2)
-    right = usable - left
-    {left, right}
-  end
-
-  @spec quadrants(Pane.t()) :: %{
-          test: Pane.t(),
-          server: Pane.t(),
-          files: Pane.t(),
-          git: Pane.t(),
-          footer_row: pos_integer()
-        }
-  def quadrants(%Pane{row: base_row, col: base_col, width: width, height: _height}) do
-    inner_width = max(width - 2, 0)
+  @spec quadrants(Pane.t(), Tidex.State.t()) :: map()
+  def quadrants(%Pane{} = pane, state) do
+    inner_width = max(pane.width - 2 - 2 * @inset, 2)
     {left_w, right_w} = columns(inner_width)
-    inner_row = base_row + 1
-    inner_col = base_col + 1
+    origin_row = pane.row + 1 + @inset
+    origin_col = pane.col + 1 + @inset
+    bottom_row = origin_row + @test_height + @gap
 
-    top_row = inner_row
-    bottom_row = inner_row + @top_height
-    footer_row = bottom_row + max(@files_height, @git_height)
+    git = %Pane{
+      row: origin_row + @server_height + @gap,
+      col: origin_col + left_w + @gap,
+      width: right_w,
+      height: @git_height
+    }
 
     %{
-      test: %Pane{row: top_row, col: inner_col, width: left_w, height: @top_height},
-      server: %Pane{row: top_row, col: inner_col + left_w + @column_gap, width: right_w, height: @top_height},
-      files: %Pane{row: bottom_row, col: inner_col, width: left_w, height: @files_height},
-      git: %Pane{row: bottom_row, col: inner_col + left_w + @column_gap, width: right_w, height: @git_height},
-      footer_row: footer_row
+      test: %Pane{row: origin_row, col: origin_col, width: left_w, height: @test_height},
+      server: %Pane{
+        row: origin_row,
+        col: origin_col + left_w + @gap,
+        width: right_w,
+        height: @server_height
+      },
+      files: %Pane{
+        row: bottom_row,
+        col: origin_col,
+        width: left_w,
+        height: files_height(state)
+      },
+      git: git,
+      help_row: git.row + git.height + @gap,
+      help_col: git.col + 1 + @pad
     }
   end
 
-  @spec inner(Pane.t()) :: Pane.t()
-  def inner(%Pane{row: row, col: col, width: width, height: height}) do
+  @spec content(Pane.t()) :: Pane.t()
+  def content(%Pane{row: row, col: col, width: width, height: height}) do
     %Pane{
-      row: row + 1,
-      col: col + 1,
-      width: max(width - 2, 0),
-      height: max(height - 2, 0)
+      row: row + 1 + @pad,
+      col: col + 1 + @pad,
+      width: max(width - 2 - 2 * @pad, 0),
+      height: max(height - 2 - @pad, 0)
     }
+  end
+
+  defp columns(inner_width) do
+    usable = max(inner_width - @gap, 2)
+    left = div(usable, 2)
+    {left, usable - left}
+  end
+
+  defp left_span(state), do: @test_height + @gap + files_height(state)
+
+  defp right_span, do: @server_height + @gap + @git_height + @gap + @help_lines
+
+  defp files_height(state) do
+    2 + @pad + file_count(state)
+  end
+
+  defp file_count(state) do
+    1 + Enum.count(1..4, &Map.has_key?(state.files, &1))
   end
 end
