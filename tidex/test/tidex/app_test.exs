@@ -780,7 +780,8 @@ defmodule Tidex.AppTest do
     assert app.state.modal.title == "fail 2/2"
 
     {:cont, _app} = App.step(app, {:key, "e"})
-    assert_receive {:edited, "nvim +9 'test/b.exs'"}
+    path = Path.expand("test/b.exs", app.state.config_root)
+    assert_receive {:edited, "nvim +9 '" <> ^path <> "'"}
   end
 
   test "f opens the failure box; esc and f close it" do

@@ -644,7 +644,7 @@ defmodule Tidex.App do
 
         _ ->
           target = Failures.current(app.state)
-          {target && target.file, target && target.line}
+          {project_path(app.state, target && target.file), target && target.line}
       end
 
     Open.editor_command(app.state.editor_command, file: file, line: line)
@@ -657,14 +657,16 @@ defmodule Tidex.App do
     end
   end
 
+  defp project_path(_state, path) when not is_binary(path) or path == "", do: nil
+
+  defp project_path(state, path) do
+    if Path.type(path) == :absolute, do: path, else: Path.expand(path, state.config_root)
+  end
+
   defp listed_path(state, n) do
     case Map.get(state.files, n) do
       path when is_binary(path) and path != "" ->
-        if Path.type(path) == :absolute do
-          path
-        else
-          Path.expand(path, state.config_root)
-        end
+        project_path(state, path)
 
       _ ->
         nil
