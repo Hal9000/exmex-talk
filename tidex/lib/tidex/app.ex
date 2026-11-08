@@ -255,6 +255,13 @@ defmodule Tidex.App do
 
   def handle_event(app, {:key, key}) when key in ["q", "Q"], do: {:quit, app}
 
+  def handle_event(
+        %{state: %{modal: %{kind: :output, page: {:test, :failure}}}} = app,
+        {:key, :esc}
+      ) do
+    {:cont, put_state(app, %{modal: Failures.modal(app.state)})}
+  end
+
   def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, :esc}) do
     {:cont, put_state(app, %{modal: nil})}
   end
@@ -295,6 +302,16 @@ defmodule Tidex.App do
   def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
       when key in ["e", "E"] do
     {:cont, launch_editor(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
+      when key in ["s", "S"] do
+    {:cont, launch_failure_source(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, key})
+      when key in ["o", "O"] do
+    {:cont, open_failure_output(app)}
   end
 
   def handle_event(%{state: %{modal: %{kind: :fail}}} = app, {:key, :left}) do
@@ -695,6 +712,19 @@ defmodule Tidex.App do
     attach_keyboard(app)
   end
 
+  defp launch_failure_source(app) do
+    case Failures.current(app.state) do
+      %{source_file: file} = failure when is_binary(file) and file != "" ->
+        launch_editor(app,
+          file: project_path(app.state, file),
+          line: Map.get(failure, :source_line)
+        )
+
+      _ ->
+        app
+    end
+  end
+
   defp edit_config(app) do
     app
     |> launch_editor(file: config_file(app.state))
@@ -716,6 +746,11 @@ defmodule Tidex.App do
   end
 
   defp open_raw_test_output(app), do: app
+
+  defp open_failure_output(app) do
+    modal = %{OutputModal.modal(:test, app.state.test_log) | page: {:test, :failure}}
+    put_state(app, %{modal: modal})
+  end
 
   defp open_server_output(%{state: %{server_command: command}} = app)
        when is_binary(command) and command != "" do
@@ -867,7 +902,12 @@ defmodule Tidex.App do
         failures =
           if status == 0,
             do: [],
-            else: Failures.parse(log_lines(app.state, :test), app.state.test_format)
+            else:
+              Failures.parse(
+                log_lines(app.state, :test),
+                app.state.test_format,
+                app.state.config_root
+              )
 
         put_state(app, %{
           test_state: test_state,
@@ -941,7 +981,9 @@ defmodule Tidex.App do
   defp sync_output_modal(app, _source), do: app
 
   defp refresh_test_failures(app) do
-    failures = Failures.parse(log_lines(app.state, :test), app.state.test_format)
+    failures =
+      Failures.parse(log_lines(app.state, :test), app.state.test_format, app.state.config_root)
+
     n = length(failures)
     index = if n == 0, do: 0, else: rem(app.state.failure_index, n)
 

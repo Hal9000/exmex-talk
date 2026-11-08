@@ -7,8 +7,10 @@ Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
 on the status screen. `t` runs tests and stays on the lobby. The Test
 group shows `running N fail` with a live fail count as ExUnit `N)`
 blocks arrive, then `pass`, `N fail`, or `fail`. `f` opens a failure box on the
-lobby; left/right cycle, `e` edits that file, `esc` closes. If no structured
-failure was parsed, `f` opens the raw test output instead.
+lobby; left/right cycle, `e` opens the reported location, `s` opens a
+project-source candidate when one was found, and `o` shows full output.
+`esc` closes or backs out. If no structured failure was parsed, `f` opens
+the raw test output instead.
 `?` opens a help box over the lobby. Tab or arrows select a topic and
 Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
 returns to the topic list, then closes Help. `s` starts or restarts the
@@ -41,7 +43,9 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | --- | --- |
 | `t` | run tests (lobby shows `running` and a live fail count) |
 | `f` | open parsed failures, or raw output from an unparsed failed run |
-| `e` | editor at the current failure (while the box is open) |
+| `e` | editor at the reported failure location |
+| `s` | editor at a project-source candidate, when shown in Failure |
+| `o` | inspect complete test output from a parsed Failure |
 | `s` | start or restart the server from the lobby |
 | `x` | stop server |
 | `b` | open browser URL |

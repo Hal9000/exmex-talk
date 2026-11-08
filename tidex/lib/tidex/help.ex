@@ -23,8 +23,8 @@ defmodule Tidex.Help do
       summary: "inspect and edit",
       paragraphs: [
         "After a failed test run, press f to open the failure box. If Tidex parsed no structured failure, the same key opens the raw command output instead.",
-        "Use left and right to move between failures. Press e to yield the terminal to your configured editor at the current file and line.",
-        "Esc closes the box. Raw output scrolls with arrows or Page Up and Page Down. The complete test log is retained but is not dumped onto the lobby."
+        "Use left and right to move between failures. Press e to open the reported location. When an exception includes a project source frame, press s to open that secondary candidate.",
+        "Press o for the complete test output; Esc returns to the failure. Esc closes the failure box. Output scrolls with arrows or Page Up and Page Down."
       ]
     },
     %{
