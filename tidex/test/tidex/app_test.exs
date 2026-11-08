@@ -620,6 +620,25 @@ defmodule Tidex.AppTest do
     Process.exit(pid, :kill)
   end
 
+  test "v opens live server output and closes it again" do
+    {app, out} = app(server_command: "server")
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+    {:cont, app} = App.step(app, {:command, ref, :line, "Listening on port 4000"})
+
+    {:cont, app} = App.step(app, {:key, "v"})
+    assert app.state.modal.kind == :output
+    assert app.state.modal.page == :server
+    assert FakeTerminal.visible(out) =~ "Listening on port 4000"
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "request complete"})
+    assert FakeTerminal.visible(out) =~ "request complete"
+
+    {:cont, app} = App.step(app, {:key, "v"})
+    assert app.state.modal == nil
+    Process.exit(pid, :kill)
+  end
+
   test "s restarts a running server" do
     parent = self()
     {app, _out} = app(runner: fake_runner(parent), server_command: "server")
@@ -693,7 +712,27 @@ defmodule Tidex.AppTest do
     assert app.state.server_state == :start_failed
     assert app.state.server_pid == nil
     assert app.state.server_ref == nil
+    assert app.state.server_log == ["Unable to start server: :enoent"]
     assert FakeTerminal.visible(out) =~ "start failed"
+
+    {:cont, _app} = App.step(app, {:key, "v"})
+    assert FakeTerminal.visible(out) =~ "Unable to start server: :enoent"
+  end
+
+  test "a non-zero server exit leaves a diagnosable failed state" do
+    {app, out} = app(server_command: "server")
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+    {:cont, app} = App.step(app, {:command, ref, :line, "address already in use"})
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+
+    assert app.state.server_state == :start_failed
+    assert app.state.server_pid == nil
+    assert FakeTerminal.visible(out) =~ "start failed"
+
+    {:cont, _app} = App.step(app, {:key, "v"})
+    assert FakeTerminal.visible(out) =~ "address already in use"
+    Process.exit(pid, :kill)
   end
 
   test "a stale server exit cannot mark a restarted server down" do
@@ -1081,14 +1120,15 @@ defmodule Tidex.AppTest do
   test "server process exit marks the server down" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
-    assert_receive {:started, "server", _, ref, _pid}
+    assert_receive {:started, "server", _, ref, pid}
 
-    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    {:cont, app} = App.step(app, {:command, ref, :exit, 0})
     assert app.state.server_state == :down
     visible = FakeTerminal.visible(out)
     assert visible =~ "down"
     refute visible =~ "s  down"
     refute visible =~ "s  up"
+    Process.exit(pid, :kill)
   end
 
   test "editor stops the current keyboard and starts a new one" do

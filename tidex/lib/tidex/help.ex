@@ -22,9 +22,9 @@ defmodule Tidex.Help do
       title: "Failures",
       summary: "inspect and edit",
       paragraphs: [
-        "After a failed test run, press f to open the failure box. If Tidex parsed no failures, f does nothing.",
+        "After a failed test run, press f to open the failure box. If Tidex parsed no structured failure, the same key opens the raw command output instead.",
         "Use left and right to move between failures. Press e to yield the terminal to your configured editor at the current file and line.",
-        "Esc or f closes the failure box. The complete test log is retained but is not dumped onto the lobby."
+        "Esc or f closes the box. Raw output scrolls with arrows or Page Up and Page Down. The complete test log is retained but is not dumped onto the lobby."
       ]
     },
     %{
@@ -34,7 +34,7 @@ defmodule Tidex.Help do
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
         "If server is omitted, the unchanged Server box says [No server configured] and shows no controls. Tidex does not assume that Python or another language runtime is installed.",
-        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop and b to open the configured URL.",
+        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output.",
         "For a local browser URL, starting means the owned job is alive but the port is closed; up means it is listening. A pre-existing listener is reported as port busy and is never killed."
       ]
     },

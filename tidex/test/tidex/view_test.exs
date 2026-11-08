@@ -82,6 +82,7 @@ defmodule Tidex.ViewTest do
     assert visible =~ "Start/restart"
     assert visible =~ "Stop"
     assert visible =~ "Browse"
+    assert visible =~ "Output"
     assert visible =~ "More information"
     assert visible =~ "Open full pane"
     assert visible =~ "0  tidex.conf"
@@ -181,6 +182,7 @@ defmodule Tidex.ViewTest do
     refute visible =~ "Start/restart"
     refute visible =~ "Stop"
     refute visible =~ "Browse"
+    refute visible =~ "Output"
   end
 
   test "keeps the Git box but replaces controls when Git is off" do

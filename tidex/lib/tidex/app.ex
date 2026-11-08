@@ -662,11 +662,12 @@ defmodule Tidex.App do
         })
         |> refresh_server_probe(ref)
 
-      {:error, _reason} ->
+      {:error, reason} ->
         put_state(app, %{
           server_state: :start_failed,
           server_ref: nil,
-          server_pid: nil
+          server_pid: nil,
+          server_log: ["Unable to start server: #{inspect(reason)}"]
         })
     end
   end
@@ -902,7 +903,8 @@ defmodule Tidex.App do
 
         case app.server_waiter.(app.state.browser_url) do
           :listening -> put_state(app, %{server_state: :stop_failed})
-          _other -> put_state(app, %{server_state: :down})
+          _other when status == 0 -> put_state(app, %{server_state: :down})
+          _other -> put_state(app, %{server_state: :start_failed})
         end
 
       app.state.git_cmd_ref == ref ->
@@ -942,10 +944,21 @@ defmodule Tidex.App do
 
     case source do
       :test -> refresh_test_failures(app)
+      :server -> sync_output_modal(app, :server)
       :git -> sync_git_modal(app)
       _ -> app
     end
   end
+
+  defp sync_output_modal(
+         %{state: %{modal: %{kind: :output, page: source, scroll: scroll}}} = app,
+         source
+       ) do
+    lines = Map.fetch!(app.state, log_field(source))
+    put_state(app, %{modal: OutputModal.modal(source, lines, scroll)})
+  end
+
+  defp sync_output_modal(app, _source), do: app
 
   defp refresh_test_failures(app) do
     failures = Failures.parse(log_lines(app.state, :test), app.state.test_format)
