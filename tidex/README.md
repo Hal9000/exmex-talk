@@ -46,7 +46,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `x` | stop server |
 | `b` | open browser URL |
 | `v` | inspect retained server output |
-| `0` | edit `tidex.conf` |
+| `0` | edit `tidex.conf`; reload it when the editor returns |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
 | arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
 | left / right | cycle parsed test failures (while the box is open) |

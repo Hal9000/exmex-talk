@@ -858,16 +858,66 @@ defmodule Tidex.AppTest do
   test "0 yields the editor on tidex.conf" do
     parent = self()
     editor = fn command -> send(parent, {:edited, command}) end
+    dir = tmp_dir()
+    path = Path.join(dir, "tidex.conf")
 
-    {app, _out} =
-      app(
-        editor_command: "nvim",
-        editor_runner: editor,
-        config_path: "/tmp/demo/tidex.conf"
-      )
+    try do
+      File.write!(path, "editor: nvim\n")
 
-    {:cont, _app} = App.step(app, {:key, "0"})
-    assert_receive {:edited, "nvim '/tmp/demo/tidex.conf'"}
+      {app, _out} =
+        app(
+          cwd: dir,
+          editor_command: "nvim",
+          editor_runner: editor,
+          config_path: path
+        )
+
+      {:cont, _app} = App.step(app, {:key, "0"})
+      assert_receive {:edited, "nvim '" <> ^path <> "'"}
+    after
+      File.rm_rf!(dir)
+    end
+  end
+
+  test "0 reloads project configuration when the editor returns" do
+    dir = tmp_dir()
+    path = Path.join(dir, "tidex.conf")
+
+    try do
+      File.write!(path, "project: before\ntest: echo before\n")
+
+      editor = fn _command ->
+        File.write!(path, """
+        project: after
+        test: echo after
+        test_format: none
+        server: echo server
+        browser: http://localhost:4321
+        editor: hx
+        git: off
+        file2: lib/after.ex
+        """)
+      end
+
+      {app, out} = app(cwd: dir, editor_runner: editor)
+      assert app.state.project_name == "before"
+
+      {:cont, app} = App.step(app, {:key, "0"})
+
+      assert app.state.project_name == "after"
+      assert app.state.test_command == "echo after"
+      assert app.state.test_format == :none
+      assert app.state.server_command == "echo server"
+      assert app.state.browser_url == "http://localhost:4321"
+      assert app.state.editor_command == "hx"
+      assert app.state.git_mode == :off
+      assert app.state.git == Tidex.Git.empty()
+      assert app.state.files == %{2 => "lib/after.ex"}
+      assert FakeTerminal.visible(out) =~ "Tidex · after"
+      assert FakeTerminal.visible(out) =~ "[Git disabled]"
+    after
+      File.rm_rf!(dir)
+    end
   end
 
   test "1 opens file1 from the listed files" do

@@ -476,7 +476,7 @@ defmodule Tidex.App do
   end
 
   def handle_event(app, {:key, "0"}) do
-    {:cont, launch_editor(app, file: config_file(app.state))}
+    {:cont, edit_config(app)}
   end
 
   def handle_event(app, {:key, key}) when key in ~w(1 2 3 4) do
@@ -719,6 +719,12 @@ defmodule Tidex.App do
     end)
 
     attach_keyboard(app)
+  end
+
+  defp edit_config(app) do
+    app
+    |> launch_editor(file: config_file(app.state))
+    |> apply_config()
   end
 
   defp open_fail_modal(app) do
@@ -1034,7 +1040,8 @@ defmodule Tidex.App do
     path = Config.find_file(app.state.cwd, app.home)
     root = if is_binary(path), do: Path.dirname(path), else: app.state.cwd
 
-    put_state(app, %{
+    app
+    |> put_state(%{
       overlay: nil,
       setup: nil,
       project_name: config.project,
@@ -1048,6 +1055,29 @@ defmodule Tidex.App do
       config_path: path,
       config_root: root
     })
+    |> apply_git_mode()
+  end
+
+  defp apply_git_mode(%{state: %{git_mode: :off}} = app) do
+    if app.git_pid == Process.whereis(Tidex.Git), do: Git.unsubscribe(self())
+
+    modal =
+      case app.state.modal do
+        %{kind: kind} when kind in [:git, :git_info] -> nil
+        modal -> modal
+      end
+
+    app
+    |> Map.put(:git_pid, nil)
+    |> put_state(%{git: Git.empty(), modal: modal})
+  end
+
+  defp apply_git_mode(%{state: %{git_mode: :auto}} = app) do
+    if app.poll_git do
+      attach_git(app)
+    else
+      put_state(app, %{git: normalize_git(app.git_reader.())})
+    end
   end
 
   defp setup_skip(app) do

@@ -53,7 +53,7 @@ defmodule Tidex.Help do
       title: "Files & config",
       summary: "project shortcuts",
       paragraphs: [
-        "Press 0 to edit the project's tidex.conf. Keys 1 through 4 open the corresponding file1 through file4 entries.",
+        "Press 0 to edit the project's tidex.conf. Tidex reloads it when the editor returns. Keys 1 through 4 open the corresponding file1 through file4 entries.",
         "Project configuration supplies the label, test command, ExUnit or Minitest failure format, server command, browser URL, editor, and optional file shortcuts.",
         "The editor falls back through the user Tidex config, VISUAL, EDITOR, and finally vi."
       ]
