@@ -50,9 +50,9 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
 | arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
 | left / right | cycle parsed test failures (while the box is open) |
-| `?` | show/hide help |
+| `?` | open Help |
 | `i` | show a compact Git branch and change-count summary |
-| `g` | show/hide the full Git status box |
+| `g` | open the full Git status box |
 | `a` / `l` / `c` / `p` | add (`-u`) / pull (`--ff-only`) / one-line commit / push (while Git is open) |
 | `u` | ship: add `-u`, commit, pull `--rebase`, then push |
 | `esc` | close the current box |

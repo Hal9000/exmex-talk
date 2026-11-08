@@ -114,7 +114,7 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
-  test "? toggles the help modal over the lobby" do
+  test "? opens Help and is swallowed while Help is open" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "?"})
     assert app.state.overlay == nil
@@ -123,10 +123,11 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.last_frame(out) =~ "Tidex · exmex-talk"
 
     {:cont, app} = App.step(app, {:key, "?"})
+    assert app.state.modal.kind == :help
+    assert FakeTerminal.last_frame(out) =~ "esc close"
+
+    {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
-    assert app.state.overlay == nil
-    refute FakeTerminal.last_frame(out) =~ "esc close"
-    assert FakeTerminal.text(out) =~ "esc close"
   end
 
   test "esc closes the help modal" do
@@ -183,7 +184,7 @@ defmodule Tidex.AppTest do
     assert {:quit, ^app} = App.handle_event(app, {:key, "q"})
   end
 
-  test "g toggles the git modal over the lobby" do
+  test "g opens Git and is swallowed while Git is open" do
     git = %{branch: "main", dirty: 1, status: "On branch main\nmodified: lib/tidex.ex"}
     {app, out} = app(git: git)
     {:cont, app} = App.step(app, {:key, "g"})
@@ -196,9 +197,11 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.visible(out) =~ "Ship (add, commit, rebase, push)"
 
     {:cont, app} = App.step(app, {:key, "g"})
+    assert app.state.modal.kind == :git
+    assert FakeTerminal.visible(out) =~ "Add tracked changes"
+
+    {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
-    refute FakeTerminal.visible(out) =~ "Add tracked changes"
-    assert Termex.ANSI.strip(FakeTerminal.text(out)) =~ "Add tracked changes"
   end
 
   test "git off suppresses polling, updates, and Git modal keys" do
@@ -620,7 +623,7 @@ defmodule Tidex.AppTest do
     Process.exit(pid, :kill)
   end
 
-  test "v opens live server output and closes it again" do
+  test "v opens live server output and is swallowed there" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
     assert_receive {:started, "server", _, ref, pid}
@@ -635,6 +638,9 @@ defmodule Tidex.AppTest do
     assert FakeTerminal.visible(out) =~ "request complete"
 
     {:cont, app} = App.step(app, {:key, "v"})
+    assert app.state.modal.kind == :output
+
+    {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
     Process.exit(pid, :kill)
   end
@@ -979,7 +985,7 @@ defmodule Tidex.AppTest do
     assert_receive {:edited, "nvim +9 '" <> ^path <> "'"}
   end
 
-  test "f opens the failure box; esc and f close it" do
+  test "f opens the failure box and is swallowed there" do
     {app, out} = app(width: 80, height: 24)
 
     app = %{
@@ -1008,6 +1014,9 @@ defmodule Tidex.AppTest do
     {:cont, app} = App.step(app, {:key, "f"})
     assert app.state.modal.kind == :fail
     {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :fail
+
+    {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
   end
 
@@ -1037,6 +1046,9 @@ defmodule Tidex.AppTest do
     refute FakeTerminal.visible(out) =~ "edit"
 
     {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :output
+
+    {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
   end
 
