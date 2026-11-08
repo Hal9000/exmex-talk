@@ -45,6 +45,7 @@ defmodule Tidex.App do
             tty: nil,
             keyboard: nil,
             git_pid: nil,
+            resize_handler: nil,
             home: []
 
   @type t :: %__MODULE__{
@@ -67,6 +68,7 @@ defmodule Tidex.App do
           tty: Termex.RawMode.session(),
           keyboard: pid() | nil,
           git_pid: pid() | nil,
+          resize_handler: term(),
           home: keyword()
         }
 

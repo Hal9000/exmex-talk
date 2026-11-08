@@ -70,6 +70,41 @@ defmodule Tidex.ApplicationTest do
     FakeTerminal.stop_ui(ui)
   end
 
+  test "SIGWINCH redraws an idle UI at the new terminal dimensions" do
+    dimensions = start_supervised!({Agent, fn -> {80, 20} end})
+
+    {ui, _device, out} =
+      FakeTerminal.start_ui(
+        resize: true,
+        dimension_reader: fn -> Agent.get(dimensions, & &1) end
+      )
+
+    on_exit(fn -> FakeTerminal.stop_ui(ui) end)
+    app = :sys.get_state(ui)
+    handler = app.resize_handler
+
+    if handler do
+      assert handler in :gen_event.which_handlers(:erl_signal_server)
+    end
+
+    initial_size = byte_size(FakeTerminal.text(out))
+
+    Agent.update(dimensions, fn _ -> {120, 40} end)
+    send(ui, :sigwinch)
+
+    FakeTerminal.wait_until(fn ->
+      app = :sys.get_state(ui)
+      app.state.width == 120 and app.state.height == 40
+    end)
+
+    assert byte_size(FakeTerminal.text(out)) > initial_size
+    FakeTerminal.stop_ui(ui)
+
+    if handler do
+      refute handler in :gen_event.which_handlers(:erl_signal_server)
+    end
+  end
+
   test "q kills a running command job" do
     parent = self()
 

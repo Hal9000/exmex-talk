@@ -47,7 +47,8 @@ Occupancy/readiness is later; see **Server group: standing vs flash**.
 
 **Termex (current, for the talk):** clip plus Help-specific prose wrap;
 bold/reverse/dim and named ANSI colors. Tidex re-reads terminal
-dimensions before redraw, with an 80×24 fallback; no SIGWINCH.
+dimensions before redraw, with an 80×24 fallback, and redraws an idle
+UI on `SIGWINCH`.
 
 ## Packaging
 
@@ -179,16 +180,10 @@ maximized, we have sheets again.
 ## Terminal resize (SIGWINCH)
 
 Tidex re-reads `:io.columns()` / `:io.rows()` before redraw and falls
-back to 80×24 when detection fails. Resize therefore applies on the
-next key, command line, command exit, or Git poll.
-
-The remaining gap is an idle screen with no event:
-
-- **SIGWINCH:** OTP `:os.set_signal(:sigwinch, :handle)` → UI process
-  redraws while idle. Polish. Windows has no SIGWINCH; ignore until we
-  care.
-
-Not a Termex feature. Do not put it ahead of the failure box.
+back to 80×24 when detection fails. The UI asks OTP to handle
+`SIGWINCH`, subscribes to its signal event server, and redraws while
+idle. Unsupported runtimes simply reject that capability and retain
+event-driven resizing; Tidex does not identify the operating system.
 
 ## Colors and `tidex.theme`
 
