@@ -66,21 +66,21 @@ defmodule Tidex.View do
   end
 
   defp draw_server_quadrant(device, pane, state) do
-    status = server_title_status(state)
-    box_title = titled("Server", status)
+    configured? = server_configured?(state)
+    box_title = if(configured?, do: titled("Server", server_title_status(state)), else: "Server")
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height, title: box_title)
     body = LobbyLayout.content(pane)
 
     lines =
-      if server_configured?(state) do
+      if configured? do
         [
           key("s", "Start/restart"),
           key("x", "Stop")
           | if(browser?(state), do: [key("b", "Browse to server")], else: [])
         ]
       else
-        [key("s", "Start/restart"), key("x", "Stop")]
+        ["[No server configured]"]
       end
 
     Termex.write_region(device, body.row, body.col, body.width, length(lines), lines)
@@ -139,11 +139,6 @@ defmodule Tidex.View do
 
   defp test_long_status(%{test_state: :fail, failures: failures}) do
     "#{length(failures)} fail"
-  end
-
-  defp server_title_status(%{server_command: command})
-       when not is_binary(command) or command == "" do
-    "not configured"
   end
 
   defp server_title_status(%{server_state: status}), do: server_status_label(status)
