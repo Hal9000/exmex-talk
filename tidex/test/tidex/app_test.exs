@@ -758,7 +758,7 @@ defmodule Tidex.AppTest do
     Process.exit(pid, :kill)
   end
 
-  test "v opens compiler diagnostics from a failed server start" do
+  test "failed server compilation opens diagnostics while v remains raw output" do
     root = tmp_dir()
     on_exit(fn -> File.rm_rf!(root) end)
     File.mkdir_p!(Path.join(root, "lib"))
@@ -775,11 +775,15 @@ defmodule Tidex.AppTest do
       )
 
     {:cont, app} = App.step(app, {:command, ref, :exit, 1})
-    {:cont, app} = App.step(app, {:key, "v"})
-
     assert app.state.modal.kind == :diagnostic
     assert app.state.modal.page == :server
     assert FakeTerminal.visible(out) =~ "lib/server.ex:8"
+
+    {:cont, app} = App.step(app, {:key, :esc})
+    {:cont, app} = App.step(app, {:key, "v"})
+    assert app.state.modal.kind == :output
+    assert app.state.modal.page == :server
+    assert FakeTerminal.visible(out) =~ "** (SyntaxError) lib/server.ex:8"
 
     Process.exit(pid, :kill)
   end

@@ -51,7 +51,7 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | `s` | start or restart the server from the lobby |
 | `x` | stop server |
 | `b` | open browser URL |
-| `v` | inspect compiler diagnostics or retained server output |
+| `v` | inspect retained server output |
 | `0` | edit `tidex.conf`; reload it when the editor returns |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
 | arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
