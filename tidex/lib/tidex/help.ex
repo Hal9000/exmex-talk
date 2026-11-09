@@ -30,7 +30,8 @@ defmodule Tidex.Help do
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
         "If server is omitted, the unchanged Server box says [No server configured] and shows no controls. Tidex does not infer a runtime or default server command.",
-        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output or recognized compiler diagnostics.",
+        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output.",
+        "If server startup fails with recognized compiler diagnostics, their modal opens automatically. Press o there for complete server output; v always means view output from the lobby.",
         "For a local browser URL, starting means the owned job is alive but the port is closed; up means it is listening. A pre-existing listener is reported as port busy and is never killed."
       ]
     },

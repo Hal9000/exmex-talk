@@ -791,10 +791,10 @@ defmodule Tidex.App do
 
   defp open_server_output(%{state: %{server_command: command}} = app)
        when is_binary(command) and command != "" do
-    modal =
-      Diagnostics.modal(app.state, :server) || OutputModal.modal(:server, app.state.server_log)
-
-    put_state(app, %{overlay: nil, modal: modal})
+    put_state(app, %{
+      overlay: nil,
+      modal: OutputModal.modal(:server, app.state.server_log)
+    })
   end
 
   defp open_server_output(app), do: app
@@ -991,11 +991,14 @@ defmodule Tidex.App do
             diagnostic_indices: Map.put(app.state.diagnostic_indices, :server, 0)
           })
 
-        case app.server_waiter.(app.state.browser_url) do
-          :listening -> put_state(app, %{server_state: :stop_failed})
-          _other when status == 0 -> put_state(app, %{server_state: :down})
-          _other -> put_state(app, %{server_state: :start_failed})
-        end
+        app =
+          case app.server_waiter.(app.state.browser_url) do
+            :listening -> put_state(app, %{server_state: :stop_failed})
+            _other when status == 0 -> put_state(app, %{server_state: :down})
+            _other -> put_state(app, %{server_state: :start_failed})
+          end
+
+        maybe_open_server_diagnostics(app)
 
       app.state.git_cmd_ref == ref ->
         app
@@ -1049,6 +1052,15 @@ defmodule Tidex.App do
   end
 
   defp sync_output_modal(app, _source), do: app
+
+  defp maybe_open_server_diagnostics(%{state: %{modal: nil}} = app) do
+    case Diagnostics.modal(app.state, :server) do
+      nil -> app
+      modal -> put_state(app, %{modal: modal})
+    end
+  end
+
+  defp maybe_open_server_diagnostics(app), do: app
 
   defp refresh_test_failures(app) do
     failures =
