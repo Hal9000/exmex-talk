@@ -13,6 +13,8 @@ Tidex  →  Termex drawing/input  →  external command  →  streamed output ba
 | [`termex/`](termex) | Terminal UI runtime: clear, cursor, write, boxes, clipped regions, keys, yield |
 | [`tidex/`](tidex) | Workbench: lobby, test/server/git/help, browser, editor, OTP supervision |
 | [`examples/proj1/`](examples/proj1) | Elixir/ExUnit fixture Tidex operates on |
+| [`examples/proj2/`](examples/proj2) | Static test-command compile-error demonstration |
+| [`examples/proj3/`](examples/proj3) | Static server-start compile-error demonstration |
 | [`examples/ruby_calc/`](examples/ruby_calc) | Ruby/Minitest fixture using the same failure box |
 
 Project label and commands live in [`tidex.conf`](tidex.conf) (walked from
@@ -82,6 +84,11 @@ cd ../examples/proj1
 
 `t` runs `mix test` in `examples/proj1` (one test fails on purpose).
 `f` opens that failure.
+
+`examples/proj2` and `examples/proj3` are intentionally uncompilable.
+In `proj2`, press `t` then `f` to inspect a test-command compile error.
+In `proj3`, press `s`; its server compile-error modal opens automatically,
+while `v` remains the command for raw server output.
 
 For the Ruby fixture, run the same built command from
 `examples/ruby_calc`. Its failing Minitest assertion opens in the same
