@@ -33,6 +33,8 @@ defmodule Tidex.State do
             files: %{},
             failures: [],
             failure_index: 0,
+            diagnostics: %{test: [], server: []},
+            diagnostic_indices: %{test: 0, server: 0},
             width: 80,
             height: 24
 
@@ -74,6 +76,8 @@ defmodule Tidex.State do
           files: %{optional(1..4) => String.t()},
           failures: [Tidex.Failures.t()],
           failure_index: non_neg_integer(),
+          diagnostics: %{test: [Tidex.Diagnostics.t()], server: [Tidex.Diagnostics.t()]},
+          diagnostic_indices: %{test: non_neg_integer(), server: non_neg_integer()},
           width: pos_integer(),
           height: pos_integer()
         }

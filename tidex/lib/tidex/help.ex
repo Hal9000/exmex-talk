@@ -18,8 +18,9 @@ defmodule Tidex.Help do
     %{
       title: "Failures",
       paragraphs: [
-        "After a failed test run, press f to open the failure box. If Tidex parsed no structured failure, the same key opens the raw command output instead.",
+        "After a failed test run, press f to open parsed test failures or recognized compiler diagnostics. If Tidex recognized neither, the same key opens the raw command output instead.",
         "Use left and right to move between failures. Press e to open the reported location. If the failure can be traced to a specific project source location, the s command is shown for that secondary candidate.",
+        "Compiler diagnostics use the same left, right, and e controls. Press o to inspect their complete command output.",
         "An assertion often identifies only its test line; Tidex cannot reliably infer where the underlying defect lives.",
         "Press o for the complete test output; Esc returns to the failure. Esc closes the failure box. Output scrolls with arrows or Page Up and Page Down."
       ]
@@ -29,7 +30,7 @@ defmodule Tidex.Help do
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
         "If server is omitted, the unchanged Server box says [No server configured] and shows no controls. Tidex does not infer a runtime or default server command.",
-        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output.",
+        "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output or recognized compiler diagnostics.",
         "For a local browser URL, starting means the owned job is alive but the port is closed; up means it is listening. A pre-existing listener is reported as port busy and is never killed."
       ]
     },

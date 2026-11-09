@@ -5,12 +5,12 @@ A language-agnostic development workbench built on
 
 Home is a **lobby**: grouped commands (Test, Server, Git, Files) live
 on the status screen. `t` runs tests and stays on the lobby. The Test
-group shows `running N fail` with a live fail count as ExUnit `N)`
-blocks arrive, then `pass`, `N fail`, or `fail`. `f` opens a failure box on the
-lobby; left/right cycle, `e` opens the reported location, `s` opens a
-project-source candidate when one was found, and `o` shows full output.
-`esc` closes or backs out. If no structured failure was parsed, `f` opens
-the raw test output instead.
+group shows `running N fail` with a live fail count as recognized failure
+blocks arrive, then `pass`, `N fail`, or `fail`. `f` opens parsed test
+failures or compiler diagnostics; left/right cycle and `e` opens the
+reported location. Test failures may also offer `s` for a project-source
+candidate. `o` shows full output. `esc` closes or backs out. If nothing
+structured was parsed, `f` opens the raw test output instead.
 `?` opens a 64×18 help document over the lobby. It combines command
 reference with short explanations of behavior and limitations; arrows and
 PgUp/PgDn scroll it, and Esc closes it. The document shrinks and rewraps
@@ -44,18 +44,18 @@ skip). `$HOME`, `/`, and `/tmp` are not permitted; `y` is omitted.
 | Key | Action |
 | --- | --- |
 | `t` | run tests (lobby shows `running` and a live fail count) |
-| `f` | open parsed failures, or raw output from an unparsed failed run |
+| `f` | open parsed test failures, compiler diagnostics, or raw failed output |
 | `e` | editor at the reported failure location |
 | `s` | editor at a project-source candidate, when shown in Failure |
 | `o` | inspect complete test output from a parsed Failure |
 | `s` | start or restart the server from the lobby |
 | `x` | stop server |
 | `b` | open browser URL |
-| `v` | inspect retained server output |
+| `v` | inspect compiler diagnostics or retained server output |
 | `0` | edit `tidex.conf`; reload it when the editor returns |
 | `1`–`4` | open `file1`–`file4` from `tidex.conf` (missing key = no row) |
 | arrows, PgUp/PgDn | navigate or scroll the open Help or Git box |
-| left / right | cycle parsed test failures (while the box is open) |
+| left / right | cycle parsed test failures or compiler diagnostics |
 | `?` | open Help |
 | `i` | show a compact Git branch and change-count summary |
 | `g` | open the full Git status box |
