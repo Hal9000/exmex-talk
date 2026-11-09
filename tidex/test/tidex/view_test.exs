@@ -97,6 +97,24 @@ defmodule Tidex.ViewTest do
     refute visible =~ "t  down"
   end
 
+  test "places Git above Server and gives each server command its own row" do
+    {output, state} = render([])
+    pane = LobbyLayout.lobby(state.width, state.height, LobbyLayout.content_rows(state))
+    quadrants = LobbyLayout.quadrants(pane, state)
+
+    assert quadrants.git.row == quadrants.test.row
+    assert quadrants.server.row == quadrants.files.row
+
+    lines =
+      output
+      |> FakeTerminal.region_lines(LobbyLayout.content(quadrants.server))
+      |> Enum.map(&Termex.ANSI.strip/1)
+
+    assert Enum.any?(lines, &String.contains?(&1, "b  Browse"))
+    assert Enum.any?(lines, &String.contains?(&1, "v  Output"))
+    refute Enum.any?(lines, &(String.contains?(&1, "Browse") and String.contains?(&1, "Output")))
+  end
+
   test "NO_COLOR keeps commands plain without reverse on key rows" do
     System.put_env("NO_COLOR", "1")
     {output, _state} = render(modal: Help.modal())
