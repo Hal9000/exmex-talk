@@ -104,7 +104,7 @@ defmodule Tidex.ModalTest do
     assert Enum.at(rows, 3) =~ "status 3"
     assert FakeTerminal.visible(out) =~ "esc close"
     assert Modal.body_height(screen(80, 24), modal) == 1
-    assert FakeTerminal.text(out) =~ "\e[#{top_divider_row};#{pane.col}H\e[96m├"
+    assert FakeTerminal.text(out) =~ "\e[#{top_divider_row};#{pane.col}H\e[96m╟"
   end
 
   test "draws the command hints in a separated one-line footer" do
@@ -115,8 +115,8 @@ defmodule Tidex.ModalTest do
     divider_row = inner.row + inner.height - 2
     command_row = inner.row + inner.height - 1
 
-    assert text =~ "\e[#{divider_row};#{pane.col}H\e[96m├"
-    assert text =~ "┤\e[0m"
+    assert text =~ "\e[#{divider_row};#{pane.col}H\e[96m╟"
+    assert text =~ "╢\e[0m"
     assert text =~ "\e[#{command_row};#{inner.col}H\e[96mesc close\e[0m"
   end
 
@@ -173,8 +173,8 @@ defmodule Tidex.ModalTest do
     text = FakeTerminal.text(out)
 
     assert FakeTerminal.visible(out) =~ "demo"
-    assert text =~ "\e[96m┌\e[0m"
-    assert text =~ "\e[96m─ demo "
+    assert text =~ "\e[96m╔\e[0m"
+    assert text =~ "\e[96m═ demo "
     refute text =~ "\e[96mbody"
   end
 

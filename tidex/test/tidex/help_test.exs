@@ -3,38 +3,38 @@ defmodule Tidex.HelpTest do
 
   alias Tidex.{Help, Modal}
 
-  test "menu is a fixed-size selectable topic list" do
-    modal = Help.modal()
-    pane = Modal.pane(%{width: 80, height: 24}, modal)
+  test "help is one 64x18 scrollable document" do
+    screen = %{width: 80, height: 24}
+    modal = Help.modal(screen)
+    pane = Modal.pane(screen, modal)
     visible = Enum.map(modal.lines, &Termex.ANSI.strip/1)
+    document = Enum.join(visible, " ")
 
     assert modal.kind == :help
-    assert modal.page == :menu
-    assert modal.selection == 0
-    assert hd(visible) =~ "> Tests — run and read status"
-    assert Enum.at(visible, 1) =~ "Failures — inspect and edit"
-    assert pane.width == 50
-    assert pane.height == 10
+    assert modal.page == :document
+    assert modal.scroll == 0
+    assert pane.width == 64
+    assert pane.height == 18
+    assert hd(visible) == "TESTS"
+    assert document =~ "FAILURES"
+    assert document =~ "specific project source location"
+    assert document =~ "cannot reliably infer"
+    assert document =~ "NAVIGATION"
 
-    moved = Help.move(modal, -1)
-    assert moved.selection == 5
-    assert List.last(moved.lines) |> Termex.ANSI.strip() =~ "> Navigation"
+    scrolled = Help.scroll(modal, :down, screen)
+    assert scrolled.scroll == 1
   end
 
-  test "opening a topic replaces the menu with wrapped, scrollable prose" do
-    modal = Help.modal() |> Help.move(1) |> Help.open()
+  test "help keeps a terminal margin and wraps to its actual inner width" do
+    screen = %{width: 42, height: 12}
+    modal = Help.modal(screen)
+    pane = Modal.pane(screen, modal)
 
-    assert modal.page == {:topic, :failures}
-    assert modal.title == "help · Failures"
-    assert length(modal.lines) > 7
-    assert Enum.all?(modal.lines, &(String.length(&1) <= 46))
-    assert Enum.join(modal.lines, " ") =~ "reported location"
+    assert pane.width == 40
+    assert pane.height == 10
 
-    scrolled = Help.scroll(modal, :down, %{width: 80, height: 24})
-    assert scrolled.scroll == 1
-
-    menu = Help.back(scrolled)
-    assert menu.page == :menu
-    assert menu.selection == 1
+    assert Enum.all?(modal.lines, fn line ->
+             line |> Termex.ANSI.strip() |> String.length() <= 38
+           end)
   end
 end

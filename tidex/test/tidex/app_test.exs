@@ -114,13 +114,15 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
-  test "? opens Help and is swallowed while Help is open" do
+  test "? opens the Help document and is swallowed while Help is open" do
     {app, out} = app([])
     {:cont, app} = App.step(app, {:key, "?"})
     assert app.state.overlay == nil
     assert app.state.modal.kind == :help
+    assert app.state.modal.page == :document
     assert FakeTerminal.last_frame(out) =~ "esc close"
     assert FakeTerminal.last_frame(out) =~ "Tidex · exmex-talk"
+    assert FakeTerminal.visible(out) =~ "TESTS"
 
     {:cont, app} = App.step(app, {:key, "?"})
     assert app.state.modal.kind == :help
@@ -138,30 +140,45 @@ defmodule Tidex.AppTest do
     assert app.state.overlay == nil
   end
 
-  test "help menu selects topics, opens details, scrolls, and backs out" do
+  test "the Help document scrolls and seals unrelated navigation keys" do
     {app, _out} = app([])
     {:cont, app} = App.handle_event(app, {:key, "?"})
-    assert app.state.modal.page == :menu
-    assert app.state.modal.selection == 0
-
-    {:cont, app} = App.handle_event(app, {:key, "\t"})
-    {:cont, app} = App.handle_event(app, {:key, :down})
-    {:cont, app} = App.handle_event(app, {:key, :up})
-    assert app.state.modal.selection == 1
-
-    {:cont, app} = App.handle_event(app, {:key, "\r"})
-    assert app.state.modal.page == {:topic, :failures}
-    assert app.state.modal.title == "help · Failures"
 
     {:cont, app} = App.handle_event(app, {:key, :down})
     assert app.state.modal.scroll == 1
 
-    {:cont, app} = App.handle_event(app, {:key, :esc})
-    assert app.state.modal.page == :menu
-    assert app.state.modal.selection == 1
+    {:cont, app} = App.handle_event(app, {:key, "\t"})
+    {:cont, app} = App.handle_event(app, {:key, :left})
+    {:cont, app} = App.handle_event(app, {:key, "\r"})
+    assert app.state.modal.page == :document
+    assert app.state.modal.scroll == 1
 
     {:cont, app} = App.handle_event(app, {:key, :esc})
     assert app.state.modal == nil
+  end
+
+  test "an open Help document resizes and rewraps with the terminal" do
+    dimensions = start_supervised!({Agent, fn -> {80, 24} end})
+
+    {app, _out} =
+      app(
+        resize: true,
+        dimension_reader: fn -> Agent.get(dimensions, & &1) end
+      )
+
+    {:cont, app} = App.step(app, {:key, "?"})
+    assert Tidex.Modal.pane(app.state, app.state.modal).width == 64
+
+    Agent.update(dimensions, fn _ -> {42, 12} end)
+    {:cont, app} = App.step(app, {:key, "z"})
+    pane = Tidex.Modal.pane(app.state, app.state.modal)
+
+    assert pane.width == 40
+    assert pane.height == 10
+
+    assert Enum.all?(app.state.modal.lines, fn line ->
+             line |> Termex.ANSI.strip() |> String.length() <= 38
+           end)
   end
 
   test "command keys are ignored while help is open" do
