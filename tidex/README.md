@@ -11,9 +11,10 @@ lobby; left/right cycle, `e` opens the reported location, `s` opens a
 project-source candidate when one was found, and `o` shows full output.
 `esc` closes or backs out. If no structured failure was parsed, `f` opens
 the raw test output instead.
-`?` opens a help box over the lobby. Tab or arrows select a topic and
-Enter opens explanatory text; arrows and PgUp/PgDn scroll it. Esc
-returns to the topic list, then closes Help. `s` starts or restarts the
+`?` opens a 64×18 help document over the lobby. It combines command
+reference with short explanations of behavior and limitations; arrows and
+PgUp/PgDn scroll it, and Esc closes it. The document shrinks and rewraps
+to retain a terminal margin on smaller screens. `s` starts or restarts the
 server directly from the lobby. `g` opens a scrollable Git box over the
 lobby; its command menu stays fixed above the scrolling status and output,
 with contextual controls in the footer. Initial setup uses the same modal

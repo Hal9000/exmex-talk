@@ -219,8 +219,8 @@ defmodule Tidex.ViewTest do
     refute visible =~ "left behind"
   end
 
-  test "help modal draws a selectable topic menu over the lobby" do
-    modal = Help.modal()
+  test "help modal draws a scrollable document over the lobby" do
+    modal = Help.modal(%{width: 80, height: 24})
     {output, state} = render(modal: modal, width: 80, height: 24)
     pane = Tidex.Modal.pane(state, modal)
 
@@ -228,11 +228,12 @@ defmodule Tidex.ViewTest do
     visible = Termex.ANSI.strip(output)
     assert visible =~ "Tidex · exmex-talk"
     assert visible =~ "Run tests"
-    assert visible =~ "> Tests — run and read status"
-    assert output =~ "enter open"
+    assert visible =~ "TESTS"
+    assert visible =~ "project's configured test"
+    refute visible =~ "enter open"
     assert output =~ "esc close"
-    assert pane.width < state.width
-    assert pane.height < state.height
+    assert pane.width == 64
+    assert pane.height == 18
   end
 
   test "git modal fixes its command menu above scrollable status and a footer" do

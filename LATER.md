@@ -160,9 +160,10 @@ or a sibling), not two pipelines.
 tail-following modal. It is diagnostic; server start/stop remains in the
 lobby.
 
-**Help:** a six-topic menu in one modal. Tab/arrows select, Enter
-replaces the menu with wrapped explanatory text, arrows/PgUp/PgDn
-scroll, and Esc returns to the menu. Search and maximize are later.
+**Help:** one 64×18 scrollable document with section headings, command
+reference, and brief explanations of behavior and limitations. It wraps to
+its actual inner width, shrinks to retain a terminal margin, and rewraps on
+resize. Arrows/PgUp/PgDn scroll; Esc closes. Search is later.
 
 **Git:** a 60–64 column, 15–18 row modal. A fixed top section shows the
 Add, pull, one-line commit, push, and ship menu, with one reserved row for
@@ -173,8 +174,8 @@ a status view, not a full Git client. `u` runs the conservative
 add/commit/pull-with-rebase/push sequence and stops at the first failure.
 
 **Crude sizes** (highly negotiable, two constants, not a layout DSL):
-help ~50×10, centered. On 80×24 a content-sized box still leaves lobby
-visible around it.
+help 64×18, centered, with a terminal margin. It may be larger than the
+lobby; closing it redraws the lobby cleanly.
 
 There are no remaining full-screen takeovers. If every interesting box
 starts maximized, we have sheets again.
