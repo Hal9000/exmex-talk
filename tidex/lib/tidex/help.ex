@@ -11,7 +11,7 @@ defmodule Tidex.Help do
       title: "Tests",
       paragraphs: [
         "Press t from the lobby to run the project's configured test command. Tidex stays on the lobby while output is collected in the background.",
-        "The Test status moves through idle, running, pass, and fail. While tests run, parsed ExUnit failure headers update the fail count.",
+        "The Test status moves through idle, running, pass, and fail. While tests run, recognized failure headers update the fail count.",
         "A successful run clears earlier failures. A nonzero exit with no recognizable failure block still reports fail."
       ]
     },
@@ -28,7 +28,7 @@ defmodule Tidex.Help do
       title: "Server",
       paragraphs: [
         "The Server group reports the project server managed by Tidex. Its command and browser URL come from tidex.conf.",
-        "If server is omitted, the unchanged Server box says [No server configured] and shows no controls. Tidex does not assume that Python or another language runtime is installed.",
+        "If server is omitted, the unchanged Server box says [No server configured] and shows no controls. Tidex does not infer a runtime or default server command.",
         "Press s on the lobby to start the server. Pressing s again stops the tracked job and starts a new one. Press x to stop, b to open the configured URL, and v to inspect server output.",
         "For a local browser URL, starting means the owned job is alive but the port is closed; up means it is listening. A pre-existing listener is reported as port busy and is never killed."
       ]
@@ -45,7 +45,7 @@ defmodule Tidex.Help do
       title: "Files & config",
       paragraphs: [
         "Press 0 to edit the project's tidex.conf. Tidex reloads it when the editor returns. Keys 1 through 4 open the corresponding file1 through file4 entries.",
-        "Project configuration supplies the label, test command, ExUnit or Minitest failure format, server command, browser URL, editor, and optional file shortcuts.",
+        "Project configuration supplies the label, test command, failure format (ExUnit, Minitest, or none), server command, browser URL, editor, and optional file shortcuts.",
         "The editor falls back through the user Tidex config, VISUAL, EDITOR, and finally vi."
       ]
     },
