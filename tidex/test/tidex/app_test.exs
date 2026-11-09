@@ -758,6 +758,32 @@ defmodule Tidex.AppTest do
     Process.exit(pid, :kill)
   end
 
+  test "v opens compiler diagnostics from a failed server start" do
+    root = tmp_dir()
+    on_exit(fn -> File.rm_rf!(root) end)
+    File.mkdir_p!(Path.join(root, "lib"))
+    File.write!(Path.join(root, "lib/server.ex"), "defmodule Server do\nend\n")
+    {app, out} = app(config_root: root, server_command: "server")
+
+    {:cont, app} = App.step(app, {:key, "s"})
+    assert_receive {:started, "server", _, ref, pid}
+
+    {:cont, app} =
+      App.step(
+        app,
+        {:command, ref, :line, "** (SyntaxError) lib/server.ex:8: syntax error before: end"}
+      )
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    {:cont, app} = App.step(app, {:key, "v"})
+
+    assert app.state.modal.kind == :diagnostic
+    assert app.state.modal.page == :server
+    assert FakeTerminal.visible(out) =~ "lib/server.ex:8"
+
+    Process.exit(pid, :kill)
+  end
+
   test "a stale server exit cannot mark a restarted server down" do
     parent = self()
     {app, _out} = app(runner: fake_runner(parent), server_command: "server")
@@ -1046,6 +1072,57 @@ defmodule Tidex.AppTest do
 
     {:cont, app} = App.step(app, {:key, :esc})
     assert app.state.modal == nil
+  end
+
+  test "f navigates compiler diagnostics and opens their source" do
+    root = tmp_dir()
+    on_exit(fn -> File.rm_rf!(root) end)
+    File.mkdir_p!(Path.join(root, "lib"))
+    File.write!(Path.join(root, "lib/demo.ex"), "defmodule Demo do\nend\n")
+    parent = self()
+    editor = fn command -> send(parent, {:edited, command}) end
+
+    {app, out} =
+      app(config_root: root, editor_command: "nvim", editor_runner: editor)
+
+    {:cont, app} = App.step(app, {:key, "t"})
+    assert_receive {:started, _, _, ref, pid}
+
+    {:cont, app} =
+      App.step(
+        app,
+        {:command, ref, :line, "** (CompileError) lib/demo.ex:2: undefined function one/0"}
+      )
+
+    {:cont, app} =
+      App.step(
+        app,
+        {:command, ref, :line, "** (CompileError) lib/demo.ex:5: undefined function two/0"}
+      )
+
+    {:cont, app} = App.step(app, {:command, ref, :exit, 1})
+    assert length(app.state.diagnostics.test) == 2
+
+    {:cont, app} = App.step(app, {:key, "f"})
+    assert app.state.modal.kind == :diagnostic
+    assert app.state.modal.title == "compile error 1/2"
+    assert FakeTerminal.visible(out) =~ "undefined function one/0"
+
+    {:cont, app} = App.step(app, {:key, :right})
+    assert app.state.modal.title == "compile error 2/2"
+
+    {:cont, app} = App.step(app, {:key, "e"})
+    path = Path.join(root, "lib/demo.ex")
+    assert_receive {:edited, "nvim +5 '" <> ^path <> "'"}
+
+    {:cont, app} = App.step(app, {:key, "o"})
+    assert app.state.modal.page == {:test, :diagnostic}
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal.kind == :diagnostic
+    {:cont, app} = App.step(app, {:key, :esc})
+    assert app.state.modal == nil
+
+    Process.exit(pid, :kill)
   end
 
   test "f opens the failure box and is swallowed there" do

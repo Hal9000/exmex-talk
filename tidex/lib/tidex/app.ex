@@ -12,6 +12,7 @@ defmodule Tidex.App do
   alias Tidex.{
     Command,
     Config,
+    Diagnostics,
     Failures,
     Git,
     GitInfo,
@@ -259,6 +260,14 @@ defmodule Tidex.App do
   def handle_event(app, {:key, key}) when key in ["q", "Q"], do: {:quit, app}
 
   def handle_event(
+        %{state: %{modal: %{kind: :output, page: {source, :diagnostic}}}} = app,
+        {:key, :esc}
+      )
+      when source in [:test, :server] do
+    {:cont, put_state(app, %{modal: Diagnostics.modal(app.state, source)})}
+  end
+
+  def handle_event(
         %{state: %{modal: %{kind: :output, page: {:test, :failure}}}} = app,
         {:key, :esc}
       ) do
@@ -278,6 +287,32 @@ defmodule Tidex.App do
   end
 
   def handle_event(%{state: %{modal: %{kind: :output}}} = app, {:key, _key}) do
+    {:cont, app}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, :esc}) do
+    {:cont, put_state(app, %{modal: nil})}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, key})
+      when key in ["e", "E"] do
+    {:cont, launch_diagnostic_editor(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, key})
+      when key in ["o", "O"] do
+    {:cont, open_diagnostic_output(app)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, :left}) do
+    {:cont, cycle_diagnostic_modal(app, -1)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, :right}) do
+    {:cont, cycle_diagnostic_modal(app, 1)}
+  end
+
+  def handle_event(%{state: %{modal: %{kind: :diagnostic}}} = app, {:key, _key}) do
     {:cont, app}
   end
 
@@ -563,6 +598,8 @@ defmodule Tidex.App do
       test_log: [],
       failures: [],
       failure_index: 0,
+      diagnostics: Map.put(app.state.diagnostics, :test, []),
+      diagnostic_indices: Map.put(app.state.diagnostic_indices, :test, 0),
       modal: nil
     })
   end
@@ -620,6 +657,8 @@ defmodule Tidex.App do
           server_ref: ref,
           server_pid: pid,
           server_log: [],
+          diagnostics: Map.put(app.state.diagnostics, :server, []),
+          diagnostic_indices: Map.put(app.state.diagnostic_indices, :server, 0),
           output_lines: [],
           output_source: nil
         })
@@ -630,7 +669,9 @@ defmodule Tidex.App do
           server_state: :start_failed,
           server_ref: nil,
           server_pid: nil,
-          server_log: ["Unable to start server: #{inspect(reason)}"]
+          server_log: ["Unable to start server: #{inspect(reason)}"],
+          diagnostics: Map.put(app.state.diagnostics, :server, []),
+          diagnostic_indices: Map.put(app.state.diagnostic_indices, :server, 0)
         })
     end
   end
@@ -697,6 +738,17 @@ defmodule Tidex.App do
     end
   end
 
+  defp launch_diagnostic_editor(%{state: %{modal: %{page: source}}} = app)
+       when source in [:test, :server] do
+    case Diagnostics.current(app.state, source) do
+      %{file: file, line: line} ->
+        launch_editor(app, file: project_path(app.state, file), line: line)
+
+      _ ->
+        app
+    end
+  end
+
   defp edit_config(app) do
     app
     |> launch_editor(file: config_file(app.state))
@@ -705,8 +757,14 @@ defmodule Tidex.App do
 
   defp open_fail_modal(app) do
     case Failures.modal(app.state) do
-      nil -> open_raw_test_output(app)
-      modal -> put_state(app, %{overlay: nil, modal: modal})
+      nil ->
+        case Diagnostics.modal(app.state, :test) do
+          nil -> open_raw_test_output(app)
+          modal -> put_state(app, %{overlay: nil, modal: modal})
+        end
+
+      modal ->
+        put_state(app, %{overlay: nil, modal: modal})
     end
   end
 
@@ -724,12 +782,19 @@ defmodule Tidex.App do
     put_state(app, %{modal: modal})
   end
 
+  defp open_diagnostic_output(%{state: %{modal: %{page: source}}} = app)
+       when source in [:test, :server] do
+    lines = if(source == :test, do: app.state.test_log, else: app.state.server_log)
+    modal = %{OutputModal.modal(source, lines) | page: {source, :diagnostic}}
+    put_state(app, %{modal: modal})
+  end
+
   defp open_server_output(%{state: %{server_command: command}} = app)
        when is_binary(command) and command != "" do
-    put_state(app, %{
-      overlay: nil,
-      modal: OutputModal.modal(:server, app.state.server_log)
-    })
+    modal =
+      Diagnostics.modal(app.state, :server) || OutputModal.modal(:server, app.state.server_log)
+
+    put_state(app, %{overlay: nil, modal: modal})
   end
 
   defp open_server_output(app), do: app
@@ -739,6 +804,16 @@ defmodule Tidex.App do
   defp cycle_fail_modal(app, delta) do
     state = Failures.cycle(app.state, delta)
     put_state(app, %{failure_index: state.failure_index, modal: Failures.modal(state)})
+  end
+
+  defp cycle_diagnostic_modal(%{state: %{modal: %{page: source}}} = app, delta)
+       when source in [:test, :server] do
+    state = Diagnostics.cycle(app.state, source, delta)
+
+    put_state(app, %{
+      diagnostic_indices: state.diagnostic_indices,
+      modal: Diagnostics.modal(state, source)
+    })
   end
 
   defp sync_fail_modal(%{state: %{modal: %{kind: :fail}}} = app) do
@@ -886,17 +961,35 @@ defmodule Tidex.App do
                 app.state.config_root
               )
 
+        diagnostics =
+          if status != 0 and failures == [],
+            do: Diagnostics.parse(log_lines(app.state, :test), app.state.config_root),
+            else: []
+
         put_state(app, %{
           test_state: test_state,
           test_ref: nil,
           test_pid: nil,
           failures: failures,
-          failure_index: 0
+          failure_index: 0,
+          diagnostics: Map.put(app.state.diagnostics, :test, diagnostics),
+          diagnostic_indices: Map.put(app.state.diagnostic_indices, :test, 0)
         })
         |> sync_fail_modal()
 
       app.state.server_ref == ref ->
-        app = put_state(app, %{server_ref: nil, server_pid: nil})
+        diagnostics =
+          if status == 0,
+            do: [],
+            else: Diagnostics.parse(log_lines(app.state, :server), app.state.config_root)
+
+        app =
+          put_state(app, %{
+            server_ref: nil,
+            server_pid: nil,
+            diagnostics: Map.put(app.state.diagnostics, :server, diagnostics),
+            diagnostic_indices: Map.put(app.state.diagnostic_indices, :server, 0)
+          })
 
         case app.server_waiter.(app.state.browser_url) do
           :listening -> put_state(app, %{server_state: :stop_failed})
