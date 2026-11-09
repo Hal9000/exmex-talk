@@ -139,10 +139,10 @@ converted.
   that is the last screen row. Exceptions: splash with keys in the body;
   lobby, which is the menu; and Git, whose command menu is fixed above
   the scrolling status/output.
-- **Borders:** we already draw unicode boxes with a title in the top
-  edge (`─ status ────`). Keep a border on anything that sits on the
-  lobby so it is not the status groups. Setup’s choices use the same
-  footer inside its border.
+- **Borders:** lobby groups use light single-line frames. Modals use a
+  double-line outer frame with thin internal dividers, so containment does
+  not depend on terminal dimming or color. Setup’s choices use the same
+  modal treatment.
 
 **Window on large text**
 

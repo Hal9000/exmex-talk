@@ -19,8 +19,9 @@ server directly from the lobby. `g` opens a scrollable Git box over the
 lobby; its command menu stays fixed above the scrolling status and output,
 with contextual controls in the footer. Initial setup uses the same modal
 treatment. Other modal key hints occupy a one-line footer separated from
-the body by a horizontal rule; they use the same bright-cyan accent as the
-modal frame.
+the body by a horizontal rule. Modals use a bright-cyan double-line outer
+frame and thin internal dividers so they remain distinct from the single-line
+lobby even when terminal dimming is subtle.
 Label and commands come from `tidex.conf` in the project (or a parent
 directory): `project`, `test`, `test_format`, optional `server` /
 `browser`, `editor`, `git`, and optional `file1`–`file4`. `git` defaults

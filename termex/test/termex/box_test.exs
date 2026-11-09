@@ -26,9 +26,21 @@ defmodule Termex.BoxTest do
     assert Box.corner(:bottom_right) == "┘"
   end
 
+  test "double style supplies a complete modal frame set" do
+    assert Box.horizontal(:double) == "═"
+    assert Box.vertical(:double) == "║"
+    assert Box.horizontal(4, :double) == "════"
+    assert Box.corner(:top_left, :double) == "╔"
+    assert Box.corner(:top_right, :double) == "╗"
+    assert Box.corner(:bottom_left, :double) == "╚"
+    assert Box.corner(:bottom_right, :double) == "╝"
+  end
+
   test "junctions connect an interior horizontal divider" do
     assert Box.junction(:left) == "├"
     assert Box.junction(:right) == "┤"
+    assert Box.junction(:left, :double, :light) == "╟"
+    assert Box.junction(:right, :double, :light) == "╢"
   end
 
   test "titled_edge clips the title to the inner width" do
@@ -95,6 +107,19 @@ defmodule Termex.BoxTest do
     assert Termex.ANSI.strip(text) =~ "status"
   end
 
+  test "box draws a double frame when requested" do
+    {device, out} = Capture.open()
+    assert :ok = Termex.box(device, 1, 1, 12, 4, title: "help", frame_style: :double)
+    text = Capture.text(out)
+
+    assert text =~ "╔"
+    assert text =~ "╗"
+    assert text =~ "╚"
+    assert text =~ "╝"
+    assert text =~ "║"
+    assert text =~ "═ help "
+  end
+
   test "NO_COLOR suppresses box frame color" do
     System.put_env("NO_COLOR", "1")
     {device, out} = Capture.open()
@@ -108,5 +133,17 @@ defmodule Termex.BoxTest do
     assert :ok = Termex.box_divider(device, 3, 2, 8, frame_color: :bright_cyan)
 
     assert Capture.text(out) == "\e[3;2H\e[96m├──────┤\e[0m"
+  end
+
+  test "box divider mixes a thin rule into a double frame" do
+    {device, out} = Capture.open()
+
+    assert :ok =
+             Termex.box_divider(device, 3, 2, 8,
+               frame_style: :double,
+               divider_style: :light
+             )
+
+    assert Capture.text(out) == "\e[3;2H╟──────╢"
   end
 end

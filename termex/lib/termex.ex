@@ -142,30 +142,59 @@ defmodule Termex do
 
   @doc """
   Draw a rectangle. `opts` may include `:title`, which is clipped to the
-  top edge, and `:frame_color`. Frame color honors `NO_COLOR`.
+  top edge, `:frame_color`, and `:frame_style` (`:light` or `:double`).
+  Frame color honors `NO_COLOR`.
   """
   @spec box(Device.t(), pos_integer(), pos_integer(), pos_integer(), pos_integer(), keyword()) ::
           :ok
   def box(device, row, col, width, height, opts \\ []) when width >= 2 and height >= 2 do
     title = Keyword.get(opts, :title)
     frame_color = Keyword.get(opts, :frame_color)
+    frame_style = Keyword.get(opts, :frame_style, :light)
     inner_width = width - 2
     inner_height = height - 2
     right_col = col + width - 1
     bottom_row = row + height - 1
 
-    write_frame_at(device, row, col, Box.corner(:top_left), frame_color)
-    write_frame_at(device, row, right_col, Box.corner(:top_right), frame_color)
-    write_frame_at(device, bottom_row, col, Box.corner(:bottom_left), frame_color)
-    write_frame_at(device, bottom_row, right_col, Box.corner(:bottom_right), frame_color)
+    write_frame_at(device, row, col, Box.corner(:top_left, frame_style), frame_color)
+    write_frame_at(device, row, right_col, Box.corner(:top_right, frame_style), frame_color)
+    write_frame_at(device, bottom_row, col, Box.corner(:bottom_left, frame_style), frame_color)
 
-    write_frame_at(device, row, col + 1, Box.titled_edge(inner_width, title), frame_color)
-    write_frame_at(device, bottom_row, col + 1, Box.horizontal(inner_width), frame_color)
+    write_frame_at(
+      device,
+      bottom_row,
+      right_col,
+      Box.corner(:bottom_right, frame_style),
+      frame_color
+    )
+
+    write_frame_at(
+      device,
+      row,
+      col + 1,
+      Box.titled_edge(inner_width, title, frame_style),
+      frame_color
+    )
+
+    write_frame_at(
+      device,
+      bottom_row,
+      col + 1,
+      Box.horizontal(inner_width, frame_style),
+      frame_color
+    )
 
     if inner_height > 0 do
       Enum.each(0..(inner_height - 1), fn offset ->
-        write_frame_at(device, row + 1 + offset, col, Box.vertical(), frame_color)
-        write_frame_at(device, row + 1 + offset, right_col, Box.vertical(), frame_color)
+        write_frame_at(device, row + 1 + offset, col, Box.vertical(frame_style), frame_color)
+
+        write_frame_at(
+          device,
+          row + 1 + offset,
+          right_col,
+          Box.vertical(frame_style),
+          frame_color
+        )
       end)
     end
 
@@ -176,11 +205,17 @@ defmodule Termex do
   Draw a horizontal divider across a box.
 
   The divider includes left/right junctions and may use `:frame_color`,
-  matching `box/6`.
+  `:frame_style`, and `:divider_style`, matching `box/6`.
   """
   @spec box_divider(Device.t(), pos_integer(), pos_integer(), pos_integer(), keyword()) :: :ok
   def box_divider(device, row, col, width, opts \\ []) when width >= 2 do
-    text = Box.junction(:left) <> Box.horizontal(width - 2) <> Box.junction(:right)
+    frame_style = Keyword.get(opts, :frame_style, :light)
+    divider_style = Keyword.get(opts, :divider_style, frame_style)
+
+    text =
+      Box.junction(:left, frame_style, divider_style) <>
+        Box.horizontal(width - 2, divider_style) <>
+        Box.junction(:right, frame_style, divider_style)
 
     text =
       case Keyword.get(opts, :frame_color) do

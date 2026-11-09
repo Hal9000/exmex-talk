@@ -53,7 +53,8 @@ defmodule Tidex.Modal do
 
     Termex.box(device, pane.row, pane.col, pane.width, pane.height,
       title: modal.title,
-      frame_color: :bright_cyan
+      frame_color: :bright_cyan,
+      frame_style: :double
     )
 
     fill(device, inner)
@@ -73,7 +74,9 @@ defmodule Tidex.Modal do
 
     if regions.top_divider == 1 do
       Termex.box_divider(device, regions.body_row - 1, pane.col, pane.width,
-        frame_color: :bright_cyan
+        frame_color: :bright_cyan,
+        frame_style: :double,
+        divider_style: :light
       )
     end
 
@@ -90,7 +93,9 @@ defmodule Tidex.Modal do
 
     if regions.footer_height == 2 do
       Termex.box_divider(device, inner.row + inner.height - 2, pane.col, pane.width,
-        frame_color: :bright_cyan
+        frame_color: :bright_cyan,
+        frame_style: :double,
+        divider_style: :light
       )
     end
 
