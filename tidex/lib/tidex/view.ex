@@ -82,11 +82,9 @@ defmodule Tidex.View do
 
     lines =
       if configured? do
-        [
-          key("s", "Start/restart"),
-          key("x", "Stop"),
-          server_output_controls(state)
-        ]
+        [key("s", "Start/restart"), key("x", "Stop")] ++
+          server_browser_control(state) ++
+          [key("v", "Output")]
       else
         ["[No server configured]"]
       end
@@ -199,13 +197,7 @@ defmodule Tidex.View do
 
   defp browser?(state), do: is_binary(state.browser_url) and state.browser_url != ""
 
-  defp server_output_controls(state) do
-    if browser?(state) do
-      key("b", "Browse") <> "   " <> key("v", "Output")
-    else
-      key("v", "View output")
-    end
-  end
+  defp server_browser_control(state), do: if(browser?(state), do: [key("b", "Browse")], else: [])
 
   defp key(letter, rest), do: Termex.bold(letter) <> "  " <> rest
 end

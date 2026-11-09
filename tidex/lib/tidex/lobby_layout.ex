@@ -8,8 +8,8 @@ defmodule Tidex.LobbyLayout do
   @gap 1
   @pad 1
   @test_height 6
-  @server_height 6
-  @git_height 5
+  @git_height 6
+  @server_height 7
   @help_lines 2
 
   @spec lobby(pos_integer(), pos_integer(), pos_integer()) :: Pane.t()
@@ -40,20 +40,20 @@ defmodule Tidex.LobbyLayout do
     origin_col = pane.col + 1 + @inset
     bottom_row = origin_row + @test_height + @gap
 
-    git = %Pane{
-      row: origin_row + @server_height + @gap,
+    server = %Pane{
+      row: origin_row + @git_height + @gap,
       col: origin_col + left_w + @gap,
       width: right_w,
-      height: @git_height
+      height: @server_height
     }
 
     %{
       test: %Pane{row: origin_row, col: origin_col, width: left_w, height: @test_height},
-      server: %Pane{
+      git: %Pane{
         row: origin_row,
         col: origin_col + left_w + @gap,
         width: right_w,
-        height: @server_height
+        height: @git_height
       },
       files: %Pane{
         row: bottom_row,
@@ -61,9 +61,9 @@ defmodule Tidex.LobbyLayout do
         width: left_w,
         height: files_height(state)
       },
-      git: git,
-      help_row: git.row + git.height + @gap,
-      help_col: git.col + 1 + @pad
+      server: server,
+      help_row: server.row + server.height + @gap,
+      help_col: server.col + 1 + @pad
     }
   end
 
@@ -85,7 +85,7 @@ defmodule Tidex.LobbyLayout do
 
   defp left_span(state), do: @test_height + @gap + files_height(state)
 
-  defp right_span, do: @server_height + @gap + @git_height + @gap + @help_lines
+  defp right_span, do: @git_height + @gap + @server_height + @gap + @help_lines
 
   defp files_height(state) do
     2 + @pad + file_count(state)
