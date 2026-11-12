@@ -158,4 +158,53 @@ defmodule Tidex.ApplicationTest do
     FakeTerminal.wait_until(fn -> FakeTerminal.last_frame(out) =~ marker end)
     FakeTerminal.stop_ui(ui)
   end
+
+  test "the lobby follows git status of a project outside the process cwd" do
+    parent = Path.join(System.tmp_dir!(), "tidex-elsewhere-#{System.unique_integer([:positive])}")
+    dir = Path.join(parent, "SeedyDotDot")
+    File.mkdir_p!(dir)
+
+    on_exit(fn ->
+      File.rm_rf!(parent)
+      if pid = Process.whereis(Tidex.Git), do: Git.watch(File.cwd!(), pid)
+    end)
+
+    git!(dir, ["init", "-b", "seedy"])
+    git!(dir, ["config", "user.email", "tidex@example.test"])
+    git!(dir, ["config", "user.name", "Tidex"])
+    File.write!(Path.join(dir, "file.txt"), "one\n")
+    File.write!(Path.join(dir, "tidex.conf"), "project: SeedyDotDot\ntest: true\n")
+    git!(dir, ["add", "file.txt", "tidex.conf"])
+    git!(dir, ["commit", "-m", "init"])
+    root = toplevel(dir)
+
+    {ui, _device, out} = FakeTerminal.start_ui(poll_git: true, cwd: dir)
+    on_exit(fn -> FakeTerminal.stop_ui(ui) end)
+
+    FakeTerminal.wait_until(fn ->
+      git = :sys.get_state(ui).state.git
+      git.root == root and git.branch == "seedy" and git.dirty == 0
+    end)
+
+    refute FakeTerminal.last_frame(out) =~ "dirty"
+
+    File.write!(Path.join(dir, "extra.txt"), "fresh\n")
+    send(Process.whereis(Tidex.Git), :poll)
+
+    FakeTerminal.wait_until(fn ->
+      git = :sys.get_state(ui).state.git
+
+      git.root == root and git.branch == "seedy" and git.untracked == 1 and
+        FakeTerminal.last_frame(out) =~ "dirty"
+    end)
+  end
+
+  defp git!(dir, args) do
+    {out, 0} = System.cmd("git", args, cd: dir, stderr_to_stdout: true)
+    out
+  end
+
+  defp toplevel(dir) do
+    dir |> git!(["rev-parse", "--show-toplevel"]) |> String.trim() |> Path.expand()
+  end
 end

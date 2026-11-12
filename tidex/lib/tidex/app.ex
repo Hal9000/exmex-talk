@@ -555,7 +555,8 @@ defmodule Tidex.App do
     git = Process.whereis(Tidex.Git)
 
     if git do
-      Git.subscribe(self())
+      Git.watch(app.state.config_root, git)
+      Git.subscribe(self(), git)
     end
 
     snapshot = normalize_git(app.git_reader.())

@@ -16,6 +16,29 @@ defmodule Tidex.GitTest do
     assert snapshot.status =~ "On branch"
   end
 
+  test "an unwatched poller does not report the process working directory" do
+    assert {:ok, pid} = Git.start_link(name: nil, interval: 60_000)
+    Git.subscribe(self(), pid)
+    send(pid, :poll)
+    refute_receive {:git, _}, 50
+    Git.stop(pid)
+  end
+
+  test "watch polls that directory rather than the process working directory" do
+    in_repo(fn dir ->
+      git!(dir, ["checkout", "-b", "seedy"])
+      assert {:ok, pid} = Git.start_link(name: nil, interval: 60_000)
+      Git.watch(dir, pid)
+      Git.subscribe(self(), pid)
+      send(pid, :poll)
+
+      assert_receive {:git, snapshot}, 1000
+      assert snapshot.root == toplevel(dir)
+      assert snapshot.branch == "seedy"
+      Git.stop(pid)
+    end)
+  end
+
   test "poller sends snapshots to the notify process" do
     reader = fn -> %{branch: "topic", dirty: 2} end
     assert {:ok, pid} = Git.start_link(self(), reader: reader, interval: 50)
@@ -121,5 +144,9 @@ defmodule Tidex.GitTest do
   defp git!(dir, args) do
     {out, 0} = System.cmd("git", args, cd: dir, stderr_to_stdout: true)
     out
+  end
+
+  defp toplevel(dir) do
+    dir |> git!(["rev-parse", "--show-toplevel"]) |> String.trim() |> Path.expand()
   end
 end
