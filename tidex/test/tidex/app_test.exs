@@ -640,6 +640,30 @@ defmodule Tidex.AppTest do
     Process.exit(pid, :kill)
   end
 
+  test "hidden background updates do not redraw the lobby" do
+    ref = make_ref()
+
+    {app, out} =
+      app(
+        server_command: "server",
+        server_probe: fn _url -> :listening end
+      )
+
+    app = %{app | state: %{app.state | server_ref: ref, server_state: :up}}
+    Tidex.View.render(app.device, app.state)
+    rendered = FakeTerminal.text(out)
+
+    {:cont, app} = App.step(app, {:server_probe, ref})
+    assert FakeTerminal.text(out) == rendered
+
+    {:cont, app} = App.step(app, {:command, ref, :line, "heartbeat"})
+    assert app.state.server_log == ["heartbeat"]
+    assert FakeTerminal.text(out) == rendered
+
+    {:cont, _app} = App.step(app, {:git, app.state.git})
+    assert FakeTerminal.text(out) == rendered
+  end
+
   test "v opens live server output and is swallowed there" do
     {app, out} = app(server_command: "server")
     {:cont, app} = App.step(app, {:key, "s"})
