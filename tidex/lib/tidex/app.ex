@@ -183,12 +183,17 @@ defmodule Tidex.App do
 
   @spec step(t(), term()) :: {:cont, t()} | {:quit, t()}
   def step(app, event) do
+    previous_render_state = render_state(app.state)
     app = refresh_dimensions(app)
 
     case handle_event(app, event) do
       {:cont, app} ->
         app = refresh_dimensions(app)
-        View.render(app.device, app.state)
+
+        if key_event?(event) or render_state(app.state) != previous_render_state do
+          View.render(app.device, app.state)
+        end
+
         {:cont, app}
 
       {:quit, app} ->
@@ -1199,6 +1204,30 @@ defmodule Tidex.App do
   end
 
   defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
+
+  # Background jobs retain complete logs and process bookkeeping in State, but
+  # those fields do not affect the lobby. Avoid clearing and repainting the TTY
+  # when only hidden data changed. Active modals are retained in :modal and
+  # therefore still redraw as their visible contents change.
+  defp render_state(state) do
+    Map.drop(state, [
+      :output_lines,
+      :test_log,
+      :server_log,
+      :git_log,
+      :test_ref,
+      :test_pid,
+      :server_ref,
+      :server_pid,
+      :git_cmd_ref,
+      :git_cmd_pid
+    ])
+  end
+
+  # A key may yield the terminal to an editor, which changes terminal contents
+  # without changing Tidex.State. Always restore the Tidex frame afterward.
+  defp key_event?({:key, _key}), do: true
+  defp key_event?(_event), do: false
 
   defp detach_keyboard(app) do
     Keyboard.stop(app.keyboard)
